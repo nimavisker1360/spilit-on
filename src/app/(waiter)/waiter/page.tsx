@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
+import { formatTryCurrency } from "@/lib/currency";
 
 type TableRef = {
   id: string;
@@ -81,10 +82,6 @@ function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenSta
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString();
-}
-
-function formatCurrency(value: string): string {
-  return `$${Number(value).toFixed(2)}`;
 }
 
 function formatShortTime(value: string): string {
@@ -509,7 +506,7 @@ export default function WaiterDashboardPage() {
               <option value="">Select item</option>
               {menuItemsForSelectedSession.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} - {formatCurrency(item.price)}
+                  {item.name} - {formatTryCurrency(item.price)}
                 </option>
               ))}
             </select>

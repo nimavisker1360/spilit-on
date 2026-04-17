@@ -22,7 +22,8 @@ export const updateBranchSchema = z.object({
 });
 
 export const deleteBranchSchema = z.object({
-  id: z.string().min(1)
+  id: z.string().min(1),
+  force: z.coerce.boolean().optional().default(false)
 });
 
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;

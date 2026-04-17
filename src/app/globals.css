@@ -828,6 +828,47 @@ button:disabled {
   background: #f2fbfa;
 }
 
+.menu-import-preview {
+  padding: 0.8rem 0.85rem;
+  border-radius: 12px;
+  border: 1px dashed rgba(135, 200, 191, 0.9);
+  background: #f5fbfa;
+}
+
+.menu-import-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(214, 221, 212, 0.9);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.menu-import-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+
+.menu-import-table th,
+.menu-import-table td {
+  padding: 0.56rem 0.62rem;
+  border-bottom: 1px solid rgba(214, 221, 212, 0.75);
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.82rem;
+}
+
+.menu-import-table th {
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f8fbfa;
+}
+
+.menu-import-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .empty.empty-state {
   padding: 0.95rem;
   border: 1px dashed #cbd5e1;
@@ -1087,6 +1128,78 @@ button:disabled {
 
 .selection-summary p {
   margin: 0;
+}
+
+.currency-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0 0.85rem;
+}
+
+.currency-input input {
+  border: 0;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.currency-input input:focus {
+  outline: none;
+}
+
+.currency-input:focus-within {
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--line));
+  box-shadow: 0 0 0 4px rgba(135, 200, 191, 0.12);
+}
+
+.currency-input-symbol {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.guest-selector-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.guest-selector-btn {
+  display: grid;
+  gap: 0.18rem;
+  justify-items: start;
+  text-align: left;
+  border-radius: 12px;
+  border: 1px solid rgba(135, 200, 191, 0.7);
+  background: linear-gradient(180deg, #ffffff, #f3fbfa);
+  color: var(--text);
+  padding: 0.8rem 0.85rem;
+}
+
+.guest-selector-name {
+  font-weight: 700;
+}
+
+.guest-selector-meta {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.debug-trail {
+  margin: 0;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 221, 212, 0.95);
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .prepare-payment-panel {

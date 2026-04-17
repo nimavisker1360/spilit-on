@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
+import { formatTryCurrency } from "@/lib/currency";
 
 type Guest = {
   id: string;
@@ -105,16 +106,10 @@ type PaymentShareActionResponse = {
   error?: string;
 };
 
-const currencyFormatter = new Intl.NumberFormat("tr-TR", {
-  style: "currency",
-  currency: "TRY",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2
+const percentageFormatter = new Intl.NumberFormat("tr-TR", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1
 });
-
-function formatCurrency(value: string | number): string {
-  return currencyFormatter.format(Number(value));
-}
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("tr-TR");
@@ -144,11 +139,11 @@ function formatInvoiceNumber(invoiceId: string, createdAt?: string): string {
 
 function splitModeLabel(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Tek kisi odeme";
+    return "Tum hesap";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "Kisiye gore urun";
+    return "Kisi bazli siparis";
   }
 
   return "Esit bolusum";
@@ -156,34 +151,62 @@ function splitModeLabel(mode: InvoiceSplitMode): string {
 
 function splitModeDescription(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Tum adisyon tek bir kisiye yazilir.";
+    return "Toplam adisyon tek bir kisiye yazilir.";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "Her kisi sadece kendi urunlerini oder.";
+    return "Her misafir sadece kendi siparis kalemlerini oder.";
   }
 
-  return "Toplam tutar masadaki kisilere esit bolunur.";
+  return "Toplam adisyon masadaki kisiler arasinda esit bolunur.";
 }
 
 function splitModeHelper(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Kurumsal masa veya tek kart odemesi icin uygundur.";
+    return "Tum hesap tek kart veya tek nakit odemesi icin uygundur.";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "Turk restoranlarinda kisilerin kendi siparisini odedigi senaryo icin uygundur.";
+    return "Kisilerin kendi siparisini odedigi restoran akisi icin uygundur.";
   }
 
-  return "Arkadas gruplarinda hizli cikis icin en pratik secenektir.";
+  return "Arkadas gruplarinda esit bolusumla hizli cikis icin en pratik secenektir.";
 }
 
 function formatStatusLabel(value: string): string {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  if (value === "OPEN") {
+    return "Acik";
+  }
+
+  if (value === "PARTIALLY_PAID") {
+    return "Kismi odendi";
+  }
+
+  if (value === "PAID") {
+    return "Odendi";
+  }
+
+  if (value === "FAILED") {
+    return "Basarisiz";
+  }
+
+  if (value === "EXPIRED") {
+    return "Suresi doldu";
+  }
+
+  if (value === "UNPAID") {
+    return "Odenmedi";
+  }
+
+  if (value === "PENDING") {
+    return "Beklemede";
+  }
+
+  if (value === "CANCELLED") {
+    return "Iptal edildi";
+  }
+
+  return value;
 }
 
 function paymentShareStatusBadgeClass(status: PaymentShareStatus): string {
@@ -216,18 +239,22 @@ function paymentSessionStatusBadgeClass(status: PaymentSessionStatus): string {
 
 function paymentProviderLabel(provider: string): string {
   if (provider === "CASH_DESK") {
-    return "Cash desk";
+    return "Kasada nakit";
   }
 
   if (provider === "CARD_POS") {
-    return "Card POS";
+    return "Kart POS";
   }
 
   if (provider === "MOCK_ONLINE_LINK") {
-    return "Online link (mock)";
+    return "Online odeme linki";
   }
 
   return formatStatusLabel(provider);
+}
+
+function formatPercentage(value: number): string {
+  return `${percentageFormatter.format(value)}%`;
 }
 
 async function fetchSessions(): Promise<OpenSession[]> {
@@ -359,17 +386,17 @@ export default function CashierDashboardPage() {
       const json = (await response.json()) as PaymentSessionResponse;
 
       if (!response.ok) {
-        throw new Error(json.error || "Payment preparation failed");
+        throw new Error(json.error || "Odeme hazirlama basarisiz.");
       }
 
       setPaymentSession(json.data.paymentSession);
       setPaymentSessionNotice(
         json.data.created
-          ? "Payment shares are ready. Start each mock payment from the cashier desk and complete pending ones as they settle."
-          : "Existing payment session loaded for this invoice."
+          ? "Odeme paylari hazir. Her pay icin tahsilat baslatabilir ve bekleyen odemeleri tamamlayabilirsiniz."
+          : "Bu adisyon icin mevcut odeme oturumu yuklendi."
       );
     } catch (prepareError) {
-      setPaymentSessionError(prepareError instanceof Error ? prepareError.message : "Payment preparation failed");
+      setPaymentSessionError(prepareError instanceof Error ? prepareError.message : "Odeme hazirlama basarisiz.");
     } finally {
       setIsPreparingPayment(false);
     }
@@ -392,14 +419,14 @@ export default function CashierDashboardPage() {
       const json = (await response.json()) as PaymentShareActionResponse;
 
       if (!response.ok) {
-        throw new Error(json.error || "Payment share update failed");
+        throw new Error(json.error || "Odeme payi guncellenemedi.");
       }
 
       setPaymentSession(json.data.paymentSession);
       setPaymentSessionNotice(json.data.message);
       void loadData({ silent: true });
     } catch (actionError) {
-      setPaymentSessionError(actionError instanceof Error ? actionError.message : "Payment share update failed");
+      setPaymentSessionError(actionError instanceof Error ? actionError.message : "Odeme payi guncellenemedi.");
     } finally {
       setRunningShareAction(null);
     }
@@ -468,32 +495,32 @@ export default function CashierDashboardPage() {
             </p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Split mode</p>
+            <p className="dashboard-stat-label">Bolusum tipi</p>
             <p className="dashboard-stat-value">{splitModeLabel(form.splitMode)}</p>
             <p className="dashboard-stat-note">{splitModeDescription(form.splitMode)}</p>
           </article>
         </div>
 
         <div className="status-stack">
-          {loading ? <p className="status-banner is-neutral">Loading open sessions for billing.</p> : null}
+          {loading ? <p className="status-banner is-neutral">Acik hesaplar yukleniyor.</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
         </div>
       </section>
 
       <form className="form-card stack-md" onSubmit={handleCalculate}>
         <div className="section-copy">
-          <h3>Calculate split bill</h3>
-          <p className="helper-text">Generate the invoice summary before preparing settlement actions.</p>
+          <h3>Adisyonu hesapla</h3>
+          <p className="helper-text">Odeme paylarini olusturmadan once adisyon ozetini hazirlayin.</p>
         </div>
 
         <label>
-          Open session
+          Acik oturum
           <select
             value={form.sessionId}
             onChange={(event) => setForm((prev) => ({ ...prev, sessionId: event.target.value }))}
             required
           >
-            <option value="">Select session</option>
+            <option value="">Oturum secin</option>
             {sessions.map((session) => (
               <option key={session.id} value={session.id}>
                 {formatSessionLabel(session)}
@@ -509,18 +536,18 @@ export default function CashierDashboardPage() {
               <span className="badge badge-neutral">Masa {selectedSession.table.name}</span>
               <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
               {selectedSession.readyToCloseAt ? (
-                <span className="badge badge-status-paid-payment">Ready to close</span>
+                <span className="badge badge-status-paid-payment">Kapatmaya hazir</span>
               ) : null}
             </div>
             <p className="helper-text">
               {formatSessionSummary(selectedSession)}
-              {selectedSession.readyToCloseAt ? ` | Ready since ${formatDateTime(selectedSession.readyToCloseAt)}` : ""}
+              {selectedSession.readyToCloseAt ? ` | Hazirlanma: ${formatDateTime(selectedSession.readyToCloseAt)}` : ""}
             </p>
           </div>
         ) : null}
 
         <label>
-          Split mode
+          Bolusum tipi
           <select
             value={form.splitMode}
             onChange={(event) =>
@@ -531,9 +558,9 @@ export default function CashierDashboardPage() {
               }))
             }
           >
-            <option value="FULL_BY_ONE">Full bill to one guest</option>
-            <option value="EQUAL">Equal split</option>
-            <option value="BY_GUEST_ITEMS">By guest items</option>
+            <option value="FULL_BY_ONE">Tum hesap tek kisi</option>
+            <option value="EQUAL">Esit bolusum</option>
+            <option value="BY_GUEST_ITEMS">Kisi bazli siparis</option>
           </select>
         </label>
 
@@ -544,13 +571,13 @@ export default function CashierDashboardPage() {
 
         {form.splitMode === "FULL_BY_ONE" ? (
           <label>
-            Paying guest
+            Odeyen kisi
             <select
               value={form.payerGuestId}
               onChange={(event) => setForm((prev) => ({ ...prev, payerGuestId: event.target.value }))}
               required
             >
-              <option value="">Select payer</option>
+              <option value="">Kisi secin</option>
               {selectedSession?.guests.map((guest) => (
                 <option key={guest.id} value={guest.id}>
                   {guest.displayName}
@@ -561,61 +588,61 @@ export default function CashierDashboardPage() {
         ) : null}
 
         <button type="submit" disabled={isCalculating || !form.sessionId}>
-          {isCalculating ? "Calculating..." : "Calculate invoice"}
+          {isCalculating ? "Hesaplaniyor..." : "Adisyonu hesapla"}
         </button>
         {invoiceError ? <p className="status-banner is-error">{invoiceError}</p> : null}
       </form>
 
       {invoice ? (
         <section className="panel stack-md invoice-result-panel">
-          {isCalculating ? <p className="status-banner is-neutral">Refreshing invoice summary with latest session data.</p> : null}
+          {isCalculating ? <p className="status-banner is-neutral">Adisyon ozeti guncelleniyor.</p> : null}
 
           <div className="section-head">
             <div className="section-copy">
-              <p className="section-kicker">Invoice</p>
+              <p className="section-kicker">Adisyon</p>
               <h3>{formatInvoiceNumber(invoice.id, invoice.createdAt)}</h3>
-              <p className="panel-subtitle">Invoice summary remains visible while you prepare and settle payments.</p>
+              <p className="panel-subtitle">Odeme hazirligi sirasinda adisyon ozeti ekranda kalir.</p>
             </div>
             <span className="badge badge-outline">{splitModeLabel(invoice.splitMode)}</span>
           </div>
 
           <div className="invoice-total-card">
-            <p className="dashboard-stat-label">Grand total</p>
-            <p className="invoice-total-value">{formatCurrency(invoice.total)}</p>
+            <p className="dashboard-stat-label">Toplam adisyon</p>
+            <p className="invoice-total-value">{formatTryCurrency(invoice.total)}</p>
             <p className="dashboard-stat-note">
-              {invoice.splits.length} payment share(s) across {invoice.lines.length} invoice line(s).
+              {invoice.splits.length} odeme payi, {invoice.lines.length} adisyon kalemi.
             </p>
           </div>
 
           <div className="detail-grid">
             <div className="detail-card">
-              <span className="detail-label">Split mode</span>
+              <span className="detail-label">Bolusum tipi</span>
               <span className="detail-value">{splitModeLabel(invoice.splitMode)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Per-guest share (avg)</span>
-              <span className="detail-value">{formatCurrency(invoiceAverageShare)}</span>
+              <span className="detail-label">Kisi basi ortalama</span>
+              <span className="detail-value">{formatTryCurrency(invoiceAverageShare)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Assigned to payers</span>
-              <span className="detail-value">{formatCurrency(invoiceSplitTotal)}</span>
+              <span className="detail-label">Bolusturulen tutar</span>
+              <span className="detail-value">{formatTryCurrency(invoiceSplitTotal)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Remaining / unpaid</span>
-              <span className="detail-value">{formatCurrency(invoiceUnassignedAmount)}</span>
+              <span className="detail-label">Kalan tutar</span>
+              <span className="detail-value">{formatTryCurrency(invoiceUnassignedAmount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Calculated at</span>
+              <span className="detail-label">Hesaplanma zamani</span>
               <span className="detail-value">{formatDateTime(invoice.createdAt)}</span>
             </div>
           </div>
 
           <div className="prepare-payment-panel stack-md">
             <div className="section-copy">
-              <h4>Prepare payment</h4>
+              <h4>Odeme hazirla</h4>
               <p className="helper-text">
-                Create local payment shares after invoice calculation. Cash, card, and online-link actions use mock
-                status transitions only.
+                Adisyon hesaplandiktan sonra odeme paylarini olusturun. Nakit, kart ve online link aksiyonlari TRY
+                odeme akisi icin ayni ekran uzerinden yonetilir.
               </p>
             </div>
 
@@ -626,7 +653,7 @@ export default function CashierDashboardPage() {
                 onClick={handlePreparePayment}
                 disabled={isPreparingPayment}
               >
-                {isPreparingPayment ? "Preparing payment..." : "Prepare payment"}
+                {isPreparingPayment ? "Hazirlaniyor..." : "Odeme paylarini olustur"}
               </button>
             </div>
           </div>
@@ -638,9 +665,9 @@ export default function CashierDashboardPage() {
             <div className="settlement-desk stack-md">
               <div className="section-head">
                 <div className="section-copy">
-                  <p className="section-kicker">Settlement</p>
-                  <h4>Payment share control</h4>
-                  <p className="helper-text">Start mock payments, resolve pending ones, and track settlement totals from one place.</p>
+                  <p className="section-kicker">Odeme takibi</p>
+                  <h4>Odeme paylari</h4>
+                  <p className="helper-text">Her pay icin tahsilati baslatin, bekleyenleri tamamlayin ve kalan tutari takip edin.</p>
                 </div>
                 <span className={`badge ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
                   {formatStatusLabel(paymentSession.status)}
@@ -649,7 +676,7 @@ export default function CashierDashboardPage() {
 
               {paymentSession.session?.readyToCloseAt ? (
                 <p className="status-banner is-success">
-                  Table {paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} is ready to close since{" "}
+                  Masa {paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} kapatmaya hazir. Saat:{" "}
                   {formatDateTime(paymentSession.session.readyToCloseAt)}.
                 </p>
               ) : null}
@@ -657,33 +684,33 @@ export default function CashierDashboardPage() {
               {paymentSummary ? (
                 <div className="grid-4 checkout-summary-grid">
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Total amount</p>
-                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.totalAmount)}</p>
-                    <p className="dashboard-stat-note">Invoice settlement target.</p>
+                    <p className="dashboard-stat-label">Toplam tutar</p>
+                    <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.totalAmount)}</p>
+                    <p className="dashboard-stat-note">Tahsil edilmesi gereken toplam TRY tutari.</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Paid amount</p>
-                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.paidAmount)}</p>
-                    <p className="dashboard-stat-note">Collected shares marked paid.</p>
+                    <p className="dashboard-stat-label">Odenen tutar</p>
+                    <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.paidAmount)}</p>
+                    <p className="dashboard-stat-note">Tahsil edilen odeme paylari.</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Remaining amount</p>
-                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.remainingAmount)}</p>
-                    <p className="dashboard-stat-note">Balance still to collect.</p>
+                    <p className="dashboard-stat-label">Kalan tutar</p>
+                    <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.remainingAmount)}</p>
+                    <p className="dashboard-stat-note">Tahsil edilmeyi bekleyen TRY bakiye.</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Unpaid shares</p>
+                    <p className="dashboard-stat-label">Bekleyen paylar</p>
                     <p className="dashboard-stat-value">{paymentSummary.unpaidShareCount}</p>
                     <p className="dashboard-stat-note">
-                      Pending {paymentSummary.pendingShareCount} | Failed {paymentSummary.failedShareCount}
+                      Beklemede {paymentSummary.pendingShareCount} | Basarisiz {paymentSummary.failedShareCount}
                     </p>
                   </article>
                 </div>
               ) : null}
 
               <div className="section-copy">
-                <h4>Generated payment shares</h4>
-                <p className="helper-text">Each row includes payer label, amount, status, and direct cashier actions.</p>
+                <h4>Olusan odeme paylari</h4>
+                <p className="helper-text">Her kartta odeyen kisi, tutar, odeme durumu ve kasiyer aksiyonlari yer alir.</p>
               </div>
 
               <div className="checkout-share-grid">
@@ -699,9 +726,9 @@ export default function CashierDashboardPage() {
                       <div className="checkout-share-head">
                         <div className="checkout-share-copy">
                           <p className="checkout-share-payer">{share.payerLabel}</p>
-                          <p className="meta">{share.guest ? `Guest: ${share.guest.displayName}` : "Session-level payer"}</p>
+                          <p className="meta">{share.guest ? `Misafir: ${share.guest.displayName}` : "Masa bazli odeyen"}</p>
                         </div>
-                        <p className="checkout-share-amount">{formatCurrency(share.amount)}</p>
+                        <p className="checkout-share-amount">{formatTryCurrency(share.amount)}</p>
                       </div>
 
                       <div className="badge-row">
@@ -709,19 +736,19 @@ export default function CashierDashboardPage() {
                           {formatStatusLabel(share.status)}
                         </span>
                         {share.provider ? <span className="badge badge-outline">{paymentProviderLabel(share.provider)}</span> : null}
-                        {share.paidAt ? <span className="badge badge-neutral">Paid {formatShortTime(share.paidAt)}</span> : null}
+                        {share.paidAt ? <span className="badge badge-neutral">Odendi {formatShortTime(share.paidAt)}</span> : null}
                       </div>
 
                       {share.paymentUrl ? (
                         <p className="helper-text">
-                          Online link ready:{" "}
+                          Online odeme linki hazir:{" "}
                           <a className="checkout-link" href={share.paymentUrl} target="_blank" rel="noreferrer">
-                            Open mock payment link
+                            Odeme sayfasini ac
                           </a>
                         </p>
                       ) : null}
 
-                      {share.paidAt ? <p className="meta">Completed at {formatDateTime(share.paidAt)}</p> : null}
+                      {share.paidAt ? <p className="meta">Tamamlanma: {formatDateTime(share.paidAt)}</p> : null}
 
                       {canStartPayment ? (
                         <div className="ticket-actions">
@@ -731,7 +758,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "PAY_BY_CASH")}
                             disabled={actionLocked || isPaid}
                           >
-                            {isShareActionRunning(share.id, "PAY_BY_CASH") ? "Starting cash..." : "Pay by cash"}
+                            {isShareActionRunning(share.id, "PAY_BY_CASH") ? "Nakit baslatiliyor..." : "Nakit al"}
                           </button>
                           <button
                             type="button"
@@ -739,7 +766,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "PAY_BY_CARD")}
                             disabled={actionLocked || isPaid}
                           >
-                            {isShareActionRunning(share.id, "PAY_BY_CARD") ? "Starting card..." : "Pay by card"}
+                            {isShareActionRunning(share.id, "PAY_BY_CARD") ? "Kart baslatiliyor..." : "Kart al"}
                           </button>
                           <button
                             type="button"
@@ -748,8 +775,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked || isPaid}
                           >
                             {isShareActionRunning(share.id, "SEND_ONLINE_LINK")
-                              ? "Sending link..."
-                              : "Send online link"}
+                              ? "Link gonderiliyor..."
+                              : "Odeme linki gonder"}
                           </button>
                         </div>
                       ) : null}
@@ -763,8 +790,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked}
                           >
                             {isShareActionRunning(share.id, "COMPLETE_PENDING_PAYMENT")
-                              ? "Completing..."
-                              : "Complete payment"}
+                              ? "Tamamlaniyor..."
+                              : "Odemeyi tamamla"}
                           </button>
                           <button
                             type="button"
@@ -772,7 +799,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "MARK_PAYMENT_FAILED")}
                             disabled={actionLocked}
                           >
-                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED") ? "Failing..." : "Mark failed"}
+                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED") ? "Isaretleniyor..." : "Basarisiz isaretle"}
                           </button>
                         </div>
                       ) : null}
@@ -786,8 +813,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked}
                           >
                             {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED")
-                              ? "Failing..."
-                              : "Mark failed (mock)"}
+                              ? "Isaretleniyor..."
+                              : "Mock basarisiz isaretle"}
                           </button>
                         </div>
                       ) : null}
@@ -801,8 +828,8 @@ export default function CashierDashboardPage() {
           <div className="grid-2">
             <div>
               <div className="section-copy">
-                <h4>Per-guest invoice shares</h4>
-                <p className="helper-text">Reference split values before collecting payment.</p>
+                <h4>Kisi bazli odeme paylari</h4>
+                <p className="helper-text">Tahsilata gecmeden once pay dagilimini kontrol edin.</p>
               </div>
               <div className="split-grid">
                 {invoice.splits.map((split) => {
@@ -815,9 +842,9 @@ export default function CashierDashboardPage() {
                         {split.guest ? <span className="badge badge-neutral">{split.guest.displayName}</span> : null}
                       </div>
                       <p>
-                        <strong>{formatCurrency(split.amount)}</strong>
+                        <strong>{formatTryCurrency(split.amount)}</strong>
                       </p>
-                      <p className="meta">{sharePercent.toFixed(1)}% of total</p>
+                      <p className="meta">Toplam adisyonun {formatPercentage(sharePercent)}lik kismi</p>
                     </article>
                   );
                 })}
@@ -826,8 +853,8 @@ export default function CashierDashboardPage() {
 
             <div>
               <div className="section-copy">
-                <h4>Invoice lines</h4>
-                <p className="helper-text">Line items included in the current total.</p>
+                <h4>Adisyon kalemleri</h4>
+                <p className="helper-text">Toplam adisyonu olusturan kalemler.</p>
               </div>
               <div className="list">
                 {invoice.lines.map((line) => (
@@ -836,9 +863,9 @@ export default function CashierDashboardPage() {
                       <p>
                         <strong>{line.label}</strong>
                       </p>
-                      <span className="badge badge-outline">{formatCurrency(line.amount)}</span>
+                      <span className="badge badge-outline">{formatTryCurrency(line.amount)}</span>
                     </div>
-                    <p className="meta">{line.guest ? `Assigned to ${line.guest.displayName}` : "Shared line item"}</p>
+                    <p className="meta">{line.guest ? `Atandi: ${line.guest.displayName}` : "Paylasilan kalem"}</p>
                   </div>
                 ))}
               </div>
@@ -847,7 +874,7 @@ export default function CashierDashboardPage() {
         </section>
       ) : (
         <section className="panel">
-          <p className="empty empty-state">No invoice calculated yet. Choose an active session and split mode to start checkout.</p>
+          <p className="empty empty-state">Henuz adisyon hesaplanmadi. Acik bir oturum ve bolusum tipi secerek baslayin.</p>
         </section>
       )}
     </div>

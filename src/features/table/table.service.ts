@@ -112,7 +112,7 @@ export async function deleteTable(input: DeleteTableInput) {
       (session) => session.tableId === parsed.id && session.status === "OPEN"
     ).length;
 
-    if (openSessionsCount > 0) {
+    if (openSessionsCount > 0 && !parsed.force) {
       throw new Error("Close the active session before deleting this table");
     }
 

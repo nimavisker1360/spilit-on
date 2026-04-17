@@ -5,1056 +5,423 @@
       "name": "Main Restaurant",
       "slug": "main-restaurant",
       "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "updatedAt": "2026-04-17T16:12:16.864Z"
     }
   ],
   "branches": [
     {
-      "id": "branch_main",
+      "id": "branch_2b792806dcda4340b8165e6a3595fd29",
       "restaurantId": "restaurant_main",
       "name": "Main Branch",
       "slug": "main-branch",
-      "location": "Center",
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "location": null,
+      "createdAt": "2026-04-17T16:12:16.864Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
     }
   ],
   "tables": [
     {
-      "id": "table_t1",
-      "branchId": "branch_main",
+      "id": "table_e3b6c0d6ff74415587624b2d154963f9",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
       "name": "T1",
-      "code": "MAIN-BRANCH-T1-A1B2",
-      "publicToken": "main_branch_table_token_01",
       "capacity": 4,
+      "code": "MAIN-BRANCH-T1-NDPN",
+      "publicToken": "bl8l_vXAy58Yz1MoEzeuUQyw",
       "status": "OCCUPIED",
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T13:48:59.111Z"
-    },
-    {
-      "id": "table_t2",
-      "branchId": "branch_main",
-      "name": "T2",
-      "code": "MAIN-BRANCH-T2-C3D4",
-      "publicToken": "main_branch_table_token_02",
-      "capacity": 4,
-      "status": "AVAILABLE",
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
-    },
-    {
-      "id": "table_t3",
-      "branchId": "branch_main",
-      "name": "T3",
-      "code": "MAIN-BRANCH-T3-E5F6",
-      "publicToken": "main_branch_table_token_03",
-      "capacity": 6,
-      "status": "AVAILABLE",
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "createdAt": "2026-04-17T16:12:33.835Z",
+      "updatedAt": "2026-04-17T16:14:21.439Z"
     }
   ],
   "menuCategories": [
     {
-      "id": "menu_category_main",
-      "branchId": "branch_main",
-      "name": "Main",
+      "id": "category_b9d4923e851642b7aa03760a862937fe",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "name": "Turkish Dishes",
       "sortOrder": 1,
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "name": "Pizza",
+      "sortOrder": 2,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "category_f43036edc87e4d758d4ab06358bba28d",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "name": "Soft Drinks",
+      "sortOrder": 3,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "category_bff1d628ebd74efaa6ebbb348283329d",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "name": "Water",
+      "sortOrder": 4,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
     }
   ],
   "menuItems": [
     {
-      "id": "menu_item_burger",
-      "branchId": "branch_main",
-      "categoryId": "menu_category_main",
-      "name": "Cheese Burger",
-      "description": "Classic burger",
-      "price": "11.50",
-      "isAvailable": true,
+      "id": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "name": "Adana Kebab",
+      "description": "Spicy minced meat kebab served with lavash and grilled vegetables",
+      "price": "320.00",
       "sortOrder": 1,
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
     },
     {
-      "id": "menu_item_cola",
-      "branchId": "branch_main",
-      "categoryId": "menu_category_main",
-      "name": "Cola",
-      "description": "Cold drink",
-      "price": "2.80",
-      "isAvailable": true,
+      "id": "menu_item_abd181da42ee4b4eadc445cf520b1987",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "name": "Iskender Kebab",
+      "description": "Doner slices over pita with tomato sauce, yogurt, and butter",
+      "price": "360.00",
       "sortOrder": 2,
-      "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-15T09:00:00.000Z"
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_24c1a01aee0843cfa28d8532e99921b8",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "name": "Lahmacun",
+      "description": "Thin crispy flatbread topped with minced meat and herbs",
+      "price": "95.00",
+      "sortOrder": 3,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_3fc57d2e0cac48ce910711df2c3c3986",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "name": "Pide with Cheese",
+      "description": "Traditional Turkish pide with melted cheese",
+      "price": "180.00",
+      "sortOrder": 4,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_6d4e6492b4174caf8cfbf325997dbf5e",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "name": "Mercimek Corbasi",
+      "description": "Classic Turkish red lentil soup",
+      "price": "85.00",
+      "sortOrder": 5,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_7799545233524939a7351c9c78535d45",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "name": "Margherita Pizza",
+      "description": "Tomato sauce, mozzarella, and basil",
+      "price": "240.00",
+      "sortOrder": 1,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_8b2199ccdacd47c186d8abc0d5797efb",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "name": "Pepperoni Pizza",
+      "description": "Mozzarella, pepperoni, and tomato sauce",
+      "price": "290.00",
+      "sortOrder": 2,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_33e1982b1fcb4e60bb6f8d1eb2fce8d6",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "name": "Mixed Pizza",
+      "description": "Mozzarella, sucuk, mushroom, pepper, and olives",
+      "price": "315.00",
+      "sortOrder": 3,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_65ce60f73599498eb05b768fc8ddd5cf",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "name": "Vegetarian Pizza",
+      "description": "Mozzarella, mushroom, corn, olives, and peppers",
+      "price": "275.00",
+      "sortOrder": 4,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_d3c4ff3f07554b148884c6890e3af0b7",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "name": "Coca-Cola 330ml",
+      "description": "Chilled canned Coca-Cola",
+      "price": "55.00",
+      "sortOrder": 1,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_ab7753cf28974ff78f105724f63feaad",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "name": "Fanta 330ml",
+      "description": "Chilled canned orange soda",
+      "price": "55.00",
+      "sortOrder": 2,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_a0a43be1ec5b4fb99bde8a7fdfff19f8",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "name": "Sprite 330ml",
+      "description": "Chilled canned lemon-lime soda",
+      "price": "55.00",
+      "sortOrder": 3,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_83e66ae07fea486f9648c234cf19f272",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_bff1d628ebd74efaa6ebbb348283329d",
+      "name": "Still Water 500ml",
+      "description": "Bottled still water",
+      "price": "20.00",
+      "sortOrder": 1,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
+    },
+    {
+      "id": "menu_item_01732b58ad134370898d2d1319851153",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "categoryId": "category_bff1d628ebd74efaa6ebbb348283329d",
+      "name": "Sparkling Water 250ml",
+      "description": "Mineral sparkling water bottle",
+      "price": "28.00",
+      "sortOrder": 2,
+      "isAvailable": true,
+      "createdAt": "2026-04-17T16:13:17.581Z",
+      "updatedAt": "2026-04-17T16:13:17.581Z"
     }
   ],
   "sessions": [
     {
-      "id": "session_c64a57170795447f82fd162721e772bc",
-      "branchId": "branch_main",
-      "tableId": "table_t1",
+      "id": "session_d18c82912ae842c286d7994451312c25",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "tableId": "table_e3b6c0d6ff74415587624b2d154963f9",
       "status": "OPEN",
-      "openedAt": "2026-04-15T13:48:59.111Z",
+      "openedAt": "2026-04-17T16:14:21.439Z",
       "closedAt": null,
       "readyToCloseAt": null
     }
   ],
   "guests": [
     {
-      "id": "guest_8184bd15e24242f59b28b0819af10e26",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "displayName": "Nima",
-      "joinedAt": "2026-04-15T13:49:17.211Z"
-    },
-    {
-      "id": "guest_5724b686e66b43cd8720b0852f03889f",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "displayName": "Farhad",
-      "joinedAt": "2026-04-17T06:45:08.073Z"
+      "id": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
+      "displayName": "Ali",
+      "joinedAt": "2026-04-17T16:15:04.293Z"
     }
   ],
   "orders": [
     {
-      "id": "order_d152964a4da44c3b9db27b864e340545",
-      "branchId": "branch_main",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "id": "order_e2b3c6033fbc491fbf9124812f25a7ed",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
       "source": "CUSTOMER",
       "status": "READY",
-      "placedByGuestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
       "note": null,
-      "createdAt": "2026-04-15T13:49:37.690Z"
+      "createdAt": "2026-04-17T16:17:08.209Z"
     },
     {
-      "id": "order_201a0c70565543f68d09fb12a42d0f4a",
-      "branchId": "branch_main",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "id": "order_c1e0cc05084c4f1293165ca1384b3d29",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
       "source": "CUSTOMER",
       "status": "READY",
-      "placedByGuestId": "guest_5724b686e66b43cd8720b0852f03889f",
+      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
       "note": null,
-      "createdAt": "2026-04-17T06:46:02.350Z"
+      "createdAt": "2026-04-17T16:17:29.354Z"
     },
     {
-      "id": "order_5b5a5a74397d43daafb77a91603a32f7",
-      "branchId": "branch_main",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "id": "order_924884661c074f96af381731f87fc572",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
+      "source": "CUSTOMER",
+      "status": "READY",
+      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "note": null,
+      "createdAt": "2026-04-17T16:18:11.434Z"
+    },
+    {
+      "id": "order_4bc4c6636b6d4b5989b527508df859c2",
+      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
       "source": "WAITER",
-      "status": "READY",
+      "status": "PENDING",
       "placedByGuestId": null,
       "note": null,
-      "createdAt": "2026-04-17T08:42:01.600Z"
+      "createdAt": "2026-04-17T16:20:50.523Z"
     }
   ],
   "orderItems": [
     {
-      "id": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "orderId": "order_d152964a4da44c3b9db27b864e340545",
-      "menuItemId": "menu_item_burger",
-      "itemName": "Cheese Burger",
+      "id": "order_item_c19f247384c946aaa28d2ff1ec07d885",
+      "orderId": "order_e2b3c6033fbc491fbf9124812f25a7ed",
+      "menuItemId": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
+      "itemName": "Adana Kebab",
       "quantity": 1,
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "note": "I need chess burger",
-      "unitPrice": "11.50",
-      "status": "READY",
-      "createdAt": "2026-04-15T13:49:37.690Z"
-    },
-    {
-      "id": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "orderId": "order_201a0c70565543f68d09fb12a42d0f4a",
-      "menuItemId": "menu_item_burger",
-      "itemName": "Cheese Burger",
-      "quantity": 2,
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "note": "Give me chees burger",
-      "unitPrice": "11.50",
-      "status": "READY",
-      "createdAt": "2026-04-17T06:46:02.350Z"
-    },
-    {
-      "id": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "orderId": "order_5b5a5a74397d43daafb77a91603a32f7",
-      "menuItemId": "menu_item_burger",
-      "itemName": "Cheese Burger",
-      "quantity": 1,
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
       "note": null,
-      "unitPrice": "11.50",
+      "unitPrice": "320.00",
       "status": "READY",
-      "createdAt": "2026-04-17T08:42:01.600Z"
+      "createdAt": "2026-04-17T16:17:08.209Z"
+    },
+    {
+      "id": "order_item_ca2996c22fb043f09e48267e0293979f",
+      "orderId": "order_c1e0cc05084c4f1293165ca1384b3d29",
+      "menuItemId": "menu_item_7799545233524939a7351c9c78535d45",
+      "itemName": "Margherita Pizza",
+      "quantity": 1,
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "note": null,
+      "unitPrice": "240.00",
+      "status": "READY",
+      "createdAt": "2026-04-17T16:17:29.354Z"
+    },
+    {
+      "id": "order_item_aac4a41183cd42c2939c98de82287da6",
+      "orderId": "order_924884661c074f96af381731f87fc572",
+      "menuItemId": "menu_item_ab7753cf28974ff78f105724f63feaad",
+      "itemName": "Fanta 330ml",
+      "quantity": 1,
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "note": null,
+      "unitPrice": "55.00",
+      "status": "READY",
+      "createdAt": "2026-04-17T16:18:11.434Z"
+    },
+    {
+      "id": "order_item_c1538fe03a44426aabb7ed3207eb210f",
+      "orderId": "order_4bc4c6636b6d4b5989b527508df859c2",
+      "menuItemId": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "note": null,
+      "unitPrice": "320.00",
+      "status": "PENDING",
+      "createdAt": "2026-04-17T16:20:50.523Z"
     }
   ],
   "invoices": [
     {
-      "id": "invoice_86272c6a12c3432ab49ad287a271cb40",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "id": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
       "splitMode": "EQUAL",
-      "total": "11.50",
-      "createdAt": "2026-04-17T06:17:23.926Z"
-    },
-    {
-      "id": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T06:46:37.573Z"
-    },
-    {
-      "id": "invoice_db06de660fae49bfafc651abaa5c9230",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "BY_GUEST_ITEMS",
-      "total": "34.50",
-      "createdAt": "2026-04-17T07:14:14.314Z"
-    },
-    {
-      "id": "invoice_a19853ca85554b69ac672c58247beaf8",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T07:14:36.538Z"
-    },
-    {
-      "id": "invoice_d8d292214e1d4d78ab59f9f2f7b11187",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T07:35:40.219Z"
-    },
-    {
-      "id": "invoice_8c6dcd88b0654a898e6da5d4627af2bf",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T08:06:58.670Z"
-    },
-    {
-      "id": "invoice_0946368b5a70488280969693e2debb11",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T08:09:59.576Z"
-    },
-    {
-      "id": "invoice_7c9f8102e910450ea2698b71b1a29e17",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "34.50",
-      "createdAt": "2026-04-17T08:40:50.085Z"
-    },
-    {
-      "id": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T08:43:36.613Z"
-    },
-    {
-      "id": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T08:54:16.728Z"
-    },
-    {
-      "id": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "FULL_BY_ONE",
-      "total": "46.00",
-      "createdAt": "2026-04-17T08:55:33.527Z"
-    },
-    {
-      "id": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T09:09:22.043Z"
-    },
-    {
-      "id": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T09:27:52.644Z"
-    },
-    {
-      "id": "invoice_122f2cd579464d53bc0db6550999870d",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T09:29:07.158Z"
-    },
-    {
-      "id": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T11:37:49.670Z"
-    },
-    {
-      "id": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T11:39:34.063Z"
-    },
-    {
-      "id": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T11:40:16.221Z"
-    },
-    {
-      "id": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "splitMode": "EQUAL",
-      "total": "46.00",
-      "createdAt": "2026-04-17T11:45:50.553Z"
+      "total": "935.00",
+      "createdAt": "2026-04-17T16:21:26.027Z"
     }
   ],
   "invoiceLines": [
     {
-      "id": "invoice_line_3999fbf41dcf4f5093919ed155195c10",
-      "invoiceId": "invoice_86272c6a12c3432ab49ad287a271cb40",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
+      "id": "invoice_line_ccffc12cc35c4152975c2803ca787448",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "orderItemId": "order_item_c19f247384c946aaa28d2ff1ec07d885",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "amount": "320.00",
+      "label": "Adana Kebab x1"
     },
     {
-      "id": "invoice_line_e6781c1b2a874794aae4b04152357c3b",
-      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
+      "id": "invoice_line_b9d39cef089d4525a6ada217f19b1585",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "orderItemId": "order_item_ca2996c22fb043f09e48267e0293979f",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "amount": "240.00",
+      "label": "Margherita Pizza x1"
     },
     {
-      "id": "invoice_line_983a5e4c95ea4ec29cae3871b0a8ee2d",
-      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
+      "id": "invoice_line_b8b1f3fd6230431e917d7e90a2221242",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "orderItemId": "order_item_aac4a41183cd42c2939c98de82287da6",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "amount": "55.00",
+      "label": "Fanta 330ml x1"
     },
     {
-      "id": "invoice_line_ab9488399a6a4b4c82b53f6d82db793b",
-      "invoiceId": "invoice_db06de660fae49bfafc651abaa5c9230",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_45ac703dcd144d8b9fb767c1379259d3",
-      "invoiceId": "invoice_db06de660fae49bfafc651abaa5c9230",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_92ddc4113c804dcba32d21a658ac580d",
-      "invoiceId": "invoice_a19853ca85554b69ac672c58247beaf8",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_010a3ba335d64c69bb153ccc93d2651f",
-      "invoiceId": "invoice_a19853ca85554b69ac672c58247beaf8",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_da85da6eb5e346eba0c6456672d84cf0",
-      "invoiceId": "invoice_d8d292214e1d4d78ab59f9f2f7b11187",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_50d8899edfa34ab790b82ba2b4cb2592",
-      "invoiceId": "invoice_d8d292214e1d4d78ab59f9f2f7b11187",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_a49201994e5b4d3abde4abde322351cd",
-      "invoiceId": "invoice_8c6dcd88b0654a898e6da5d4627af2bf",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_d464e4ff9b5e46658c3bdf74ba931171",
-      "invoiceId": "invoice_8c6dcd88b0654a898e6da5d4627af2bf",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_dba1ecb63c6a4c85be6e9ffef6112022",
-      "invoiceId": "invoice_0946368b5a70488280969693e2debb11",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_643e648e0fa146839e374aceb446fc5b",
-      "invoiceId": "invoice_0946368b5a70488280969693e2debb11",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_604925fad14441079f70c3a75d268f08",
-      "invoiceId": "invoice_7c9f8102e910450ea2698b71b1a29e17",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_2869d75f70614545acf9d5cdfab6a448",
-      "invoiceId": "invoice_7c9f8102e910450ea2698b71b1a29e17",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_c98f8b6b73234a9db041dbd442dadabf",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_64f92aaa9f8b469e84b21993bd1d85b4",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_6cb6d04b75ef431a894fb1033c3e053b",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_5951a7afa83e4b8fae107316722feb4b",
-      "invoiceId": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_1db6c641e82942b885746b4347aa02ad",
-      "invoiceId": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_78dfb7f23318470a8cd0d6299c835de3",
-      "invoiceId": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_79a677e5658b4361b1d5aa3d7c806f4f",
-      "invoiceId": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_4f0c243399e243b1a664b7a39fa016cf",
-      "invoiceId": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_0e04f860c6d6484ba5bf581cbc517110",
-      "invoiceId": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_7853eae983ec408c885959ab95865fa0",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_4337ec0bcadf4493a4f89f36bcf8fd53",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_08ddc668da324b74ab122c05353d7079",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_f7e3a3142d444307b8ac482c882de0a8",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_2eaa85033ee2467fbef80dcfac67d5e7",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_e4f458697ec44d56a88e30fb2bfa7299",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_29ca96a7d24a498d9b0228fcb9c9486f",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_d4456aac84464206af8c5d77b3823039",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_63fbd47a2a4c47a4842b77dfd84b7c16",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_0a6fb2e33bae45b78f0c32be2fe4abbe",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_04607ade04a74717bb7b46430fd873f3",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_70f97a913b5e4ff38faec4f3d6a1ea6c",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_18b2e1bb1bb8475999a9468a7dfd8eb4",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_d6123d5dfb614a92afea66f1d084b3f5",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_b7a6e2a38ec149cc9da89e085ba4d9b1",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_3ea6dd94f0f94d6eaab01d7a7ec6bde8",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_97ad3e89c1714214996cb7649fa828ea",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_c6b666016718400fad23d046045fe79e",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_f909e87f9f4a4985969d0a56a43becee",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
-    },
-    {
-      "id": "invoice_line_c56d48758d0f470cb6801eea92510b7e",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "amount": "23.00",
-      "label": "Cheese Burger x2"
-    },
-    {
-      "id": "invoice_line_e7b5b8b395d9472aa6314b289c86be90",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "orderItemId": "order_item_ead0c99d840f4f0cb16d6a94ba983deb",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "amount": "11.50",
-      "label": "Cheese Burger x1"
+      "id": "invoice_line_dd0aed8e056c4eda9f0bd54090376b62",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "orderItemId": "order_item_c1538fe03a44426aabb7ed3207eb210f",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "amount": "320.00",
+      "label": "Adana Kebab x1"
     }
   ],
   "invoiceAssignments": [
     {
-      "id": "invoice_split_ccf6e0788291469a94c3cfa476e09402",
-      "invoiceId": "invoice_86272c6a12c3432ab49ad287a271cb40",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "11.50"
-    },
-    {
-      "id": "invoice_split_4aa77cb06ff44f9a81fc700d54e852fe",
-      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_568cd1aadce74c0b8213e0c2ef10d6cc",
-      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_ef8313eb83d34d3095ae93c1a1b2d3fd",
-      "invoiceId": "invoice_db06de660fae49bfafc651abaa5c9230",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "11.50"
-    },
-    {
-      "id": "invoice_split_39b987710959463f9c49ad0342029128",
-      "invoiceId": "invoice_db06de660fae49bfafc651abaa5c9230",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_ba9e8d421b87422bace285b6d1a54eb7",
-      "invoiceId": "invoice_a19853ca85554b69ac672c58247beaf8",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_bf7e807bf7ea4126baa5965a1a639843",
-      "invoiceId": "invoice_a19853ca85554b69ac672c58247beaf8",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_5e6f34f9b2b544b482b0787c8f41863c",
-      "invoiceId": "invoice_d8d292214e1d4d78ab59f9f2f7b11187",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_c7fbb0c12bf8419bb74935ad20a64c4a",
-      "invoiceId": "invoice_d8d292214e1d4d78ab59f9f2f7b11187",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_01fafe2bf32d4548b1148fff677185d5",
-      "invoiceId": "invoice_8c6dcd88b0654a898e6da5d4627af2bf",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_788fa243e54d41c8918475d876c5b060",
-      "invoiceId": "invoice_8c6dcd88b0654a898e6da5d4627af2bf",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_cc23786ce3204bd8b2f2b24009404b06",
-      "invoiceId": "invoice_0946368b5a70488280969693e2debb11",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_41f2799538014569ac00075ccce9ae50",
-      "invoiceId": "invoice_0946368b5a70488280969693e2debb11",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_40caeb4c234c4986b9900d3c9a21de6b",
-      "invoiceId": "invoice_7c9f8102e910450ea2698b71b1a29e17",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_6f46d31da7e940d0b32e16817cca3816",
-      "invoiceId": "invoice_7c9f8102e910450ea2698b71b1a29e17",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25"
-    },
-    {
-      "id": "invoice_split_803453b17cd2420c9e52f493a8c1cfe7",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_83b9d604cf92484b918b1412ce91454b",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_0886a728c44e4640af1ed5fe990b1d75",
-      "invoiceId": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_f820375bc20a4b1189cc3a06a74e106e",
-      "invoiceId": "invoice_efb57b2f898740a18ba26dba3d72b592",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_6bc055e8beac49c4826852a72b011caa",
-      "invoiceId": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "46.00"
-    },
-    {
-      "id": "invoice_split_e7beced2174941c7820b68492372f7a5",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_acc1ec8d87024b83b07804d6a1a86a38",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_feaea1f759ff4f55bebf1111b2bbc8e2",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_373eb034e91f42cab404c922b34fe995",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_bf52cb5ec33346e48c3a72d7cf603611",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_4c9f2ab59db34e66a7f6318a3d08bc4f",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_e1066d4f63c54b8f87ba5b87015ab4e4",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_369e406391c64892b41ed3e0d29ebc97",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_e4ea901ccecf4516b9369b26cc323b35",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_b849cebf242f48e8a568ed143022b161",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_9776e6e5e6694362825f61b467571639",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_29dbddff607049e0a7731dd78bb76b04",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_01464372752944b5b37edd8e49ff4073",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00"
-    },
-    {
-      "id": "invoice_split_848edb724b99464fbbcc2d9f2f66b476",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00"
+      "id": "invoice_split_2e53982fb83b4767bf8e98fcaaa5e525",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "payerLabel": "Ali",
+      "amount": "935.00"
     }
   ],
   "payments": [],
   "paymentSessions": [
     {
-      "id": "payment_session_b33f03cbd9b341838d21c7ea0221e9f8",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_7c9f8102e910450ea2698b71b1a29e17",
+      "id": "payment_session_66ce6202db184ef09010941fe5873cfe",
+      "sessionId": "session_d18c82912ae842c286d7994451312c25",
+      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
       "splitMode": "EQUAL",
-      "totalAmount": "34.50",
+      "totalAmount": "935.00",
+      "paidAmount": "0.00",
+      "remainingAmount": "935.00",
       "currency": "TRY",
       "status": "OPEN",
-      "createdAt": "2026-04-17T08:40:50.088Z",
-      "updatedAt": "2026-04-17T08:40:50.088Z",
-      "paidAmount": "0.00",
-      "remainingAmount": "34.50"
-    },
-    {
-      "id": "payment_session_622dac3573d54e3ab44150b797902f4e",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_48758eb1c4f849a685670edccfc66b2e",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T08:43:36.616Z",
-      "updatedAt": "2026-04-17T08:43:36.616Z",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00"
-    },
-    {
-      "id": "payment_session_ea5d86688b9e4ea5968ce23b06e799c1",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_831de46361874da78b6646a7d57ef6f1",
-      "splitMode": "FULL_BY_ONE",
-      "totalAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T08:56:36.566Z",
-      "updatedAt": "2026-04-17T08:56:36.566Z",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00"
-    },
-    {
-      "id": "payment_session_f3c720662075481bb4978735b8c20959",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_8a74b30234454f0e8100b863c5e20a6f",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T09:09:25.951Z",
-      "updatedAt": "2026-04-17T09:09:53.712Z",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00"
-    },
-    {
-      "id": "payment_session_a71bd8e4b3254a409651ce11fe355b37",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_a3b13353c9bc45fabed80da1bdc38847",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "46.00",
-      "remainingAmount": "0.00",
-      "currency": "TRY",
-      "status": "PAID",
-      "createdAt": "2026-04-17T09:27:57.959Z",
-      "updatedAt": "2026-04-17T09:28:17.640Z"
-    },
-    {
-      "id": "payment_session_e1dfddffc992474d81f88e986b264bb7",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_122f2cd579464d53bc0db6550999870d",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T09:29:10.075Z",
-      "updatedAt": "2026-04-17T09:29:16.099Z"
-    },
-    {
-      "id": "payment_session_ddb6675ebfb64663bde850ade19df8d9",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_58dbab4595b941c4a9e7392d967602f5",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "46.00",
-      "remainingAmount": "0.00",
-      "currency": "TRY",
-      "status": "PAID",
-      "createdAt": "2026-04-17T11:37:55.009Z",
-      "updatedAt": "2026-04-17T11:39:20.263Z"
-    },
-    {
-      "id": "payment_session_a1b7c372c28e4371abcb56a81d5ab153",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_67d8cd1200ec459abe3c36bae1aa7cce",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T11:39:37.005Z",
-      "updatedAt": "2026-04-17T11:39:37.005Z"
-    },
-    {
-      "id": "payment_session_a0e0c23b16294fc39388da3d26634a74",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_9b86c3795b3d4ba7a07de089491cd9af",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "23.00",
-      "remainingAmount": "23.00",
-      "currency": "TRY",
-      "status": "PARTIALLY_PAID",
-      "createdAt": "2026-04-17T11:40:23.863Z",
-      "updatedAt": "2026-04-17T11:40:50.136Z"
-    },
-    {
-      "id": "payment_session_7223648acccb413082ea1b4c0074a486",
-      "sessionId": "session_c64a57170795447f82fd162721e772bc",
-      "invoiceId": "invoice_cf78a5c9427e4afd949aff0e16d1ed41",
-      "splitMode": "EQUAL",
-      "totalAmount": "46.00",
-      "paidAmount": "0.00",
-      "remainingAmount": "46.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T11:45:52.569Z",
-      "updatedAt": "2026-04-17T11:45:52.569Z"
+      "createdAt": "2026-04-17T16:21:46.619Z",
+      "updatedAt": "2026-04-17T16:21:46.619Z"
     }
   ],
   "paymentShares": [
     {
-      "id": "payment_share_2fbbeafa3cdc4d16b7653527125b4368",
-      "paymentSessionId": "payment_session_b33f03cbd9b341838d21c7ea0221e9f8",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "17.25",
+      "id": "payment_share_a8a4a6122ddf4db2b0d31331bfef44b0",
+      "paymentSessionId": "payment_session_66ce6202db184ef09010941fe5873cfe",
+      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "payerLabel": "Ali",
+      "amount": "935.00",
       "status": "UNPAID",
       "provider": null,
       "providerPaymentId": null,
@@ -1062,488 +429,9 @@
       "paymentUrl": null,
       "qrPayload": null,
       "paidAt": null,
-      "createdAt": "2026-04-17T08:40:50.088Z",
-      "updatedAt": "2026-04-17T08:40:50.088Z"
-    },
-    {
-      "id": "payment_share_7cc51b420f734fb0ac6a746883081e7e",
-      "paymentSessionId": "payment_session_b33f03cbd9b341838d21c7ea0221e9f8",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "17.25",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T08:40:50.088Z",
-      "updatedAt": "2026-04-17T08:40:50.088Z"
-    },
-    {
-      "id": "payment_share_4af22da0c6734d118a1fb38b945d61bf",
-      "paymentSessionId": "payment_session_622dac3573d54e3ab44150b797902f4e",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T08:43:36.616Z",
-      "updatedAt": "2026-04-17T08:43:36.616Z"
-    },
-    {
-      "id": "payment_share_65b5a85eba0946999df0c6256bb23ffb",
-      "paymentSessionId": "payment_session_622dac3573d54e3ab44150b797902f4e",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T08:43:36.616Z",
-      "updatedAt": "2026-04-17T08:43:36.616Z"
-    },
-    {
-      "id": "payment_share_7895cee0663548ba89c925de9d109d0b",
-      "paymentSessionId": "payment_session_ea5d86688b9e4ea5968ce23b06e799c1",
-      "guestId": null,
-      "payerLabel": "Table T1 - Full payment",
-      "amount": "46.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T08:56:36.566Z",
-      "updatedAt": "2026-04-17T08:56:36.566Z"
-    },
-    {
-      "id": "payment_share_71b806db897a4f098e5a995146b9539c",
-      "paymentSessionId": "payment_session_f3c720662075481bb4978735b8c20959",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "PENDING",
-      "provider": "MOCK_ONLINE_LINK",
-      "providerPaymentId": "online_payment_8c8e6e085878400da4f1fa126a3ab3e4",
-      "providerConversationId": "online_ref_737a927e660d444fabfc5f2a73fff6d9",
-      "paymentUrl": "https://odeme-restoran.example/pay/payment_share_71b806db897a4f098e5a995146b9539c?ref=73fff6d9",
-      "qrPayload": "https://odeme-restoran.example/pay/payment_share_71b806db897a4f098e5a995146b9539c?ref=73fff6d9",
-      "paidAt": null,
-      "createdAt": "2026-04-17T09:09:25.951Z",
-      "updatedAt": "2026-04-17T09:09:45.604Z"
-    },
-    {
-      "id": "payment_share_e662cfba76944aadb756b1f89b054149",
-      "paymentSessionId": "payment_session_f3c720662075481bb4978735b8c20959",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "PENDING",
-      "provider": "MOCK_ONLINE_LINK",
-      "providerPaymentId": "online_payment_54236a7ff08a4b2aab83f4f7e279810b",
-      "providerConversationId": "online_ref_fcd1d31c449f419190d772b7b2618cc2",
-      "paymentUrl": "https://odeme-restoran.example/pay/payment_share_e662cfba76944aadb756b1f89b054149?ref=b2618cc2",
-      "qrPayload": "https://odeme-restoran.example/pay/payment_share_e662cfba76944aadb756b1f89b054149?ref=b2618cc2",
-      "paidAt": null,
-      "createdAt": "2026-04-17T09:09:25.951Z",
-      "updatedAt": "2026-04-17T09:09:53.712Z"
-    },
-    {
-      "id": "payment_share_a2248f1b29024fd3a2b623486e21c502",
-      "paymentSessionId": "payment_session_a71bd8e4b3254a409651ce11fe355b37",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "PAID",
-      "provider": "MOCK_ONLINE_LINK",
-      "providerPaymentId": "online_payment_c249698907944f9dacb0d34169e2e04e",
-      "providerConversationId": "payment_link_05b066a8c3564ac8b2695b16eaa7d88e",
-      "paymentUrl": "http://192.168.1.119:3000/pay/payment_share_a2248f1b29024fd3a2b623486e21c502?token=payment_link_05b066a8c3564ac8b2695b16eaa7d88e",
-      "qrPayload": "http://192.168.1.119:3000/pay/payment_share_a2248f1b29024fd3a2b623486e21c502?token=payment_link_05b066a8c3564ac8b2695b16eaa7d88e",
-      "paidAt": "2026-04-17T09:28:17.640Z",
-      "createdAt": "2026-04-17T09:27:57.959Z",
-      "updatedAt": "2026-04-17T09:28:17.640Z"
-    },
-    {
-      "id": "payment_share_1bfa87a1f76f41f59d63bb9e5cd7d4f8",
-      "paymentSessionId": "payment_session_a71bd8e4b3254a409651ce11fe355b37",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "PAID",
-      "provider": "CARD_POS",
-      "providerPaymentId": "card_payment_5a4cf118aae34f82851ee14b91f40964",
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": "2026-04-17T09:28:06.713Z",
-      "createdAt": "2026-04-17T09:27:57.959Z",
-      "updatedAt": "2026-04-17T09:28:06.713Z"
-    },
-    {
-      "id": "payment_share_f9c7364b7f14413998fcb2962deccf00",
-      "paymentSessionId": "payment_session_e1dfddffc992474d81f88e986b264bb7",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T09:29:10.075Z",
-      "updatedAt": "2026-04-17T09:29:10.075Z"
-    },
-    {
-      "id": "payment_share_2f09932e28644d9e81c69c45a9616bc4",
-      "paymentSessionId": "payment_session_e1dfddffc992474d81f88e986b264bb7",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "PENDING",
-      "provider": "CARD_POS",
-      "providerPaymentId": "card_payment_5dac71d6c995465bb086e7a7c3b8ee80",
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T09:29:10.075Z",
-      "updatedAt": "2026-04-17T09:29:16.099Z"
-    },
-    {
-      "id": "payment_share_2609deb915db48338c57b00b4226c198",
-      "paymentSessionId": "payment_session_ddb6675ebfb64663bde850ade19df8d9",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "PAID",
-      "provider": "CARD_POS",
-      "providerPaymentId": "card_payment_8c70c91bcbe84225b720135c80b4835c",
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": "2026-04-17T11:39:20.263Z",
-      "createdAt": "2026-04-17T11:37:55.009Z",
-      "updatedAt": "2026-04-17T11:39:20.263Z"
-    },
-    {
-      "id": "payment_share_b177fc63df404b3c85e28eda527f8999",
-      "paymentSessionId": "payment_session_ddb6675ebfb64663bde850ade19df8d9",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "PAID",
-      "provider": "CARD_POS",
-      "providerPaymentId": "card_payment_3fe1399bba594216b70bdabd08e53d07",
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": "2026-04-17T11:38:14.734Z",
-      "createdAt": "2026-04-17T11:37:55.009Z",
-      "updatedAt": "2026-04-17T11:38:14.734Z"
-    },
-    {
-      "id": "payment_share_47d09b318afb40078db6597c7a5d02e0",
-      "paymentSessionId": "payment_session_a1b7c372c28e4371abcb56a81d5ab153",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T11:39:37.005Z",
-      "updatedAt": "2026-04-17T11:39:37.005Z"
-    },
-    {
-      "id": "payment_share_79945573bc55489b9760e1da501aa68e",
-      "paymentSessionId": "payment_session_a1b7c372c28e4371abcb56a81d5ab153",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T11:39:37.005Z",
-      "updatedAt": "2026-04-17T11:39:37.005Z"
-    },
-    {
-      "id": "payment_share_22a279793ce44faa91295af063a8ec26",
-      "paymentSessionId": "payment_session_a0e0c23b16294fc39388da3d26634a74",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "PAID",
-      "provider": "MOCK_ONLINE_LINK",
-      "providerPaymentId": "online_payment_d0e354cc082c49a19752e0fb93b0322e",
-      "providerConversationId": "payment_link_c574af4f4020407a8b85826030768a1d",
-      "paymentUrl": "http://192.168.1.119:3000/pay/payment_share_22a279793ce44faa91295af063a8ec26?token=payment_link_c574af4f4020407a8b85826030768a1d",
-      "qrPayload": "http://192.168.1.119:3000/pay/payment_share_22a279793ce44faa91295af063a8ec26?token=payment_link_c574af4f4020407a8b85826030768a1d",
-      "paidAt": "2026-04-17T11:40:50.136Z",
-      "createdAt": "2026-04-17T11:40:23.863Z",
-      "updatedAt": "2026-04-17T11:40:50.136Z"
-    },
-    {
-      "id": "payment_share_c55b0c0d1da24b60aeb3ea76784bc3ba",
-      "paymentSessionId": "payment_session_a0e0c23b16294fc39388da3d26634a74",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "PENDING",
-      "provider": "CASH_DESK",
-      "providerPaymentId": "cash_payment_322c94a1399e421896146f84e3528614",
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T11:40:23.863Z",
-      "updatedAt": "2026-04-17T11:40:32.956Z"
-    },
-    {
-      "id": "payment_share_f8232b09fbff41c3ba6a66db037cbb85",
-      "paymentSessionId": "payment_session_7223648acccb413082ea1b4c0074a486",
-      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
-      "payerLabel": "Nima",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T11:45:52.569Z",
-      "updatedAt": "2026-04-17T11:45:52.569Z"
-    },
-    {
-      "id": "payment_share_fbf3c218b1e3409e84bf05ddf0a2c988",
-      "paymentSessionId": "payment_session_7223648acccb413082ea1b4c0074a486",
-      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
-      "payerLabel": "Farhad",
-      "amount": "23.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T11:45:52.569Z",
-      "updatedAt": "2026-04-17T11:45:52.569Z"
+      "createdAt": "2026-04-17T16:21:46.619Z",
+      "updatedAt": "2026-04-17T16:21:46.619Z"
     }
   ],
-  "paymentAttempts": [
-    {
-      "id": "payment_attempt_0efbd1cc22a242b0a69286729b97fc78",
-      "paymentShareId": "payment_share_1bfa87a1f76f41f59d63bb9e5cd7d4f8",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "PAY_BY_CARD",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T09:28:03.014Z",
-      "updatedAt": "2026-04-17T09:28:03.014Z"
-    },
-    {
-      "id": "payment_attempt_e56d308173644d13bba4afc4fbe8c99b",
-      "paymentShareId": "payment_share_1bfa87a1f76f41f59d63bb9e5cd7d4f8",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "COMPLETE_PENDING_PAYMENT",
-        "paymentShareStatus": "PENDING"
-      },
-      "callbackPayload": {
-        "paymentShareStatus": "PAID",
-        "paidAt": "2026-04-17T09:28:06.713Z"
-      },
-      "status": "SUCCEEDED",
-      "failureReason": null,
-      "createdAt": "2026-04-17T09:28:06.713Z",
-      "updatedAt": "2026-04-17T09:28:06.713Z"
-    },
-    {
-      "id": "payment_attempt_a542da9bd15344ff958d1cc182813bf6",
-      "paymentShareId": "payment_share_a2248f1b29024fd3a2b623486e21c502",
-      "provider": "MOCK_ONLINE_LINK",
-      "requestPayload": {
-        "action": "SEND_ONLINE_LINK",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T09:28:16.117Z",
-      "updatedAt": "2026-04-17T09:28:16.117Z"
-    },
-    {
-      "id": "payment_attempt_80f2d472f1054a9eb6dc5f8983fcb64c",
-      "paymentShareId": "payment_share_a2248f1b29024fd3a2b623486e21c502",
-      "provider": "MOCK_ONLINE_LINK",
-      "requestPayload": {
-        "action": "COMPLETE_PENDING_PAYMENT",
-        "paymentShareStatus": "PENDING"
-      },
-      "callbackPayload": {
-        "paymentShareStatus": "PAID",
-        "paidAt": "2026-04-17T09:28:17.640Z"
-      },
-      "status": "SUCCEEDED",
-      "failureReason": null,
-      "createdAt": "2026-04-17T09:28:17.640Z",
-      "updatedAt": "2026-04-17T09:28:17.640Z"
-    },
-    {
-      "id": "payment_attempt_b3d10e2afc084637a1c1b30b2a4a0f7e",
-      "paymentShareId": "payment_share_2f09932e28644d9e81c69c45a9616bc4",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "PAY_BY_CARD",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T09:29:16.099Z",
-      "updatedAt": "2026-04-17T09:29:16.099Z"
-    },
-    {
-      "id": "payment_attempt_51eb82c269fd421b81f83d8a5d309f88",
-      "paymentShareId": "payment_share_b177fc63df404b3c85e28eda527f8999",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "PAY_BY_CARD",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:38:03.558Z",
-      "updatedAt": "2026-04-17T11:38:03.558Z"
-    },
-    {
-      "id": "payment_attempt_6782788b83034fd09623372d22463ff9",
-      "paymentShareId": "payment_share_b177fc63df404b3c85e28eda527f8999",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "COMPLETE_PENDING_PAYMENT",
-        "paymentShareStatus": "PENDING"
-      },
-      "callbackPayload": {
-        "paymentShareStatus": "PAID",
-        "paidAt": "2026-04-17T11:38:14.734Z"
-      },
-      "status": "SUCCEEDED",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:38:14.734Z",
-      "updatedAt": "2026-04-17T11:38:14.734Z"
-    },
-    {
-      "id": "payment_attempt_9ca8cbc7b9754990a3be4a6e6b50e2d2",
-      "paymentShareId": "payment_share_2609deb915db48338c57b00b4226c198",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "PAY_BY_CARD",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:38:22.741Z",
-      "updatedAt": "2026-04-17T11:38:22.741Z"
-    },
-    {
-      "id": "payment_attempt_a18c1527e52643888951fa7295503845",
-      "paymentShareId": "payment_share_2609deb915db48338c57b00b4226c198",
-      "provider": "CARD_POS",
-      "requestPayload": {
-        "action": "COMPLETE_PENDING_PAYMENT",
-        "paymentShareStatus": "PENDING"
-      },
-      "callbackPayload": {
-        "paymentShareStatus": "PAID",
-        "paidAt": "2026-04-17T11:39:20.263Z"
-      },
-      "status": "SUCCEEDED",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:39:20.263Z",
-      "updatedAt": "2026-04-17T11:39:20.263Z"
-    },
-    {
-      "id": "payment_attempt_3204add139e34c5abda056d18a55f6c6",
-      "paymentShareId": "payment_share_c55b0c0d1da24b60aeb3ea76784bc3ba",
-      "provider": "CASH_DESK",
-      "requestPayload": {
-        "action": "PAY_BY_CASH",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:40:32.956Z",
-      "updatedAt": "2026-04-17T11:40:32.956Z"
-    },
-    {
-      "id": "payment_attempt_27a9fb382f4c42f9807a9bf7d3406223",
-      "paymentShareId": "payment_share_22a279793ce44faa91295af063a8ec26",
-      "provider": "MOCK_ONLINE_LINK",
-      "requestPayload": {
-        "action": "SEND_ONLINE_LINK",
-        "paymentShareStatus": "PENDING",
-        "amount": "23.00"
-      },
-      "callbackPayload": null,
-      "status": "PENDING",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:40:36.665Z",
-      "updatedAt": "2026-04-17T11:40:36.665Z"
-    },
-    {
-      "id": "payment_attempt_096bf18e055d4c45834105de72d7bdd5",
-      "paymentShareId": "payment_share_22a279793ce44faa91295af063a8ec26",
-      "provider": "MOCK_ONLINE_LINK",
-      "requestPayload": {
-        "action": "COMPLETE_PENDING_PAYMENT",
-        "paymentShareStatus": "PENDING"
-      },
-      "callbackPayload": {
-        "paymentShareStatus": "PAID",
-        "paidAt": "2026-04-17T11:40:50.136Z"
-      },
-      "status": "SUCCEEDED",
-      "failureReason": null,
-      "createdAt": "2026-04-17T11:40:50.136Z",
-      "updatedAt": "2026-04-17T11:40:50.136Z"
-    }
-  ]
+  "paymentAttempts": []
 }

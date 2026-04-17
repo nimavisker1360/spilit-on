@@ -205,7 +205,7 @@ export async function deleteBranch(input: DeleteBranchInput) {
       (session) => session.branchId === parsed.id && session.status === "OPEN"
     ).length;
 
-    if (openSessionsCount > 0) {
+    if (openSessionsCount > 0 && !parsed.force) {
       throw new Error("Close open table sessions before deleting this branch");
     }
 

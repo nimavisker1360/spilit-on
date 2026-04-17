@@ -49,7 +49,7 @@ CREATE TABLE "Payment" (
     "invoiceId" TEXT NOT NULL,
     "guestId" TEXT,
     "amount" DECIMAL(10,2) NOT NULL,
-    "currency" VARCHAR(3) NOT NULL DEFAULT 'USD',
+    "currency" VARCHAR(3) NOT NULL DEFAULT 'TRY',
     "method" VARCHAR(32) NOT NULL,
     "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "reference" TEXT,

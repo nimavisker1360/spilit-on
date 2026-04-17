@@ -11,7 +11,6 @@ import {
   paymentShareRecordSchema
 } from "@/features/payment/payment.schemas";
 import {
-  DEFAULT_PAYMENT_CURRENCY,
   type CashierPaymentShareAction,
   type CreatePaymentSessionFromInvoiceInput,
   type InvoicePaymentBundle,
@@ -88,6 +87,51 @@ type GuestPaymentEntryLine = {
   guestName: string | null;
 };
 
+type GuestPaymentLookupInput = {
+  guestId?: string;
+  guestName?: string;
+  sessionId?: string;
+};
+
+type GuestPaymentEntryGuestCandidate = {
+  id: string;
+  displayName: string;
+  hasPaymentShare: boolean;
+  shareAmount: string | null;
+  shareStatus: PaymentShareStatus | null;
+};
+
+type GuestPaymentEntryMatchSource = "EXACT_GUEST_ID" | "NORMALIZED_NAME" | "CASE_INSENSITIVE_NORMALIZED_NAME" | "ALIAS" | null;
+
+type GuestPaymentEntryMapping = {
+  matchSource: GuestPaymentEntryMatchSource;
+  requiresSelection: boolean;
+  message: string | null;
+  payMyShareDisabledReason: string | null;
+  candidates: GuestPaymentEntryGuestCandidate[];
+};
+
+type GuestPaymentEntryDebug = {
+  joinedCustomer: {
+    guestId: string | null;
+    guestName: string | null;
+    sessionId: string | null;
+    sessionScoped: boolean;
+  };
+  detectedGuestCandidates: Array<{
+    guestId: string;
+    displayName: string;
+    strategy: Exclude<GuestPaymentEntryMatchSource, null>;
+  }>;
+  finalMatchedGuestId: string | null;
+  matchedPaymentShareId: string | null;
+};
+
+type JoinedGuestSummary = {
+  id: string;
+  displayName: string;
+};
+
 export type GuestPaymentEntryDetail = {
   table: {
     id: string;
@@ -106,6 +150,7 @@ export type GuestPaymentEntryDetail = {
     id: string;
     displayName: string;
   } | null;
+  mapping: GuestPaymentEntryMapping;
   paymentSession: {
     id: string;
     splitMode: SplitMode;
@@ -120,6 +165,7 @@ export type GuestPaymentEntryDetail = {
     shares: GuestPaymentEntryShare[];
     invoiceLines: GuestPaymentEntryLine[];
   } | null;
+  debug?: GuestPaymentEntryDebug;
 };
 
 const CASH_PROVIDER = "CASH_DESK";
@@ -131,14 +177,14 @@ function formatFullPaymentLabel(tableName: string): string {
   const trimmed = tableName.trim();
 
   if (!trimmed) {
-    return "Full payment";
+    return "Tum hesap";
   }
 
-  if (/^table\b/i.test(trimmed)) {
-    return `${trimmed} - Full payment`;
+  if (/^table\b/i.test(trimmed) || /^masa\b/i.test(trimmed)) {
+    return `${trimmed} - Tum hesap`;
   }
 
-  return `Table ${trimmed} - Full payment`;
+  return `Masa ${trimmed} - Tum hesap`;
 }
 
 function resolveGuestLabel(assignment: InvoiceAssignmentRecord, guestMap: Map<string, GuestRecord>): string {
@@ -153,13 +199,13 @@ function getPaymentShareContext(store: LocalStoreData, paymentShareId: string): 
   const share = store.paymentShares.find((entry) => entry.id === paymentShareId);
 
   if (!share) {
-    throw new Error("Payment share not found");
+    throw new Error("Odeme payi bulunamadi.");
   }
 
   const paymentSession = store.paymentSessions.find((entry) => entry.id === share.paymentSessionId);
 
   if (!paymentSession) {
-    throw new Error("Payment session not found");
+    throw new Error("Odeme oturumu bulunamadi.");
   }
 
   return {
@@ -264,6 +310,210 @@ function toGuestPaymentEntryShare(share: PaymentShareDetail): GuestPaymentEntryS
   };
 }
 
+function normalizeGuestName(value: string): string {
+  return value.normalize("NFKC").replace(/\s+/g, " ").trim();
+}
+
+function foldGuestName(value: string): string {
+  return normalizeGuestName(value).toLocaleLowerCase("tr-TR");
+}
+
+function getSafeGuestAliases(guest: JoinedGuestSummary): string[] {
+  const aliasKeys = ["alias", "paymentAlias", "shortName"];
+  const guestRecord = guest as JoinedGuestSummary & Record<string, unknown>;
+  const aliases = aliasKeys.flatMap((key) => {
+    const value = guestRecord[key];
+    return typeof value === "string" ? [normalizeGuestName(value), foldGuestName(value)] : [];
+  });
+
+  return Array.from(new Set(aliases.filter(Boolean)));
+}
+
+function resolveGuestMatch(
+  joinedGuests: JoinedGuestSummary[],
+  lookup: GuestPaymentLookupInput,
+  activeSessionId: string
+): {
+  guest: JoinedGuestSummary | null;
+  matchSource: GuestPaymentEntryMatchSource;
+  detectedGuestCandidates: GuestPaymentEntryDebug["detectedGuestCandidates"];
+  sessionScoped: boolean;
+} {
+  const normalizedLookupGuestId = lookup.guestId?.trim() ?? "";
+  const normalizedLookupGuestName = normalizeGuestName(lookup.guestName ?? "");
+  const foldedLookupGuestName = foldGuestName(lookup.guestName ?? "");
+  const normalizedLookupSessionId = lookup.sessionId?.trim() ?? "";
+  const detectedCandidates: GuestPaymentEntryDebug["detectedGuestCandidates"] = [];
+  const detectedCandidateKeys = new Set<string>();
+  const sessionScoped = !normalizedLookupSessionId || normalizedLookupSessionId === activeSessionId;
+
+  function pushDetectedCandidates(
+    strategy: Exclude<GuestPaymentEntryMatchSource, null>,
+    guests: JoinedGuestSummary[]
+  ): void {
+    for (const guest of guests) {
+      const candidateKey = `${strategy}:${guest.id}`;
+
+      if (detectedCandidateKeys.has(candidateKey)) {
+        continue;
+      }
+
+      detectedCandidateKeys.add(candidateKey);
+      detectedCandidates.push({
+        guestId: guest.id,
+        displayName: guest.displayName,
+        strategy
+      });
+    }
+  }
+
+  if (!sessionScoped) {
+    return {
+      guest: null,
+      matchSource: null,
+      detectedGuestCandidates: detectedCandidates,
+      sessionScoped
+    };
+  }
+
+  if (normalizedLookupGuestId) {
+    const guest = joinedGuests.find((entry) => entry.id === normalizedLookupGuestId) ?? null;
+
+    if (guest) {
+      pushDetectedCandidates("EXACT_GUEST_ID", [guest]);
+      return {
+        guest,
+        matchSource: "EXACT_GUEST_ID",
+        detectedGuestCandidates: detectedCandidates,
+        sessionScoped
+      };
+    }
+  }
+
+  if (normalizedLookupGuestName) {
+    const normalizedNameMatches = joinedGuests.filter((guest) => normalizeGuestName(guest.displayName) === normalizedLookupGuestName);
+    pushDetectedCandidates("NORMALIZED_NAME", normalizedNameMatches);
+
+    if (normalizedNameMatches.length === 1) {
+      return {
+        guest: normalizedNameMatches[0],
+        matchSource: "NORMALIZED_NAME",
+        detectedGuestCandidates: detectedCandidates,
+        sessionScoped
+      };
+    }
+  }
+
+  if (foldedLookupGuestName) {
+    const foldedNameMatches = joinedGuests.filter((guest) => foldGuestName(guest.displayName) === foldedLookupGuestName);
+    pushDetectedCandidates("CASE_INSENSITIVE_NORMALIZED_NAME", foldedNameMatches);
+
+    if (foldedNameMatches.length === 1) {
+      return {
+        guest: foldedNameMatches[0],
+        matchSource: "CASE_INSENSITIVE_NORMALIZED_NAME",
+        detectedGuestCandidates: detectedCandidates,
+        sessionScoped
+      };
+    }
+
+    const aliasMatches = joinedGuests.filter((guest) => {
+      const aliases = getSafeGuestAliases(guest);
+      return aliases.includes(normalizedLookupGuestName) || aliases.includes(foldedLookupGuestName);
+    });
+    pushDetectedCandidates("ALIAS", aliasMatches);
+
+    if (aliasMatches.length === 1) {
+      return {
+        guest: aliasMatches[0],
+        matchSource: "ALIAS",
+        detectedGuestCandidates: detectedCandidates,
+        sessionScoped
+      };
+    }
+  }
+
+  return {
+    guest: null,
+    matchSource: null,
+    detectedGuestCandidates: detectedCandidates,
+    sessionScoped
+  };
+}
+
+function paymentShareSelectionPriority(status: PaymentShareStatus): number {
+  if (status === PaymentShareStatus.UNPAID) {
+    return 0;
+  }
+
+  if (status === PaymentShareStatus.PENDING) {
+    return 1;
+  }
+
+  if (status === PaymentShareStatus.PAID) {
+    return 2;
+  }
+
+  if (status === PaymentShareStatus.FAILED) {
+    return 3;
+  }
+
+  return 4;
+}
+
+function sortPaymentSharesForSelection(shares: PaymentShareDetail[]): PaymentShareDetail[] {
+  return [...shares].sort((left, right) => {
+    const priorityDifference = paymentShareSelectionPriority(left.status) - paymentShareSelectionPriority(right.status);
+
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    const updatedAtDifference = new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+
+    if (updatedAtDifference !== 0) {
+      return updatedAtDifference;
+    }
+
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
+}
+
+function resolveGuestPaymentShare(paymentSession: PaymentSessionDetail, guest: JoinedGuestSummary | null): PaymentShareDetail | null {
+  if (!guest) {
+    return null;
+  }
+
+  const exactGuestShares = paymentSession.shares.filter((share) => share.guestId === guest.id);
+
+  if (exactGuestShares.length > 0) {
+    return sortPaymentSharesForSelection(exactGuestShares)[0] ?? null;
+  }
+
+  const normalizedGuestName = normalizeGuestName(guest.displayName);
+
+  if (!normalizedGuestName) {
+    return null;
+  }
+
+  const normalizedLabelMatches = paymentSession.shares.filter(
+    (share) => !share.guestId && normalizeGuestName(share.payerLabel) === normalizedGuestName
+  );
+
+  if (normalizedLabelMatches.length === 1) {
+    return sortPaymentSharesForSelection(normalizedLabelMatches)[0] ?? null;
+  }
+
+  const foldedGuestLabel = foldGuestName(guest.displayName);
+  const foldedLabelMatches = paymentSession.shares.filter((share) => !share.guestId && foldGuestName(share.payerLabel) === foldedGuestLabel);
+
+  if (foldedLabelMatches.length === 1) {
+    return sortPaymentSharesForSelection(foldedLabelMatches)[0] ?? null;
+  }
+
+  return null;
+}
+
 function resolveFullBillShare(paymentSession: PaymentSessionDetail): PaymentShareDetail | null {
   if (paymentSession.shares.length === 0) {
     return null;
@@ -358,7 +608,7 @@ function initiatePendingShare(
   now: string
 ): string {
   if (share.status === PaymentShareStatus.PAID) {
-    throw new Error("This share is already paid.");
+    throw new Error("Bu odeme payi zaten tahsil edilmis.");
   }
 
   const provider = action === "PAY_BY_CASH" ? CASH_PROVIDER : action === "PAY_BY_CARD" ? CARD_PROVIDER : ONLINE_PROVIDER;
@@ -401,19 +651,19 @@ function initiatePendingShare(
   });
 
   if (action === "PAY_BY_CASH") {
-    return "Cash payment started. Complete or fail it from the settlement controls.";
+    return "Nakit odemesi baslatildi. Odeme masasindan tamamlayin veya basarisiz isaretleyin.";
   }
 
   if (action === "PAY_BY_CARD") {
-    return "Card payment started. Complete or fail it from the settlement controls.";
+    return "Kart odemesi baslatildi. Odeme masasindan tamamlayin veya basarisiz isaretleyin.";
   }
 
-  return "Mock online payment link is ready to send.";
+  return "Online odeme linki hazir.";
 }
 
 function completePendingShare(store: LocalStoreData, share: StoredPaymentShareRecord, now: string): string {
   if (share.status !== PaymentShareStatus.PENDING) {
-    throw new Error("Only pending shares can be completed.");
+    throw new Error("Yalnizca bekleyen odeme paylari tamamlanabilir.");
   }
 
   share.status = PaymentShareStatus.PAID;
@@ -435,16 +685,16 @@ function completePendingShare(store: LocalStoreData, share: StoredPaymentShareRe
     timestamp: now
   });
 
-  return share.provider === ONLINE_PROVIDER ? "Mock online payment completed." : "Payment completed and marked as paid.";
+  return share.provider === ONLINE_PROVIDER ? "Online odeme tamamlandi." : "Odeme tamamlandi ve tahsil edildi.";
 }
 
 function markShareFailed(store: LocalStoreData, share: StoredPaymentShareRecord, now: string): string {
   if (share.status === PaymentShareStatus.PAID) {
-    throw new Error("Paid shares cannot be marked as failed.");
+    throw new Error("Tahsil edilmis odeme paylari basarisiz olarak isaretlenemez.");
   }
 
   if (share.status === PaymentShareStatus.FAILED) {
-    return "This share is already marked as failed.";
+    return "Bu odeme payi zaten basarisiz olarak isaretli.";
   }
 
   const previousStatus = share.status;
@@ -470,11 +720,13 @@ function markShareFailed(store: LocalStoreData, share: StoredPaymentShareRecord,
     callbackPayload: {
       paymentShareStatus: share.status
     },
-    failureReason: "Marked as failed in mock settlement flow.",
+    failureReason: "Mock odeme akisinda basarisiz olarak isaretlendi.",
     timestamp: now
   });
 
-  return previousStatus === PaymentShareStatus.PENDING ? "Pending payment marked as failed." : "Payment marked as failed.";
+  return previousStatus === PaymentShareStatus.PENDING
+    ? "Bekleyen odeme basarisiz olarak isaretlendi."
+    : "Odeme basarisiz olarak isaretlendi.";
 }
 
 function applyPaymentShareActionInStore(
@@ -493,7 +745,7 @@ function applyPaymentShareActionInStore(
         : action === "MARK_PAYMENT_FAILED"
           ? markShareFailed(store, share, now)
           : (() => {
-              throw new Error("Unsupported cashier payment action.");
+              throw new Error("Desteklenmeyen kasiyer odeme aksiyonu.");
             })();
 
   const synchronizedSession = synchronizeSettlementState(store, paymentSession, now);
@@ -520,14 +772,14 @@ function getValidatedMockPaymentLinkDetail(
   const { share, paymentSession } = getPaymentShareContext(store, paymentShareId);
 
   if (share.provider !== ONLINE_PROVIDER || !share.providerConversationId || share.providerConversationId !== token) {
-    throw new Error("Mock payment link is invalid or has expired.");
+    throw new Error("Odeme linki gecersiz veya suresi dolmus.");
   }
 
   const hydratedPaymentSession = hydratePaymentSessionDetail(store, paymentSession);
   const hydratedShare = hydratedPaymentSession.shares.find((entry) => entry.id === share.id);
 
   if (!hydratedShare) {
-    throw new Error("Payment share not found for this link.");
+    throw new Error("Bu link icin odeme payi bulunamadi.");
   }
 
   return {
@@ -548,7 +800,7 @@ export function buildPaymentBundleForInvoice(input: CreatePaymentSessionFromInvo
     totalAmount: parsed.totalAmount,
     paidAmount: "0.00",
     remainingAmount: parsed.totalAmount,
-    currency: DEFAULT_PAYMENT_CURRENCY,
+    currency: parsed.currency,
     status: PaymentSessionStatus.OPEN,
     createdAt: now,
     updatedAt: now
@@ -628,9 +880,16 @@ export async function applyCashierPaymentShareAction(
   return updateStore((store) => applyPaymentShareActionInStore(store, parsed.paymentShareId, parsed.action, currentTimestamp()));
 }
 
-export async function getGuestPaymentEntry(tableCode: string, guestId?: string): Promise<GuestPaymentEntryDetail> {
+export async function getGuestPaymentEntry(
+  tableCode: string,
+  lookup: GuestPaymentLookupInput = {}
+): Promise<GuestPaymentEntryDetail> {
   const normalizedTableCode = tableCode.trim();
-  const normalizedGuestId = guestId?.trim() ?? "";
+  const normalizedLookup = {
+    guestId: lookup.guestId?.trim() ?? "",
+    guestName: lookup.guestName?.trim() ?? "",
+    sessionId: lookup.sessionId?.trim() ?? ""
+  };
 
   if (!normalizedTableCode) {
     throw new Error("Table code is required.");
@@ -646,6 +905,21 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
   const activeSession = store.sessions.find((entry) => entry.tableId === table.id && entry.status === "OPEN") ?? null;
 
   if (!activeSession) {
+    const debug =
+      process.env.NODE_ENV !== "production"
+        ? {
+            joinedCustomer: {
+              guestId: normalizedLookup.guestId || null,
+              guestName: normalizedLookup.guestName || null,
+              sessionId: normalizedLookup.sessionId || null,
+              sessionScoped: false
+            },
+            detectedGuestCandidates: [],
+            finalMatchedGuestId: null,
+            matchedPaymentShareId: null
+          }
+        : undefined;
+
     return cloneValue({
       table: {
         id: table.id,
@@ -654,7 +928,15 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
       },
       session: null,
       identifiedGuest: null,
-      paymentSession: null
+      mapping: {
+        matchSource: null,
+        requiresSelection: false,
+        message: "Bu masada su an acik bir oturum yok. Personelden masayi acmasini isteyin.",
+        payMyShareDisabledReason: "Acik masa oturumu olmadigi icin kendi payinizi secemezsiniz.",
+        candidates: []
+      },
+      paymentSession: null,
+      debug
     });
   }
 
@@ -663,11 +945,41 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
     displayName: guest.displayName
   }));
   const joinedGuestMap = new Map(joinedGuests.map((guest) => [guest.id, guest]));
-  const identifiedGuest = normalizedGuestId ? joinedGuestMap.get(normalizedGuestId) ?? null : null;
+  const guestMatch = resolveGuestMatch(joinedGuests, normalizedLookup, activeSession.id);
+  const identifiedGuest = guestMatch.guest ? cloneValue(guestMatch.guest) : null;
   const latestPaymentSession =
     sortByCreatedAtDesc(store.paymentSessions.filter((paymentSession) => paymentSession.sessionId === activeSession.id))[0] ?? null;
 
+  const baseGuestCandidates = joinedGuests.map((guest) => ({
+    id: guest.id,
+    displayName: guest.displayName,
+    hasPaymentShare: false,
+    shareAmount: null,
+    shareStatus: null
+  }));
+
   if (!latestPaymentSession) {
+    const requiresSelection = !identifiedGuest && joinedGuests.length > 0;
+    const mappingMessage = identifiedGuest
+      ? `${identifiedGuest.displayName} olarak eslestiniz. Hesap hazirlaninca payiniz burada gosterilecek.`
+      : joinedGuests.length > 0
+        ? "Kendi payinizi gormek icin adinizi secin. Hesap hazir oldugunda eslestirme korunur."
+        : "Once masaya adinizla katilin. Hesap hazir oldugunda kendi payinizi gorebilirsiniz.";
+    const debug =
+      process.env.NODE_ENV !== "production"
+        ? {
+            joinedCustomer: {
+              guestId: normalizedLookup.guestId || null,
+              guestName: normalizedLookup.guestName || null,
+              sessionId: normalizedLookup.sessionId || null,
+              sessionScoped: guestMatch.sessionScoped
+            },
+            detectedGuestCandidates: guestMatch.detectedGuestCandidates,
+            finalMatchedGuestId: identifiedGuest?.id ?? null,
+            matchedPaymentShareId: null
+          }
+        : undefined;
+
     return cloneValue({
       table: {
         id: table.id,
@@ -680,15 +992,32 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
         guests: joinedGuests
       },
       identifiedGuest,
-      paymentSession: null
+      mapping: {
+        matchSource: guestMatch.matchSource,
+        requiresSelection,
+        message: mappingMessage,
+        payMyShareDisabledReason: "Kasada odeme paylari henuz hazir degil.",
+        candidates: baseGuestCandidates
+      },
+      paymentSession: null,
+      debug
     });
   }
 
   const hydratedPaymentSession = hydratePaymentSessionDetail(store, latestPaymentSession);
-  const myShare = identifiedGuest
-    ? hydratedPaymentSession.shares.find((share) => share.guestId === identifiedGuest.id) ?? null
-    : null;
+  const myShare = resolveGuestPaymentShare(hydratedPaymentSession, identifiedGuest);
   const fullBillShare = resolveFullBillShare(hydratedPaymentSession);
+  const guestCandidates = joinedGuests.map((guest) => {
+    const share = resolveGuestPaymentShare(hydratedPaymentSession, guest);
+
+    return {
+      id: guest.id,
+      displayName: guest.displayName,
+      hasPaymentShare: Boolean(share),
+      shareAmount: share?.amount ?? null,
+      shareStatus: share?.status ?? null
+    };
+  });
   const invoiceLines = store.invoiceLines
     .filter((entry) => entry.invoiceId === hydratedPaymentSession.invoiceId)
     .map((entry) => ({
@@ -698,6 +1027,44 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
       guestId: entry.guestId,
       guestName: entry.guestId ? joinedGuestMap.get(entry.guestId)?.displayName ?? null : null
     }));
+  const requiresSelection = !identifiedGuest && guestCandidates.length > 0;
+
+  let mappingMessage: string | null = null;
+  let payMyShareDisabledReason: string | null = null;
+
+  if (!identifiedGuest) {
+    mappingMessage =
+      guestCandidates.length > 0
+        ? "Adinizi secerek kendi payinizi eslestirin."
+        : "Kendi payinizi odemek icin once masaya adinizla katilin.";
+    payMyShareDisabledReason =
+      guestCandidates.length > 0
+        ? "Kendi payinizi odemek icin once adinizi secin."
+        : "Kendi payinizi odemek icin once masaya adinizla katilin.";
+  } else if (!myShare) {
+    mappingMessage = `${identifiedGuest.displayName} icin aktif bir odeme payi bulunamadi. Kasadan kontrol isteyin.`;
+    payMyShareDisabledReason = "Secilen kisi icin odenebilir bir pay bulunamadi.";
+  } else if (myShare.status === PaymentShareStatus.PAID) {
+    mappingMessage = `${identifiedGuest.displayName} icin odeme tamamlanmis gorunuyor.`;
+    payMyShareDisabledReason = "Bu pay daha once odenmis.";
+  } else {
+    mappingMessage = `${identifiedGuest.displayName} icin payiniz hazir.`;
+  }
+
+  const debug =
+    process.env.NODE_ENV !== "production"
+      ? {
+          joinedCustomer: {
+            guestId: normalizedLookup.guestId || null,
+            guestName: normalizedLookup.guestName || null,
+            sessionId: normalizedLookup.sessionId || null,
+            sessionScoped: guestMatch.sessionScoped
+          },
+          detectedGuestCandidates: guestMatch.detectedGuestCandidates,
+          finalMatchedGuestId: identifiedGuest?.id ?? null,
+          matchedPaymentShareId: myShare?.id ?? null
+        }
+      : undefined;
 
   return cloneValue({
     table: {
@@ -711,6 +1078,13 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
       guests: joinedGuests
     },
     identifiedGuest,
+    mapping: {
+      matchSource: guestMatch.matchSource,
+      requiresSelection,
+      message: mappingMessage,
+      payMyShareDisabledReason,
+      candidates: guestCandidates
+    },
     paymentSession: {
       id: hydratedPaymentSession.id,
       splitMode: hydratedPaymentSession.splitMode,
@@ -724,7 +1098,8 @@ export async function getGuestPaymentEntry(tableCode: string, guestId?: string):
       fullBillShare: fullBillShare ? toGuestPaymentEntryShare(fullBillShare) : null,
       shares: hydratedPaymentSession.shares.map((share) => toGuestPaymentEntryShare(share)),
       invoiceLines
-    }
+    },
+    debug
   });
 }
 
@@ -743,7 +1118,7 @@ export async function applyMockPaymentLinkAction(
 
     if (action === "COMPLETE") {
       if (linkDetail.paymentShare.status !== PaymentShareStatus.PENDING) {
-        throw new Error("Only pending mock links can be completed.");
+        throw new Error("Yalnizca bekleyen odeme linkleri tamamlanabilir.");
       }
 
       const result = applyPaymentShareActionInStore(store, paymentShareId, "COMPLETE_PENDING_PAYMENT", currentTimestamp());

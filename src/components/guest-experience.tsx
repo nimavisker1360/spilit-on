@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { formatTryCurrency } from "@/lib/currency";
 import { clearGuestIdentity, readGuestIdentity, writeGuestIdentity } from "@/lib/guest-identity";
 
 type GuestMenuItem = {
@@ -62,10 +63,6 @@ async function fetchGuestState(tableCode: string): Promise<GuestState> {
   return json.data;
 }
 
-function formatCurrency(value: string): string {
-  return `$${Number(value).toFixed(2)}`;
-}
-
 function formatSessionDisplayLabel(state: GuestState): string {
   return `${state.table.branch.name} \u2022 ${state.table.name} \u2022 Active Session`;
 }
@@ -73,6 +70,14 @@ function formatSessionDisplayLabel(state: GuestState): string {
 function formatOrderReference(orderId: string): string {
   const suffix = orderId.replace(/[^a-z0-9]/gi, "").slice(-4).toUpperCase().padStart(4, "0");
   return `ORD-${suffix}`;
+}
+
+function normalizeGuestName(value: string): string {
+  return value.normalize("NFKC").replace(/\s+/g, " ").trim();
+}
+
+function foldGuestName(value: string): string {
+  return normalizeGuestName(value).toLocaleLowerCase("tr-TR");
 }
 
 type Props = {
@@ -120,16 +125,15 @@ export function GuestExperience({ tableCode }: Props) {
     const fallbackPath = `/guest/${encodeURIComponent(tableCode)}`;
     const safePathname = pathname ?? fallbackPath;
     const normalizedPath = safePathname.endsWith("/") ? safePathname.slice(0, -1) : safePathname;
-    const guestQuery = guestId ? `?guestId=${encodeURIComponent(guestId)}` : "";
 
-    return `${normalizedPath}/payment${guestQuery}`;
-  }, [guestId, pathname, tableCode]);
+    return `${normalizedPath}/payment`;
+  }, [pathname, tableCode]);
 
   useEffect(() => {
-    const storedGuestId = readGuestIdentity(tableCode);
+    const storedGuestIdentity = readGuestIdentity(tableCode);
 
-    if (storedGuestId) {
-      setGuestId((current) => current || storedGuestId);
+    if (storedGuestIdentity?.guestId) {
+      setGuestId((current) => current || storedGuestIdentity.guestId);
     }
   }, [tableCode]);
 
@@ -219,16 +223,53 @@ export function GuestExperience({ tableCode }: Props) {
     try {
       const payload = await fetchGuestState(tableCode);
       setState(payload);
+      const storedIdentity = readGuestIdentity(tableCode);
+      const activeSessionId = payload.session?.id ?? null;
 
-      if (guestId) {
-        const activeGuest = payload.session?.guests.find((guest) => guest.id === guestId);
-        if (!activeGuest) {
+      if (!payload.session) {
+        if (guestId || storedIdentity) {
           setGuestId("");
           clearGuestIdentity(tableCode);
-        } else {
-          writeGuestIdentity(tableCode, activeGuest.id);
         }
+        return;
       }
+
+      if (storedIdentity?.sessionId && storedIdentity.sessionId !== payload.session.id) {
+        setGuestId("");
+        clearGuestIdentity(tableCode);
+        return;
+      }
+
+      const lookupGuestId = guestId.trim() || storedIdentity?.guestId?.trim() || "";
+      let activeGuest = lookupGuestId ? payload.session.guests.find((guest) => guest.id === lookupGuestId) ?? null : null;
+
+      if (!activeGuest && storedIdentity?.guestName) {
+        const normalizedStoredName = normalizeGuestName(storedIdentity.guestName);
+        const foldedStoredName = foldGuestName(storedIdentity.guestName);
+
+        activeGuest =
+          payload.session.guests.find((guest) => normalizeGuestName(guest.displayName) === normalizedStoredName) ??
+          payload.session.guests.find((guest) => foldGuestName(guest.displayName) === foldedStoredName) ??
+          null;
+      }
+
+      if (!activeGuest) {
+        if (lookupGuestId || storedIdentity?.guestName) {
+          setGuestId("");
+          clearGuestIdentity(tableCode);
+        }
+        return;
+      }
+
+      if (guestId !== activeGuest.id) {
+        setGuestId(activeGuest.id);
+      }
+
+      writeGuestIdentity(tableCode, {
+        guestId: activeGuest.id,
+        guestName: activeGuest.displayName,
+        sessionId: activeSessionId
+      });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load table");
     } finally {
@@ -272,7 +313,11 @@ export function GuestExperience({ tableCode }: Props) {
       }
 
       setGuestId(json.data.guest.id);
-      writeGuestIdentity(tableCode, json.data.guest.id);
+      writeGuestIdentity(tableCode, {
+        guestId: json.data.guest.id,
+        guestName: json.data.guest.displayName,
+        sessionId: state?.session?.id ?? null
+      });
       setJoinName("");
       setMessage(`Joined as ${json.data.guest.displayName}`);
       await load();
@@ -541,7 +586,7 @@ export function GuestExperience({ tableCode }: Props) {
                         >
                           <div className="menu-item-head">
                             <h4>{item.name}</h4>
-                            <span className="menu-item-price">${Number(item.price).toFixed(2)}</span>
+                            <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
                           </div>
                           <p className="menu-item-description">{item.description ?? "No description."}</p>
                           <div className="menu-item-meta">
@@ -564,7 +609,7 @@ export function GuestExperience({ tableCode }: Props) {
                 {selectedMenuItem ? (
                   <>
                     <p>
-                      <strong>{selectedMenuItem.name}</strong> - {formatCurrency(selectedMenuItem.price)}
+                      <strong>{selectedMenuItem.name}</strong> - {formatTryCurrency(selectedMenuItem.price)}
                     </p>
                     <div className="badge-row">
                       <span className={`badge${selectedMenuItem.isAvailable ? "" : " badge-unavailable"}`}>

@@ -22,7 +22,8 @@ export const updateTableSchema = z.object({
 });
 
 export const deleteTableSchema = z.object({
-  id: z.string().min(1)
+  id: z.string().min(1),
+  force: z.coerce.boolean().optional().default(false)
 });
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;

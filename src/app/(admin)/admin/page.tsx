@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import * as XLSX from "xlsx";
 
 import { AdminActions, AdminField, AdminFormCard } from "@/components/admin/admin-form";
+import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
 import { getTablePublicUrl } from "@/lib/public-url";
 
 type SessionSummary = {
@@ -89,7 +91,112 @@ type ApiSnapshotResponse = {
 type HttpMutationMethod = "POST" | "PUT" | "DELETE";
 type AvailabilityValue = "true" | "false";
 
+type MenuImportPreviewRow = {
+  rowNumber: number;
+  branchName: string;
+  name: string;
+  description: string;
+  categoryName: string;
+  priceInput: string;
+  priceValue: number | null;
+  sortOrder: number;
+  isAvailable: boolean;
+  errors: string[];
+};
+
+type MenuImportPayloadRow = {
+  name: string;
+  description: string;
+  categoryName: string;
+  price: number;
+  sortOrder: number;
+  isAvailable: boolean;
+};
+
+type MenuImportResult = {
+  processedCount: number;
+  createdCount: number;
+  updatedCount: number;
+  categoriesCreatedCount: number;
+};
+
+type MenuImportRawRow = Record<string, unknown>;
+
+type MenuImportColumnMapping = Record<ImportColumnKey, string>;
+
 const TABLE_STATUS_OPTIONS: TableStatus[] = ["AVAILABLE", "OCCUPIED", "OUT_OF_SERVICE"];
+const MAX_IMPORT_ROWS = 2000;
+
+const MENU_IMPORT_COLUMN_ALIASES = {
+  branchName: ["branch", "branchname", "branch_name", "sube", "subename", "location", "locationname"],
+  name: [
+    "name",
+    "ad",
+    "isim",
+    "urun",
+    "item",
+    "itemname",
+    "item_name",
+    "menuitem",
+    "menu_item",
+    "menuitemname",
+    "product",
+    "productname",
+    "dishname"
+  ],
+  description: ["description", "desc", "aciklama", "detay", "itemdescription", "productdescription"],
+  categoryName: [
+    "category",
+    "kategori",
+    "categoryname",
+    "category_name",
+    "kategoriname",
+    "kategoriadi",
+    "menucategory",
+    "menu_category",
+    "menucategoryname",
+    "group",
+    "cat"
+  ],
+  price: [
+    "price",
+    "fiyat",
+    "amount",
+    "tutar",
+    "ucret",
+    "cost",
+    "pricetry",
+    "price_try",
+    "tryprice",
+    "try_price",
+    "pricetl",
+    "price_tl",
+    "tlprice",
+    "tl_price",
+    "unitprice",
+    "unit_price"
+  ],
+  sortOrder: ["sortorder", "sort", "order", "sort_order", "sirano", "sira", "priority"],
+  isAvailable: ["isavailable", "availability", "available", "aktif", "durum", "status", "active", "visible"]
+} as const;
+
+type ImportColumnKey = keyof typeof MENU_IMPORT_COLUMN_ALIASES;
+
+const IMPORT_COLUMN_KEYS = Object.keys(MENU_IMPORT_COLUMN_ALIASES) as ImportColumnKey[];
+
+const IMPORT_MAPPING_FIELDS: Array<{
+  key: ImportColumnKey;
+  label: string;
+  required: boolean;
+}> = [
+  { key: "branchName", label: "Branch column", required: false },
+  { key: "name", label: "Item name column", required: true },
+  { key: "price", label: "Price column", required: true },
+  { key: "categoryName", label: "Category column", required: false },
+  { key: "description", label: "Description column", required: false },
+  { key: "sortOrder", label: "Sort order column", required: false },
+  { key: "isAvailable", label: "Availability column", required: false }
+];
 
 async function requestJson<T>(url: string, method: HttpMutationMethod, payload: unknown): Promise<T> {
   const response = await fetch(url, {
@@ -117,10 +224,6 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function formatCurrency(value: string | number): string {
-  return `$${Number(value).toFixed(2)}`;
-}
-
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString();
 }
@@ -131,6 +234,159 @@ function formatShortTime(value: string): string {
 
 function formatTableSessionSummary(tableName: string, session: SessionSummary): string {
   return `Table ${tableName} • Opened ${formatShortTime(session.openedAt)}`;
+}
+
+function sanitizePriceInput(value: string): string {
+  return value.replace(/[^\d,.\s₺]/g, "");
+}
+
+function formatPriceFieldValue(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const parsed = parseMoneyValue(trimmed);
+  return parsed === null ? trimmed : formatTryMoneyInput(parsed);
+}
+
+function normalizeImportColumnName(value: string): string {
+  return value
+    .normalize("NFKD")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/[\u200c\u200d\u200e\u200f]/g, "")
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 1776))
+    .replace(/[يى]/g, "\u06cc")
+    .replace(/ك/g, "\u06a9")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0131/g, "i")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function toImportCellText(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : "";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  return String(value).trim();
+}
+
+function buildImportColumnAliasLookup(): Record<ImportColumnKey, Set<string>> {
+  return {
+    branchName: new Set(MENU_IMPORT_COLUMN_ALIASES.branchName.map(normalizeImportColumnName)),
+    name: new Set(MENU_IMPORT_COLUMN_ALIASES.name.map(normalizeImportColumnName)),
+    description: new Set(MENU_IMPORT_COLUMN_ALIASES.description.map(normalizeImportColumnName)),
+    categoryName: new Set(MENU_IMPORT_COLUMN_ALIASES.categoryName.map(normalizeImportColumnName)),
+    price: new Set(MENU_IMPORT_COLUMN_ALIASES.price.map(normalizeImportColumnName)),
+    sortOrder: new Set(MENU_IMPORT_COLUMN_ALIASES.sortOrder.map(normalizeImportColumnName)),
+    isAvailable: new Set(MENU_IMPORT_COLUMN_ALIASES.isAvailable.map(normalizeImportColumnName))
+  };
+}
+
+function createEmptyImportColumnMapping(): MenuImportColumnMapping {
+  return {
+    branchName: "",
+    name: "",
+    description: "",
+    categoryName: "",
+    price: "",
+    sortOrder: "",
+    isAvailable: ""
+  };
+}
+
+function autoDetectImportColumnMapping(sourceColumns: string[]): MenuImportColumnMapping {
+  const aliasLookup = buildImportColumnAliasLookup();
+  const nextMapping = createEmptyImportColumnMapping();
+
+  for (const key of IMPORT_COLUMN_KEYS) {
+    nextMapping[key] =
+      sourceColumns.find((columnName) => aliasLookup[key].has(normalizeImportColumnName(columnName))) ?? "";
+  }
+
+  return nextMapping;
+}
+
+function getMappedImportCellValue(row: MenuImportRawRow, columnName: string): unknown {
+  if (!columnName) {
+    return "";
+  }
+
+  return row[columnName] ?? "";
+}
+
+function findImportCellValue(
+  row: Record<string, unknown>,
+  aliasLookup: Record<ImportColumnKey, Set<string>>,
+  column: ImportColumnKey
+): unknown {
+  for (const [rawColumnName, value] of Object.entries(row)) {
+    const normalizedColumnName = normalizeImportColumnName(rawColumnName);
+
+    if (aliasLookup[column].has(normalizedColumnName)) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function parseImportSortOrder(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.trunc(value) : 0;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return 0;
+    }
+
+    const parsed = Number(trimmed.replace(",", "."));
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+  }
+
+  return 0;
+}
+
+function parseImportAvailability(value: unknown): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = normalizeImportColumnName(value);
+
+    if (!normalized) {
+      return true;
+    }
+
+    if (["0", "false", "hayir", "no", "n", "pasif", "kapali"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function getTableStatusBadgeClass(status: TableStatus): string {
@@ -195,6 +451,15 @@ export default function AdminDashboardPage() {
     sortOrder: "1",
     isAvailable: "true" as AvailabilityValue
   });
+
+  const [importBranchId, setImportBranchId] = useState("");
+  const [importFileName, setImportFileName] = useState("");
+  const [importSourceColumns, setImportSourceColumns] = useState<string[]>([]);
+  const [importSourceRows, setImportSourceRows] = useState<MenuImportRawRow[]>([]);
+  const [importColumnMapping, setImportColumnMapping] = useState<MenuImportColumnMapping>(createEmptyImportColumnMapping());
+  const [isImportingItems, setIsImportingItems] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
+  const [importError, setImportError] = useState("");
 
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [branchEditForm, setBranchEditForm] = useState({
@@ -267,6 +532,18 @@ export default function AdminDashboardPage() {
     );
   }, [branches]);
 
+  useEffect(() => {
+    if (!importBranchId) {
+      return;
+    }
+
+    if (branches.some((branch) => branch.id === importBranchId)) {
+      return;
+    }
+
+    setImportBranchId(branches[0]?.id ?? "");
+  }, [branches, importBranchId]);
+
   const selectableCategoriesForCreateItem = useMemo(() => {
     return branches.find((branch) => branch.id === itemForm.branchId)?.menuCategories ?? [];
   }, [branches, itemForm.branchId]);
@@ -274,6 +551,108 @@ export default function AdminDashboardPage() {
   const selectableCategoriesForEditItem = useMemo(() => {
     return branches.find((branch) => branch.id === itemEditForm.branchId)?.menuCategories ?? [];
   }, [branches, itemEditForm.branchId]);
+
+  const createItemPricePreview = useMemo(() => {
+    const parsed = parseMoneyValue(itemForm.price);
+    return parsed === null ? null : formatTryCurrency(parsed);
+  }, [itemForm.price]);
+
+  const editItemPricePreview = useMemo(() => {
+    const parsed = parseMoneyValue(itemEditForm.price);
+    return parsed === null ? null : formatTryCurrency(parsed);
+  }, [itemEditForm.price]);
+
+  const selectedImportBranch = useMemo(
+    () => branches.find((branch) => branch.id === importBranchId) ?? null,
+    [branches, importBranchId]
+  );
+
+  const importRows = useMemo<MenuImportPreviewRow[]>(() => {
+    if (importSourceRows.length === 0) {
+      return [];
+    }
+
+    return importSourceRows
+      .map((rawRow, index) => {
+        const branchName = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.branchName));
+        const name = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.name));
+        const description = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.description));
+        const categoryName = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.categoryName));
+        const priceInput = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.price));
+        const sortOrder = parseImportSortOrder(getMappedImportCellValue(rawRow, importColumnMapping.sortOrder));
+        const isAvailable = parseImportAvailability(getMappedImportCellValue(rawRow, importColumnMapping.isAvailable));
+        const priceValue = parseMoneyValue(priceInput);
+        const errors: string[] = [];
+
+        if (!importColumnMapping.name) {
+          errors.push("Urun kolonu secilmemis.");
+        } else if (!name) {
+          errors.push("Urun adi bos olamaz.");
+        } else if (name.length < 2) {
+          errors.push("Urun adi en az 2 karakter olmali.");
+        }
+
+        if (!importColumnMapping.price) {
+          errors.push("Fiyat kolonu secilmemis.");
+        } else if (priceValue === null || priceValue <= 0) {
+          errors.push("Fiyat pozitif bir TL tutari olmali.");
+        }
+
+        if (importColumnMapping.sortOrder && (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 999)) {
+          errors.push("Sira degeri 0 ile 999 arasinda olmali.");
+        }
+
+        if (
+          importColumnMapping.branchName &&
+          branchName &&
+          selectedImportBranch &&
+          normalizeImportColumnName(branchName) !== normalizeImportColumnName(selectedImportBranch.name)
+        ) {
+          errors.push("Branch kolonu secili branch ile uyusmuyor.");
+        }
+
+        return {
+          rowNumber: index + 2,
+          branchName,
+          name,
+          description,
+          categoryName,
+          priceInput,
+          priceValue,
+          sortOrder,
+          isAvailable,
+          errors
+        };
+      })
+      .filter((row) => row.branchName || row.name || row.description || row.categoryName || row.priceInput);
+  }, [importSourceRows, importColumnMapping, selectedImportBranch]);
+
+  const missingRequiredImportMappings = useMemo(
+    () =>
+      [
+        importColumnMapping.name ? null : "Item name column",
+        importColumnMapping.price ? null : "Price column"
+      ].filter((value): value is string => Boolean(value)),
+    [importColumnMapping.name, importColumnMapping.price]
+  );
+
+  const validImportRows = useMemo(() => importRows.filter((row) => row.errors.length === 0), [importRows]);
+  const invalidImportRows = useMemo(() => importRows.filter((row) => row.errors.length > 0), [importRows]);
+
+  const importPayloadRows = useMemo<MenuImportPayloadRow[]>(() => {
+    return validImportRows
+      .filter((row) => row.priceValue !== null)
+      .map((row) => ({
+        name: row.name,
+        description: row.description,
+        categoryName: row.categoryName,
+        price: row.priceValue ?? 0,
+        sortOrder: row.sortOrder,
+        isAvailable: row.isAvailable
+      }));
+  }, [validImportRows]);
+
+  const previewedImportRows = useMemo(() => importRows.slice(0, 12), [importRows]);
 
   const loadSnapshot = useCallback(async () => {
     setIsLoading(true);
@@ -300,6 +679,7 @@ export default function AdminDashboardPage() {
         setTableForm((prev) => (prev.branchId ? prev : { ...prev, branchId: firstBranch.id }));
         setCategoryForm((prev) => (prev.branchId ? prev : { ...prev, branchId: firstBranch.id }));
         setItemForm((prev) => (prev.branchId ? prev : { ...prev, branchId: firstBranch.id }));
+        setImportBranchId((prev) => (prev ? prev : firstBranch.id));
       }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load snapshot");
@@ -397,7 +777,7 @@ export default function AdminDashboardPage() {
         categoryId: itemForm.categoryId || undefined,
         name: itemForm.name,
         description: itemForm.description,
-        price: Number(itemForm.price),
+        price: itemForm.price,
         sortOrder: Number(itemForm.sortOrder),
         isAvailable: itemForm.isAvailable === "true"
       });
@@ -415,6 +795,151 @@ export default function AdminDashboardPage() {
       await loadSnapshot();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Create item failed");
+    }
+  }
+
+  function handleImportMappingChange(field: ImportColumnKey, columnName: string) {
+    setImportColumnMapping((prev) => ({
+      ...prev,
+      [field]: columnName
+    }));
+    setImportError("");
+  }
+
+  async function handleImportFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+
+    if (!file) {
+      setImportFileName("");
+      setImportSourceColumns([]);
+      setImportSourceRows([]);
+      setImportColumnMapping(createEmptyImportColumnMapping());
+      setImportMessage("");
+      setImportError("");
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setImportError("");
+    setImportMessage("");
+
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const firstSheetName = workbook.SheetNames[0];
+
+      if (!firstSheetName) {
+        throw new Error("Secilen dosyada okunabilir bir sayfa bulunamadi.");
+      }
+
+      const firstSheet = workbook.Sheets[firstSheetName];
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+
+      if (rawRows.length === 0) {
+        throw new Error("Secilen dosyada aktarilacak satir bulunamadi.");
+      }
+
+      if (rawRows.length > MAX_IMPORT_ROWS) {
+        throw new Error(`Tek seferde en fazla ${MAX_IMPORT_ROWS} satir import edilebilir.`);
+      }
+
+      const sourceColumns = Array.from(
+        new Set(rawRows.flatMap((rawRow) => Object.keys(rawRow).map((key) => key.trim()).filter(Boolean)))
+      );
+      const autoDetectedMapping = autoDetectImportColumnMapping(sourceColumns);
+
+      if (sourceColumns.length === 0) {
+        throw new Error("Dosyada aktarilabilir satir bulunamadi.");
+      }
+
+      setImportFileName(file.name);
+      setImportSourceColumns(sourceColumns);
+      setImportSourceRows(rawRows);
+      setImportColumnMapping(autoDetectedMapping);
+      const nextMessage = `${file.name} dosyasi okundu. Kolon eslestirmesini kontrol edip import edin.`;
+      setMessage(nextMessage);
+      setImportMessage(nextMessage);
+    } catch (fileError) {
+      setImportFileName("");
+      setImportSourceColumns([]);
+      setImportSourceRows([]);
+      setImportColumnMapping(createEmptyImportColumnMapping());
+      const nextError = fileError instanceof Error ? fileError.message : "Dosya import onizlemesi basarisiz.";
+      setError(nextError);
+      setImportError(nextError);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  async function handleImportMenuItems(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setImportError("");
+    setImportMessage("");
+
+    if (!importBranchId) {
+      const nextError = "Import icin bir branch secin.";
+      setError(nextError);
+      setImportError(nextError);
+      return;
+    }
+
+    if (importSourceRows.length === 0) {
+      const nextError = "Import icin once Excel veya CSV dosyasi secin.";
+      setError(nextError);
+      setImportError(nextError);
+      return;
+    }
+
+    if (missingRequiredImportMappings.length > 0) {
+      const nextError = `Import icin zorunlu kolon eslestirmeleri eksik: ${missingRequiredImportMappings.join(", ")}.`;
+      setError(nextError);
+      setImportError(nextError);
+      return;
+    }
+
+    if (invalidImportRows.length > 0) {
+      const nextError = `Import baslatilamadi. ${invalidImportRows.length} satirdaki hatalari duzeltin.`;
+      setError(nextError);
+      setImportError(nextError);
+      return;
+    }
+
+    if (importPayloadRows.length === 0) {
+      const nextError = "Gecerli import satiri bulunamadi.";
+      setError(nextError);
+      setImportError(nextError);
+      return;
+    }
+
+    setIsImportingItems(true);
+
+    try {
+      const response = await requestJson<{ data: MenuImportResult }>("/api/admin/menu-items/import", "POST", {
+        branchId: importBranchId,
+        rows: importPayloadRows
+      });
+      const result = response.data;
+
+      const nextMessage =
+        `Import tamamlandi: ${result.processedCount} satir islendi, ${result.createdCount} yeni urun eklendi, ` +
+          `${result.updatedCount} urun guncellendi, ${result.categoriesCreatedCount} kategori olusturuldu.`;
+      setMessage(nextMessage);
+      setImportMessage(nextMessage);
+      setImportFileName("");
+      setImportSourceColumns([]);
+      setImportSourceRows([]);
+      setImportColumnMapping(createEmptyImportColumnMapping());
+      await loadSnapshot();
+    } catch (importError) {
+      const nextError = importError instanceof Error ? importError.message : "Menu import basarisiz.";
+      setError(nextError);
+      setImportError(nextError);
+    } finally {
+      setIsImportingItems(false);
     }
   }
 
@@ -450,7 +975,13 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDeleteBranch(branch: BranchListRow) {
-    if (!window.confirm(`Delete branch "${branch.name}" and related data?`)) {
+    const openSessionsCount = branch.tables.reduce((count, table) => count + table.sessions.length, 0);
+    const confirmMessage =
+      openSessionsCount > 0
+        ? `Branch "${branch.name}" has ${openSessionsCount} active session(s). Delete it anyway and remove all related tables, sessions, orders, and payment data?`
+        : `Delete branch "${branch.name}" and related data?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -458,8 +989,12 @@ export default function AdminDashboardPage() {
     setMessage("");
 
     try {
-      await requestJson("/api/admin/branches", "DELETE", { id: branch.id });
-      setMessage("Branch deleted.");
+      await requestJson("/api/admin/branches", "DELETE", { id: branch.id, force: openSessionsCount > 0 });
+      setMessage(
+        openSessionsCount > 0
+          ? "Branch deleted. Active sessions and related records were removed."
+          : "Branch deleted."
+      );
 
       if (editingBranchId === branch.id) {
         setEditingBranchId(null);
@@ -503,7 +1038,12 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDeleteTable(table: TableListRow) {
-    if (!window.confirm(`Delete table "${table.name}"?`)) {
+    const hasActiveSession = table.sessions.length > 0;
+    const confirmMessage = hasActiveSession
+      ? `Table "${table.name}" has an active session. Delete it anyway and remove the session, orders, and payment data linked to this table?`
+      : `Delete table "${table.name}"?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -511,8 +1051,12 @@ export default function AdminDashboardPage() {
     setMessage("");
 
     try {
-      await requestJson("/api/admin/tables", "DELETE", { id: table.id });
-      setMessage("Table deleted.");
+      await requestJson("/api/admin/tables", "DELETE", { id: table.id, force: hasActiveSession });
+      setMessage(
+        hasActiveSession
+          ? "Table deleted. The active session and related records were removed."
+          : "Table deleted."
+      );
 
       if (editingTableId === table.id) {
         setEditingTableId(null);
@@ -583,7 +1127,7 @@ export default function AdminDashboardPage() {
       categoryId: item.categoryId ?? "",
       name: item.name,
       description: item.description ?? "",
-      price: Number(item.price).toFixed(2),
+      price: formatTryMoneyInput(item.price),
       sortOrder: String(item.sortOrder),
       isAvailable: item.isAvailable ? "true" : "false"
     });
@@ -601,7 +1145,7 @@ export default function AdminDashboardPage() {
         categoryId: itemEditForm.categoryId || undefined,
         name: itemEditForm.name,
         description: itemEditForm.description,
-        price: Number(itemEditForm.price),
+        price: itemEditForm.price,
         sortOrder: Number(itemEditForm.sortOrder),
         isAvailable: itemEditForm.isAvailable === "true"
       });
@@ -798,6 +1342,7 @@ export default function AdminDashboardPage() {
           </form>
           </AdminFormCard>
         </div>
+
       </section>
 
       <section className="section-block">
@@ -851,7 +1396,7 @@ export default function AdminDashboardPage() {
           </form>
           </AdminFormCard>
 
-          <AdminFormCard title="Create menu item" description="Create categorized or uncategorized items.">
+          <AdminFormCard title="Create menu item" description="Create categorized or uncategorized items in Turkish Lira.">
           <form className="stack-md" onSubmit={handleCreateItem}>
             <AdminField label="Branch">
               <select
@@ -893,16 +1438,25 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Price">
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={itemForm.price}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, price: event.target.value }))}
-                required
-              />
+            <AdminField label="Fiyat (TL)">
+              <div className="currency-input">
+                <span className="currency-input-symbol">₺</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Orn. 46,00"
+                  value={itemForm.price}
+                  onChange={(event) => setItemForm((prev) => ({ ...prev, price: sanitizePriceInput(event.target.value) }))}
+                  onBlur={() => setItemForm((prev) => ({ ...prev, price: formatPriceFieldValue(prev.price) }))}
+                  required
+                />
+              </div>
             </AdminField>
+
+            <p className="helper-text">
+              Fiyati TL olarak girin.
+              {createItemPricePreview ? ` Onizleme: ${createItemPricePreview}` : " Orn. 46,00 veya 11,50."}
+            </p>
 
             <AdminField label="Sort order">
               <input
@@ -930,6 +1484,145 @@ export default function AdminDashboardPage() {
           </form>
           </AdminFormCard>
         </div>
+
+        <AdminFormCard
+          title="Import menu items (Excel/CSV)"
+          description="Upload .xlsx, .xls, or .csv files. Prices are interpreted as Turkish Lira (TRY)."
+        >
+          <form className="stack-md" onSubmit={handleImportMenuItems}>
+            <AdminField label="Branch">
+              <select value={importBranchId} onChange={(event) => setImportBranchId(event.target.value)} required>
+                <option value="">Select branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+
+            <AdminField label="Excel or CSV file">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                onChange={(event) => void handleImportFileChange(event)}
+              />
+            </AdminField>
+
+            <p className="helper-text">
+              Zorunlu alanlar: urun adi ve fiyat. Dosya yuklendikten sonra hangi kolonun neye ait oldugunu elle degistirebilirsiniz.
+            </p>
+
+            <p className="helper-text">
+              Template basliklari da desteklenir: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.
+            </p>
+
+            {importSourceColumns.length > 0 ? (
+              <div className="helper-panel stack-md">
+                <p className="helper-text">
+                  Algilanan kolonlar: {importSourceColumns.join(", ")}
+                </p>
+                <div className="grid-2">
+                  {IMPORT_MAPPING_FIELDS.map((field) => (
+                    <AdminField
+                      key={field.key}
+                      label={`${field.label}${field.required ? " *" : ""}`}
+                    >
+                      <select
+                        value={importColumnMapping[field.key]}
+                        onChange={(event) => handleImportMappingChange(field.key, event.target.value)}
+                      >
+                        <option value="">Not mapped</option>
+                        {importSourceColumns.map((columnName) => (
+                          <option key={`${field.key}-${columnName}`} value={columnName}>
+                            {columnName}
+                          </option>
+                        ))}
+                      </select>
+                    </AdminField>
+                  ))}
+                </div>
+                {missingRequiredImportMappings.length > 0 ? (
+                  <p className="helper-text">
+                    Import icin eslestirmeniz gereken kolonlar: {missingRequiredImportMappings.join(", ")}.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {importError ? <p className="status-banner is-error">{importError}</p> : null}
+            {importMessage ? <p className="status-banner is-success">{importMessage}</p> : null}
+
+            {importRows.length > 0 ? (
+              <div className="menu-import-preview stack-md">
+                <div className="badge-row">
+                  <span className="badge badge-outline">{importRows.length} satir</span>
+                  <span className="badge badge-neutral">{validImportRows.length} hazir</span>
+                  {invalidImportRows.length > 0 ? (
+                    <span className="badge badge-danger">{invalidImportRows.length} hatali satir</span>
+                  ) : (
+                    <span className="badge badge-status-ready">Tum satirlar gecerli</span>
+                  )}
+                  {importFileName ? <span className="badge badge-outline">{importFileName}</span> : null}
+                </div>
+
+                <div className="menu-import-scroll">
+                  <table className="menu-import-table">
+                    <thead>
+                      <tr>
+                        <th>Satir</th>
+                        {importColumnMapping.branchName ? <th>Branch</th> : null}
+                        <th>Urun</th>
+                        <th>Kategori</th>
+                        <th>Fiyat</th>
+                        <th>Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewedImportRows.map((row) => (
+                        <tr key={`${row.rowNumber}-${row.branchName}-${row.name}-${row.priceInput}`}>
+                          <td>{row.rowNumber}</td>
+                          {importColumnMapping.branchName ? <td>{row.branchName || "-"}</td> : null}
+                          <td>{row.name || "-"}</td>
+                          <td>{row.categoryName || "Uncategorized"}</td>
+                          <td>{row.priceValue !== null ? formatTryCurrency(row.priceValue) : "-"}</td>
+                          <td>
+                            {row.errors.length > 0 ? (
+                              <span className="badge badge-danger">{row.errors.join(" | ")}</span>
+                            ) : (
+                              <span className="badge badge-status-ready">{row.isAvailable ? "Aktif" : "Pasif"}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {importRows.length > previewedImportRows.length ? (
+                  <p className="helper-text">
+                    Onizleme ilk {previewedImportRows.length} satiri gosterir. Toplam {importRows.length} satir okunmustur.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <AdminActions>
+              <button
+                type="submit"
+                disabled={
+                  isImportingItems ||
+                  importSourceRows.length === 0 ||
+                  missingRequiredImportMappings.length > 0 ||
+                  invalidImportRows.length > 0 ||
+                  !importBranchId
+                }
+              >
+                {isImportingItems ? "Importing..." : "Import menu items"}
+              </button>
+            </AdminActions>
+          </form>
+        </AdminFormCard>
       </section>
 
       <section className="panel stack-md">
@@ -1249,8 +1942,8 @@ export default function AdminDashboardPage() {
 
               <div className="detail-grid">
                 <div className="detail-card">
-                  <span className="detail-label">Price</span>
-                  <span className="detail-value">{formatCurrency(item.price)}</span>
+                  <span className="detail-label">Fiyat</span>
+                  <span className="detail-value">{formatTryCurrency(item.price)}</span>
                 </div>
                 <div className="detail-card">
                   <span className="detail-label">Sort order</span>
@@ -1290,15 +1983,21 @@ export default function AdminDashboardPage() {
                       onChange={(event) => setItemEditForm((prev) => ({ ...prev, description: event.target.value }))}
                     />
                   </AdminField>
-                  <AdminField label="Price">
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={itemEditForm.price}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, price: event.target.value }))}
-                      required
-                    />
+                  <AdminField label="Fiyat (TL)">
+                    <div className="currency-input">
+                      <span className="currency-input-symbol">₺</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Orn. 46,00"
+                        value={itemEditForm.price}
+                        onChange={(event) =>
+                          setItemEditForm((prev) => ({ ...prev, price: sanitizePriceInput(event.target.value) }))
+                        }
+                        onBlur={() => setItemEditForm((prev) => ({ ...prev, price: formatPriceFieldValue(prev.price) }))}
+                        required
+                      />
+                    </div>
                   </AdminField>
                   <AdminField label="Sort order">
                     <input
@@ -1316,6 +2015,10 @@ export default function AdminDashboardPage() {
                       <option value="false">Unavailable</option>
                     </select>
                   </AdminField>
+                  <p className="helper-text">
+                    Fiyati TL olarak girin.
+                    {editItemPricePreview ? ` Onizleme: ${editItemPricePreview}` : " Sembol kaydedilmez, yalnizca gosterimde kullanilir."}
+                  </p>
                   <p className="helper-text">Changing availability keeps the item record but blocks new orders when off.</p>
                   <AdminActions>
                     <button type="submit">Save item</button>

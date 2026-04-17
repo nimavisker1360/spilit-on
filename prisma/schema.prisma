@@ -330,7 +330,7 @@ model Payment {
   guestId   String?
   guest     Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
   amount    Decimal       @db.Decimal(10, 2)
-  currency  String        @default("USD") @db.VarChar(3)
+  currency  String        @default("TRY") @db.VarChar(3)
   method    String        @db.VarChar(32)
   status    PaymentStatus @default(PENDING)
   reference String?       @unique

@@ -15,6 +15,7 @@ import {
 } from "@prisma/client";
 
 import type { JsonValue, PaymentAttemptStatus } from "@/features/payment/payment.types";
+import { normalizeCurrencyCode, normalizeMoneyStorage } from "@/lib/currency";
 
 type RestaurantRecord = {
   id: string;
@@ -327,23 +328,64 @@ function defaultStore(): LocalStoreData {
 function normalizeStore(store: LocalStoreData): LocalStoreData {
   return {
     ...store,
+    menuItems: Array.isArray(store.menuItems)
+      ? store.menuItems.map((item) => ({
+          ...item,
+          price: normalizeMoneyStorage(item.price)
+        }))
+      : [],
     sessions: Array.isArray(store.sessions)
       ? store.sessions.map((session) => ({
           ...session,
           readyToCloseAt: typeof session.readyToCloseAt === "string" ? session.readyToCloseAt : null
         }))
       : [],
+    orderItems: Array.isArray(store.orderItems)
+      ? store.orderItems.map((item) => ({
+          ...item,
+          unitPrice: normalizeMoneyStorage(item.unitPrice)
+        }))
+      : [],
+    invoices: Array.isArray(store.invoices)
+      ? store.invoices.map((invoice) => ({
+          ...invoice,
+          total: normalizeMoneyStorage(invoice.total)
+        }))
+      : [],
+    invoiceLines: Array.isArray(store.invoiceLines)
+      ? store.invoiceLines.map((line) => ({
+          ...line,
+          amount: normalizeMoneyStorage(line.amount)
+        }))
+      : [],
+    invoiceAssignments: Array.isArray(store.invoiceAssignments)
+      ? store.invoiceAssignments.map((assignment) => ({
+          ...assignment,
+          amount: normalizeMoneyStorage(assignment.amount)
+        }))
+      : [],
+    payments: Array.isArray(store.payments)
+      ? store.payments.map((payment) => ({
+          ...payment,
+          amount: normalizeMoneyStorage(payment.amount),
+          currency: normalizeCurrencyCode(payment.currency)
+        }))
+      : [],
     paymentSessions: Array.isArray(store.paymentSessions)
       ? store.paymentSessions.map((paymentSession) => ({
           ...paymentSession,
-          paidAmount: typeof paymentSession.paidAmount === "string" ? paymentSession.paidAmount : "0.00",
-          remainingAmount:
-            typeof paymentSession.remainingAmount === "string"
-              ? paymentSession.remainingAmount
-              : paymentSession.totalAmount
+          totalAmount: normalizeMoneyStorage(paymentSession.totalAmount),
+          paidAmount: normalizeMoneyStorage(paymentSession.paidAmount, "0.00"),
+          remainingAmount: normalizeMoneyStorage(paymentSession.remainingAmount, normalizeMoneyStorage(paymentSession.totalAmount)),
+          currency: normalizeCurrencyCode(paymentSession.currency)
         }))
       : [],
-    paymentShares: Array.isArray(store.paymentShares) ? store.paymentShares : [],
+    paymentShares: Array.isArray(store.paymentShares)
+      ? store.paymentShares.map((paymentShare) => ({
+          ...paymentShare,
+          amount: normalizeMoneyStorage(paymentShare.amount)
+        }))
+      : [],
     paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : []
   };
 }
