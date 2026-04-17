@@ -1,0 +1,264 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum OrderSource {
+  CUSTOMER
+  WAITER
+}
+
+enum KitchenItemStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  SERVED
+  VOID
+}
+
+enum SplitMode {
+  FULL_BY_ONE
+  EQUAL
+  BY_GUEST_ITEMS
+
+  @@map("SplitStrategy")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  OUT_OF_SERVICE
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  branches  Branch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Branch {
+  id             String         @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name           String
+  slug           String
+  location       String?
+  tables         Table[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  sessions       TableSession[]
+  orders         Order[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([restaurantId, slug])
+}
+
+model Table {
+  id        String         @id @default(cuid())
+  branchId  String
+  branch    Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name      String
+  code       String        @unique
+  publicToken String       @unique
+  capacity  Int
+  status    TableStatus    @default(AVAILABLE)
+  sessions  TableSession[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([branchId, name])
+  @@index([branchId, status])
+}
+
+model MenuCategory {
+  id        String     @id @default(cuid())
+  branchId  String
+  branch    Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int        @default(0)
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([branchId, name])
+}
+
+model MenuItem {
+  id          String        @id @default(cuid())
+  branchId    String
+  branch      Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name        String
+  description String?
+  price       Decimal       @db.Decimal(10, 2)
+  isAvailable Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  orderItems  OrderItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([branchId, isAvailable])
+}
+
+model TableSession {
+  id       String        @id @default(cuid())
+  branchId String
+  branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tableId  String
+  table    Table         @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  status   SessionStatus @default(OPEN)
+  openedAt DateTime      @default(now())
+  closedAt DateTime?
+  guests   Guest[]
+  orders   Order[]
+  invoices Invoice[]
+
+  @@index([tableId, status])
+  @@index([branchId, status])
+}
+
+model Guest {
+  id           String              @id @default(cuid())
+  sessionId    String
+  session      TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  displayName  String
+  joinedAt     DateTime            @default(now())
+  orders       Order[]             @relation("PlacedOrders")
+  orderItems   OrderItem[]
+  invoiceLines InvoiceLine[]
+  assignments  InvoiceAssignment[]
+  payments     Payment[]
+
+  @@index([sessionId])
+  @@map("SessionGuest")
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  branchId        String
+  branch          Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sessionId       String
+  session         TableSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  source          OrderSource
+  status          OrderStatus  @default(PENDING)
+  placedByGuestId String?
+  placedByGuest   Guest?       @relation("PlacedOrders", fields: [placedByGuestId], references: [id], onDelete: SetNull)
+  note            String?
+  createdAt       DateTime     @default(now())
+  items           OrderItem[]
+
+  @@index([sessionId, status, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model OrderItem {
+  id           String            @id @default(cuid())
+  orderId      String
+  order        Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId   String
+  menuItem     MenuItem          @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  itemName     String
+  guestId      String
+  guest        Guest             @relation(fields: [guestId], references: [id], onDelete: NoAction)
+  quantity     Int
+  unitPrice    Decimal           @db.Decimal(10, 2)
+  note         String?
+  status       KitchenItemStatus @default(PENDING)
+  createdAt    DateTime          @default(now())
+  invoiceLines InvoiceLine[]
+
+  @@index([status, createdAt])
+  @@index([guestId])
+}
+
+model Invoice {
+  id        String              @id @default(cuid())
+  sessionId String
+  session   TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  splitMode SplitMode           @map("strategy")
+  total     Decimal             @db.Decimal(10, 2)
+  createdAt DateTime            @default(now())
+  lines     InvoiceLine[]
+  splits    InvoiceAssignment[]
+  payments  Payment[]
+
+  @@index([sessionId, createdAt])
+}
+
+model InvoiceLine {
+  id          String    @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  guestId     String?
+  guest       Guest?    @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  amount      Decimal   @db.Decimal(10, 2)
+  label       String
+
+  @@index([invoiceId])
+  @@index([orderItemId])
+}
+
+model InvoiceAssignment {
+  id         String  @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  guestId    String?
+  guest      Guest?  @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  payerLabel String
+  amount     Decimal @db.Decimal(10, 2)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  invoice   Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  guestId   String?
+  guest     Guest?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  amount    Decimal       @db.Decimal(10, 2)
+  currency  String        @default("USD") @db.VarChar(3)
+  method    String        @db.VarChar(32)
+  status    PaymentStatus @default(PENDING)
+  reference String?       @unique
+  paidAt    DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([invoiceId, createdAt])
+  @@index([guestId])
+  @@index([status, createdAt])
+}

@@ -1,0 +1,231 @@
+{
+  "restaurants": [
+    {
+      "id": "restaurant_main",
+      "name": "Main Restaurant",
+      "slug": "main-restaurant",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    }
+  ],
+  "branches": [
+    {
+      "id": "branch_main",
+      "restaurantId": "restaurant_main",
+      "name": "Main Branch",
+      "slug": "main-branch",
+      "location": "Center",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    }
+  ],
+  "tables": [
+    {
+      "id": "table_t1",
+      "branchId": "branch_main",
+      "name": "T1",
+      "code": "MAIN-BRANCH-T1-A1B2",
+      "publicToken": "main_branch_table_token_01",
+      "capacity": 4,
+      "status": "OCCUPIED",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T13:48:59.111Z"
+    },
+    {
+      "id": "table_t2",
+      "branchId": "branch_main",
+      "name": "T2",
+      "code": "MAIN-BRANCH-T2-C3D4",
+      "publicToken": "main_branch_table_token_02",
+      "capacity": 4,
+      "status": "AVAILABLE",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    },
+    {
+      "id": "table_t3",
+      "branchId": "branch_main",
+      "name": "T3",
+      "code": "MAIN-BRANCH-T3-E5F6",
+      "publicToken": "main_branch_table_token_03",
+      "capacity": 6,
+      "status": "AVAILABLE",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    }
+  ],
+  "menuCategories": [
+    {
+      "id": "menu_category_main",
+      "branchId": "branch_main",
+      "name": "Main",
+      "sortOrder": 1,
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    }
+  ],
+  "menuItems": [
+    {
+      "id": "menu_item_burger",
+      "branchId": "branch_main",
+      "categoryId": "menu_category_main",
+      "name": "Cheese Burger",
+      "description": "Classic burger",
+      "price": "11.50",
+      "isAvailable": true,
+      "sortOrder": 1,
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    },
+    {
+      "id": "menu_item_cola",
+      "branchId": "branch_main",
+      "categoryId": "menu_category_main",
+      "name": "Cola",
+      "description": "Cold drink",
+      "price": "2.80",
+      "isAvailable": true,
+      "sortOrder": 2,
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session_c64a57170795447f82fd162721e772bc",
+      "branchId": "branch_main",
+      "tableId": "table_t1",
+      "status": "OPEN",
+      "openedAt": "2026-04-15T13:48:59.111Z",
+      "closedAt": null
+    }
+  ],
+  "guests": [
+    {
+      "id": "guest_8184bd15e24242f59b28b0819af10e26",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "displayName": "Nima",
+      "joinedAt": "2026-04-15T13:49:17.211Z"
+    },
+    {
+      "id": "guest_5724b686e66b43cd8720b0852f03889f",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "displayName": "Farhad",
+      "joinedAt": "2026-04-17T06:45:08.073Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "order_d152964a4da44c3b9db27b864e340545",
+      "branchId": "branch_main",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "source": "CUSTOMER",
+      "status": "READY",
+      "placedByGuestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "note": null,
+      "createdAt": "2026-04-15T13:49:37.690Z"
+    },
+    {
+      "id": "order_201a0c70565543f68d09fb12a42d0f4a",
+      "branchId": "branch_main",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "source": "CUSTOMER",
+      "status": "READY",
+      "placedByGuestId": "guest_5724b686e66b43cd8720b0852f03889f",
+      "note": null,
+      "createdAt": "2026-04-17T06:46:02.350Z"
+    }
+  ],
+  "orderItems": [
+    {
+      "id": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
+      "orderId": "order_d152964a4da44c3b9db27b864e340545",
+      "menuItemId": "menu_item_burger",
+      "itemName": "Cheese Burger",
+      "quantity": 1,
+      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "note": "I need chess burger",
+      "unitPrice": "11.50",
+      "status": "READY",
+      "createdAt": "2026-04-15T13:49:37.690Z"
+    },
+    {
+      "id": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
+      "orderId": "order_201a0c70565543f68d09fb12a42d0f4a",
+      "menuItemId": "menu_item_burger",
+      "itemName": "Cheese Burger",
+      "quantity": 2,
+      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
+      "note": "Give me chees burger",
+      "unitPrice": "11.50",
+      "status": "READY",
+      "createdAt": "2026-04-17T06:46:02.350Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "invoice_86272c6a12c3432ab49ad287a271cb40",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "splitMode": "EQUAL",
+      "total": "11.50",
+      "createdAt": "2026-04-17T06:17:23.926Z"
+    },
+    {
+      "id": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
+      "sessionId": "session_c64a57170795447f82fd162721e772bc",
+      "splitMode": "EQUAL",
+      "total": "34.50",
+      "createdAt": "2026-04-17T06:46:37.573Z"
+    }
+  ],
+  "invoiceLines": [
+    {
+      "id": "invoice_line_3999fbf41dcf4f5093919ed155195c10",
+      "invoiceId": "invoice_86272c6a12c3432ab49ad287a271cb40",
+      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
+      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "amount": "11.50",
+      "label": "Cheese Burger x1"
+    },
+    {
+      "id": "invoice_line_e6781c1b2a874794aae4b04152357c3b",
+      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
+      "orderItemId": "order_item_dd1e6e57263e4928bb6e4c6c64696898",
+      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "amount": "11.50",
+      "label": "Cheese Burger x1"
+    },
+    {
+      "id": "invoice_line_983a5e4c95ea4ec29cae3871b0a8ee2d",
+      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
+      "orderItemId": "order_item_c9716e18f9394d90a787f7a0e9b6bef7",
+      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
+      "amount": "23.00",
+      "label": "Cheese Burger x2"
+    }
+  ],
+  "invoiceAssignments": [
+    {
+      "id": "invoice_split_ccf6e0788291469a94c3cfa476e09402",
+      "invoiceId": "invoice_86272c6a12c3432ab49ad287a271cb40",
+      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "payerLabel": "Nima",
+      "amount": "11.50"
+    },
+    {
+      "id": "invoice_split_4aa77cb06ff44f9a81fc700d54e852fe",
+      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
+      "guestId": "guest_8184bd15e24242f59b28b0819af10e26",
+      "payerLabel": "Nima",
+      "amount": "17.25"
+    },
+    {
+      "id": "invoice_split_568cd1aadce74c0b8213e0c2ef10d6cc",
+      "invoiceId": "invoice_9a53e2a3a9f34fb7a8c541b9721a71e2",
+      "guestId": "guest_5724b686e66b43cd8720b0852f03889f",
+      "payerLabel": "Farhad",
+      "amount": "17.25"
+    }
+  ],
+  "payments": []
+}
