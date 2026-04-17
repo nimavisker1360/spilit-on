@@ -156,6 +156,7 @@ model TableSession {
   status          SessionStatus    @default(OPEN)
   openedAt        DateTime         @default(now())
   closedAt        DateTime?
+  readyToCloseAt  DateTime?
   guests          Guest[]
   orders          Order[]
   invoices        Invoice[]
@@ -243,6 +244,8 @@ model PaymentSession {
   invoice     Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   splitMode   SplitMode
   totalAmount Decimal              @db.Decimal(10, 2)
+  paidAmount  Decimal              @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal          @db.Decimal(10, 2)
   currency    String               @default("TRY") @db.VarChar(3)
   status      PaymentSessionStatus @default(OPEN)
   createdAt   DateTime             @default(now())

@@ -116,7 +116,8 @@ export async function openSession(input: OpenSessionInput) {
       tableId: table.id,
       status: "OPEN" as const,
       openedAt: now,
-      closedAt: null
+      closedAt: null,
+      readyToCloseAt: null
     };
 
     store.sessions.push(session);

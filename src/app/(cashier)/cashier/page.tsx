@@ -12,6 +12,7 @@ type Guest = {
 type OpenSession = {
   id: string;
   openedAt: string;
+  readyToCloseAt: string | null;
   table: {
     name: string;
     code: string;
@@ -26,7 +27,12 @@ type OpenSession = {
 type InvoiceSplitMode = "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS";
 type PaymentSessionStatus = "OPEN" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "EXPIRED";
 type PaymentShareStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
-type CashierPaymentShareAction = "MARK_CASH_RECEIVED" | "MARK_CARD_RECEIVED" | "CREATE_ONLINE_PAYMENT_LINK";
+type CashierPaymentShareAction =
+  | "PAY_BY_CASH"
+  | "PAY_BY_CARD"
+  | "SEND_ONLINE_LINK"
+  | "COMPLETE_PENDING_PAYMENT"
+  | "MARK_PAYMENT_FAILED";
 
 type InvoiceResponse = {
   data: {
@@ -66,8 +72,19 @@ type PaymentSession = {
   invoiceId: string;
   status: PaymentSessionStatus;
   totalAmount: string;
+  paidAmount: string;
+  remainingAmount: string;
   currency: string;
   shares: PaymentShare[];
+  session: {
+    id: string;
+    readyToCloseAt: string | null;
+    table: {
+      id: string;
+      name: string;
+      code: string;
+    } | null;
+  } | null;
 };
 
 type PaymentSessionResponse = {
@@ -183,6 +200,18 @@ function paymentShareStatusBadgeClass(status: PaymentShareStatus): string {
   }
 
   return "badge-status-unpaid";
+}
+
+function paymentSessionStatusBadgeClass(status: PaymentSessionStatus): string {
+  if (status === "PAID") {
+    return "badge-status-paid-payment";
+  }
+
+  if (status === "PARTIALLY_PAID") {
+    return "badge-status-progress";
+  }
+
+  return "badge-status-open";
 }
 
 function paymentProviderLabel(provider: string): string {
@@ -336,7 +365,7 @@ export default function CashierDashboardPage() {
       setPaymentSession(json.data.paymentSession);
       setPaymentSessionNotice(
         json.data.created
-          ? "Payment shares are ready. You can now collect each share from the cashier desk."
+          ? "Payment shares are ready. Start each mock payment from the cashier desk and complete pending ones as they settle."
           : "Existing payment session loaded for this invoice."
       );
     } catch (prepareError) {
@@ -368,6 +397,7 @@ export default function CashierDashboardPage() {
 
       setPaymentSession(json.data.paymentSession);
       setPaymentSessionNotice(json.data.message);
+      void loadData({ silent: true });
     } catch (actionError) {
       setPaymentSessionError(actionError instanceof Error ? actionError.message : "Payment share update failed");
     } finally {
@@ -388,16 +418,13 @@ export default function CashierDashboardPage() {
       return null;
     }
 
-    const totalAmount = Number(paymentSession.totalAmount);
-    const paidAmount = paymentSession.shares
-      .filter((share) => share.status === "PAID")
-      .reduce((sum, share) => sum + Number(share.amount), 0);
-
     return {
-      totalAmount,
-      paidAmount,
-      remainingAmount: Math.max(totalAmount - paidAmount, 0),
-      unpaidShareCount: paymentSession.shares.filter((share) => share.status !== "PAID").length
+      totalAmount: Number(paymentSession.totalAmount),
+      paidAmount: Number(paymentSession.paidAmount),
+      remainingAmount: Number(paymentSession.remainingAmount),
+      unpaidShareCount: paymentSession.shares.filter((share) => share.status !== "PAID").length,
+      pendingShareCount: paymentSession.shares.filter((share) => share.status === "PENDING").length,
+      failedShareCount: paymentSession.shares.filter((share) => share.status === "FAILED").length
     };
   }, [paymentSession]);
 
@@ -481,8 +508,14 @@ export default function CashierDashboardPage() {
               <span className="badge badge-outline">{selectedSession.branch.name}</span>
               <span className="badge badge-neutral">Masa {selectedSession.table.name}</span>
               <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+              {selectedSession.readyToCloseAt ? (
+                <span className="badge badge-status-paid-payment">Ready to close</span>
+              ) : null}
             </div>
-            <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+            <p className="helper-text">
+              {formatSessionSummary(selectedSession)}
+              {selectedSession.readyToCloseAt ? ` | Ready since ${formatDateTime(selectedSession.readyToCloseAt)}` : ""}
+            </p>
           </div>
         ) : null}
 
@@ -607,12 +640,19 @@ export default function CashierDashboardPage() {
                 <div className="section-copy">
                   <p className="section-kicker">Settlement</p>
                   <h4>Payment share control</h4>
-                  <p className="helper-text">Collect each share from cashier desk and track live settlement totals.</p>
+                  <p className="helper-text">Start mock payments, resolve pending ones, and track settlement totals from one place.</p>
                 </div>
-                <span className={`badge ${paymentSession.status === "PAID" ? "badge-status-paid-payment" : "badge-status-open"}`}>
+                <span className={`badge ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
                   {formatStatusLabel(paymentSession.status)}
                 </span>
               </div>
+
+              {paymentSession.session?.readyToCloseAt ? (
+                <p className="status-banner is-success">
+                  Table {paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} is ready to close since{" "}
+                  {formatDateTime(paymentSession.session.readyToCloseAt)}.
+                </p>
+              ) : null}
 
               {paymentSummary ? (
                 <div className="grid-4 checkout-summary-grid">
@@ -634,7 +674,9 @@ export default function CashierDashboardPage() {
                   <article className="dashboard-stat-card checkout-summary-card">
                     <p className="dashboard-stat-label">Unpaid shares</p>
                     <p className="dashboard-stat-value">{paymentSummary.unpaidShareCount}</p>
-                    <p className="dashboard-stat-note">Shares not fully settled yet.</p>
+                    <p className="dashboard-stat-note">
+                      Pending {paymentSummary.pendingShareCount} | Failed {paymentSummary.failedShareCount}
+                    </p>
                   </article>
                 </div>
               ) : null}
@@ -647,6 +689,9 @@ export default function CashierDashboardPage() {
               <div className="checkout-share-grid">
                 {paymentSession.shares.map((share) => {
                   const isPaid = share.status === "PAID";
+                  const isPending = share.status === "PENDING";
+                  const canStartPayment = share.status === "UNPAID" || share.status === "FAILED";
+                  const canMarkFailedDirectly = share.status === "UNPAID";
                   const actionLocked = Boolean(runningShareAction) || isPreparingPayment;
 
                   return (
@@ -676,40 +721,76 @@ export default function CashierDashboardPage() {
                         </p>
                       ) : null}
 
-                      <div className="ticket-actions">
-                        <button
-                          type="button"
-                          className="ticket-action-btn"
-                          onClick={() => handleShareAction(share.id, "MARK_CASH_RECEIVED")}
-                          disabled={actionLocked || isPaid}
-                        >
-                          {isShareActionRunning(share.id, "MARK_CASH_RECEIVED")
-                            ? "Recording cash..."
-                            : "Mark cash received"}
-                        </button>
-                        <button
-                          type="button"
-                          className="ticket-action-btn"
-                          onClick={() => handleShareAction(share.id, "MARK_CARD_RECEIVED")}
-                          disabled={actionLocked || isPaid}
-                        >
-                          {isShareActionRunning(share.id, "MARK_CARD_RECEIVED")
-                            ? "Recording card..."
-                            : "Mark card received"}
-                        </button>
-                        <button
-                          type="button"
-                          className="ticket-action-btn"
-                          onClick={() => handleShareAction(share.id, "CREATE_ONLINE_PAYMENT_LINK")}
-                          disabled={actionLocked || isPaid}
-                        >
-                          {isShareActionRunning(share.id, "CREATE_ONLINE_PAYMENT_LINK")
-                            ? "Generating link..."
-                            : share.status === "PENDING"
-                              ? "Refresh online payment link"
-                              : "Create online payment link"}
-                        </button>
-                      </div>
+                      {share.paidAt ? <p className="meta">Completed at {formatDateTime(share.paidAt)}</p> : null}
+
+                      {canStartPayment ? (
+                        <div className="ticket-actions">
+                          <button
+                            type="button"
+                            className="ticket-action-btn"
+                            onClick={() => handleShareAction(share.id, "PAY_BY_CASH")}
+                            disabled={actionLocked || isPaid}
+                          >
+                            {isShareActionRunning(share.id, "PAY_BY_CASH") ? "Starting cash..." : "Pay by cash"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ticket-action-btn"
+                            onClick={() => handleShareAction(share.id, "PAY_BY_CARD")}
+                            disabled={actionLocked || isPaid}
+                          >
+                            {isShareActionRunning(share.id, "PAY_BY_CARD") ? "Starting card..." : "Pay by card"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ticket-action-btn"
+                            onClick={() => handleShareAction(share.id, "SEND_ONLINE_LINK")}
+                            disabled={actionLocked || isPaid}
+                          >
+                            {isShareActionRunning(share.id, "SEND_ONLINE_LINK")
+                              ? "Sending link..."
+                              : "Send online link"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {isPending ? (
+                        <div className="ticket-actions">
+                          <button
+                            type="button"
+                            className="ticket-action-btn"
+                            onClick={() => handleShareAction(share.id, "COMPLETE_PENDING_PAYMENT")}
+                            disabled={actionLocked}
+                          >
+                            {isShareActionRunning(share.id, "COMPLETE_PENDING_PAYMENT")
+                              ? "Completing..."
+                              : "Complete payment"}
+                          </button>
+                          <button
+                            type="button"
+                            className="ticket-action-btn warn"
+                            onClick={() => handleShareAction(share.id, "MARK_PAYMENT_FAILED")}
+                            disabled={actionLocked}
+                          >
+                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED") ? "Failing..." : "Mark failed"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {canMarkFailedDirectly ? (
+                        <div className="ticket-actions">
+                          <button
+                            type="button"
+                            className="ticket-action-btn warn"
+                            onClick={() => handleShareAction(share.id, "MARK_PAYMENT_FAILED")}
+                            disabled={actionLocked}
+                          >
+                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED")
+                              ? "Failing..."
+                              : "Mark failed (mock)"}
+                          </button>
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}

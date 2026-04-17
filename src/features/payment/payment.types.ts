@@ -10,9 +10,11 @@ export const SUPPORTED_PAYMENT_SPLIT_MODES = [
 
 export const PAYMENT_ATTEMPT_STATUSES = ["PENDING", "SUCCEEDED", "FAILED", "CANCELLED"] as const;
 export const CASHIER_PAYMENT_SHARE_ACTIONS = [
-  "MARK_CASH_RECEIVED",
-  "MARK_CARD_RECEIVED",
-  "CREATE_ONLINE_PAYMENT_LINK"
+  "PAY_BY_CASH",
+  "PAY_BY_CARD",
+  "SEND_ONLINE_LINK",
+  "COMPLETE_PENDING_PAYMENT",
+  "MARK_PAYMENT_FAILED"
 ] as const;
 
 export type SupportedPaymentSplitMode = (typeof SUPPORTED_PAYMENT_SPLIT_MODES)[number];
@@ -47,6 +49,8 @@ export type PaymentSessionRecord = {
   invoiceId: string;
   splitMode: SupportedPaymentSplitMode;
   totalAmount: string;
+  paidAmount: string;
+  remainingAmount: string;
   currency: typeof DEFAULT_PAYMENT_CURRENCY;
   status: PaymentSessionStatus;
   createdAt: string;

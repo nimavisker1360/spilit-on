@@ -35,6 +35,7 @@ type OpenSession = {
   id: string;
   branchId: string;
   openedAt: string;
+  readyToCloseAt: string | null;
   table: {
     name: string;
     code: string;
@@ -581,6 +582,7 @@ export default function WaiterDashboardPage() {
                       <span className="badge badge-outline">{session.guests.length} guests</span>
                       <span className="badge badge-neutral">{session.orders.length} orders</span>
                       <span className="badge badge-status-progress">{activeKitchenItems} kitchen items active</span>
+                      {session.readyToCloseAt ? <span className="badge badge-status-paid-payment">Ready to close</span> : null}
                     </div>
                   </div>
                 </div>
@@ -598,6 +600,12 @@ export default function WaiterDashboardPage() {
                     <span className="detail-label">Ready / served</span>
                     <span className="detail-value">
                       {kitchenCounts.READY} / {kitchenCounts.SERVED}
+                    </span>
+                  </div>
+                  <div className="detail-card">
+                    <span className="detail-label">Settlement</span>
+                    <span className="detail-value">
+                      {session.readyToCloseAt ? `Ready since ${formatShortTime(session.readyToCloseAt)}` : "Open"}
                     </span>
                   </div>
                 </div>

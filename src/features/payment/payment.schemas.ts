@@ -75,6 +75,8 @@ export const paymentSessionRecordSchema = z
     invoiceId: z.string().min(1),
     splitMode: supportedPaymentSplitModeSchema,
     totalAmount: decimalStringSchema,
+    paidAmount: decimalStringSchema,
+    remainingAmount: decimalStringSchema,
     currency: z.literal(DEFAULT_PAYMENT_CURRENCY),
     status: z.nativeEnum(PaymentSessionStatus),
     createdAt: isoDateTimeSchema,

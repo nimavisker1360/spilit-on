@@ -75,6 +75,7 @@ type TableSessionRecord = {
   status: SessionStatus;
   openedAt: string;
   closedAt: string | null;
+  readyToCloseAt: string | null;
 };
 
 type GuestRecord = {
@@ -153,6 +154,8 @@ type PaymentSessionRecord = {
   invoiceId: string;
   splitMode: SplitMode;
   totalAmount: string;
+  paidAmount: string;
+  remainingAmount: string;
   currency: string;
   status: PaymentSessionStatus;
   createdAt: string;
@@ -324,7 +327,22 @@ function defaultStore(): LocalStoreData {
 function normalizeStore(store: LocalStoreData): LocalStoreData {
   return {
     ...store,
-    paymentSessions: Array.isArray(store.paymentSessions) ? store.paymentSessions : [],
+    sessions: Array.isArray(store.sessions)
+      ? store.sessions.map((session) => ({
+          ...session,
+          readyToCloseAt: typeof session.readyToCloseAt === "string" ? session.readyToCloseAt : null
+        }))
+      : [],
+    paymentSessions: Array.isArray(store.paymentSessions)
+      ? store.paymentSessions.map((paymentSession) => ({
+          ...paymentSession,
+          paidAmount: typeof paymentSession.paidAmount === "string" ? paymentSession.paidAmount : "0.00",
+          remainingAmount:
+            typeof paymentSession.remainingAmount === "string"
+              ? paymentSession.remainingAmount
+              : paymentSession.totalAmount
+        }))
+      : [],
     paymentShares: Array.isArray(store.paymentShares) ? store.paymentShares : [],
     paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : []
   };
