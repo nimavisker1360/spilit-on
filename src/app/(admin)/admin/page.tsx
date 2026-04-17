@@ -117,6 +117,50 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function formatCurrency(value: string | number): string {
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function formatShortTime(value: string): string {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatTableSessionSummary(tableName: string, session: SessionSummary): string {
+  return `Table ${tableName} • Opened ${formatShortTime(session.openedAt)}`;
+}
+
+function getTableStatusBadgeClass(status: TableStatus): string {
+  if (status === "AVAILABLE") {
+    return "badge badge-status-available";
+  }
+
+  if (status === "OCCUPIED") {
+    return "badge badge-status-occupied";
+  }
+
+  return "badge badge-status-out";
+}
+
+function getTableStatusLabel(status: TableStatus): string {
+  if (status === "AVAILABLE") {
+    return "Available";
+  }
+
+  if (status === "OCCUPIED") {
+    return "Occupied";
+  }
+
+  if (status === "OUT_OF_SERVICE") {
+    return "Closed";
+  }
+
+  return status;
+}
+
 export default function AdminDashboardPage() {
   const [snapshot, setSnapshot] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -592,17 +636,27 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const totalOpenSessions = tables.filter((table) => table.sessions.length > 0).length;
+  const occupiedTables = tables.filter((table) => table.status === "OCCUPIED").length;
+  const qrReadyTables = tables.filter((table) => Boolean(table.publicToken)).length;
+  const availableMenuItems = menuItems.filter((item) => item.isAvailable).length;
+  const unavailableMenuItems = menuItems.length - availableMenuItems;
+  const tablesOutOfService = tables.filter((table) => table.status === "OUT_OF_SERVICE").length;
+
   return (
     <div className="stack-md">
-      <section className="panel">
+      <section className="panel dashboard-hero stack-md">
         <div className="section-head">
-          <div>
-            <h2>Admin dashboard</h2>
-            <p className="meta">MVP management without full auth, backed by the local workspace data store.</p>
+          <div className="dashboard-hero-copy">
+            <p className="section-kicker">Owner overview</p>
+            <h2>Restaurant setup and live floor control</h2>
+            <p className="panel-subtitle">
+              Keep branches, floor tables, QR access, and menu content clear for daily operations.
+            </p>
           </div>
-          <div className="inline">
+          <div className="toolbar">
             <button type="button" className="secondary" onClick={handleBootstrap}>
-              Seed MVP data
+              Load sample data
             </button>
             <button type="button" onClick={() => void loadSnapshot()}>
               Refresh
@@ -610,12 +664,49 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
+        <div className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Restaurants</p>
+            <p className="dashboard-stat-value">{snapshot.length}</p>
+            <p className="dashboard-stat-note">Top-level brands loaded into this workspace.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Branches</p>
+            <p className="dashboard-stat-value">{branches.length}</p>
+            <p className="dashboard-stat-note">Operating locations with tables and menu data.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Active sessions</p>
+            <p className="dashboard-stat-value">{totalOpenSessions}</p>
+            <p className="dashboard-stat-note">{occupiedTables} table(s) currently occupied.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">QR readiness</p>
+            <p className="dashboard-stat-value">{qrReadyTables}</p>
+            <p className="dashboard-stat-note">
+              {tablesOutOfService} table(s) closed. {availableMenuItems} menu item(s) available, {unavailableMenuItems} hidden.
+            </p>
+          </article>
+        </div>
+
+        <div className="status-stack">
+          {isLoading ? <p className="status-banner is-neutral">Refreshing latest restaurant snapshot.</p> : null}
+          {error ? <p className="status-banner is-error">{error}</p> : null}
+          {message ? <p className="status-banner is-success">{message}</p> : null}
+        </div>
       </section>
 
-      <section className="grid-2">
-        <AdminFormCard title="Create branch" description="Add a branch under an existing restaurant.">
+      <section className="section-block">
+        <div className="section-copy">
+          <p className="section-kicker">Setup</p>
+          <h3>Business structure</h3>
+          <p className="panel-subtitle">
+            Add branches and tables first so QR entry, live sessions, and waiter operations stay organized.
+          </p>
+        </div>
+
+        <div className="grid-2">
+          <AdminFormCard title="Create branch" description="Add an operating location under an existing restaurant.">
           <form className="stack-md" onSubmit={handleCreateBranch}>
             <AdminField label="Restaurant">
               <select
@@ -655,13 +746,15 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
+            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically.</p>
+
             <AdminActions>
               <button type="submit">Create branch</button>
             </AdminActions>
           </form>
-        </AdminFormCard>
+          </AdminFormCard>
 
-        <AdminFormCard title="Create table" description="Create a new table with table code and public QR token.">
+          <AdminFormCard title="Create table" description="Create a table with automatic code and customer QR token.">
           <form className="stack-md" onSubmit={handleCreateTable}>
             <AdminField label="Branch">
               <select
@@ -697,15 +790,27 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
+            <p className="helper-text">Each table is linked to a unique code and QR destination automatically.</p>
+
             <AdminActions>
               <button type="submit">Create table</button>
             </AdminActions>
           </form>
-        </AdminFormCard>
+          </AdminFormCard>
+        </div>
       </section>
 
-      <section className="grid-2">
-        <AdminFormCard title="Create menu category" description="Define category ordering per branch.">
+      <section className="section-block">
+        <div className="section-copy">
+          <p className="section-kicker">Menu setup</p>
+          <h3>Categories and items</h3>
+          <p className="panel-subtitle">
+            Keep menu structure easy to maintain so waiter, kitchen, and QR ordering stay consistent.
+          </p>
+        </div>
+
+        <div className="grid-2">
+          <AdminFormCard title="Create menu category" description="Define category ordering per branch.">
           <form className="stack-md" onSubmit={handleCreateCategory}>
             <AdminField label="Branch">
               <select
@@ -735,16 +840,18 @@ export default function AdminDashboardPage() {
                 type="number"
                 value={categoryForm.sortOrder}
                 onChange={(event) => setCategoryForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-              />
-            </AdminField>
+                />
+              </AdminField>
+
+            <p className="helper-text">Lower sort values appear earlier in customer and operator views.</p>
 
             <AdminActions>
               <button type="submit">Create category</button>
             </AdminActions>
           </form>
-        </AdminFormCard>
+          </AdminFormCard>
 
-        <AdminFormCard title="Create menu item" description="Create categorized or uncategorized items.">
+          <AdminFormCard title="Create menu item" description="Create categorized or uncategorized items.">
           <form className="stack-md" onSubmit={handleCreateItem}>
             <AdminField label="Branch">
               <select
@@ -815,28 +922,41 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
+            <p className="helper-text">Unavailable items stay in the catalog but are blocked from ordering.</p>
+
             <AdminActions>
               <button type="submit">Create menu item</button>
             </AdminActions>
           </form>
-        </AdminFormCard>
+          </AdminFormCard>
+        </div>
       </section>
 
       <section className="panel stack-md">
         <div className="section-head">
-          <h3>Branches ({branches.length})</h3>
-          {isLoading ? <span className="meta">Loading...</span> : null}
+          <div className="section-copy">
+            <p className="section-kicker">Locations</p>
+            <h3>Branches ({branches.length})</h3>
+            <p className="panel-subtitle">Owner-friendly visibility into each branch, floor setup, and catalog coverage.</p>
+          </div>
+          {isLoading ? <span className="badge badge-outline">Refreshing</span> : null}
         </div>
 
-        {branches.length === 0 ? <p className="empty">No branches found.</p> : null}
+        {branches.length === 0 ? (
+          <p className="empty empty-state">No branches yet. Create a branch first so tables and menu content can be attached.</p>
+        ) : null}
 
         <div className="list">
           {branches.map((branch) => (
-            <article key={branch.id} className="list-item stack-md">
-              <div className="section-head">
-                <div>
+            <article key={branch.id} className="list-item entity-card stack-md">
+              <div className="entity-top">
+                <div className="entity-title">
                   <h4>{branch.name}</h4>
-                  <p className="meta">Restaurant: {branch.restaurantName}</p>
+                  <p className="entity-summary">Part of {branch.restaurantName}</p>
+                  <div className="badge-row">
+                    <span className="badge badge-outline">{branch.slug}</span>
+                    <span className="badge badge-neutral">{branch.location || "Location not set"}</span>
+                  </div>
                 </div>
                 <AdminActions>
                   <button type="button" className="secondary" onClick={() => startBranchEdit(branch)}>
@@ -848,16 +968,28 @@ export default function AdminDashboardPage() {
                 </AdminActions>
               </div>
 
-              <p className="meta">
-                Slug: {branch.slug}
-                {branch.location ? ` | ${branch.location}` : ""}
-              </p>
-              <p className="meta">
-                {branch.tables.length} tables | {branch.menuCategories.length} categories | {branch.menuItems.length} items
+              <div className="detail-grid">
+                <div className="detail-card">
+                  <span className="detail-label">Tables</span>
+                  <span className="detail-value">{branch.tables.length}</span>
+                </div>
+                <div className="detail-card">
+                  <span className="detail-label">Menu categories</span>
+                  <span className="detail-value">{branch.menuCategories.length}</span>
+                </div>
+                <div className="detail-card">
+                  <span className="detail-label">Menu items</span>
+                  <span className="detail-value">{branch.menuItems.length}</span>
+                </div>
+              </div>
+
+              <p className="helper-text">
+                {branch.tables.filter((table) => table.sessions.length > 0).length} active session(s) on this branch
+                floor right now.
               </p>
 
               {editingBranchId === branch.id ? (
-                <form className="grid-2" onSubmit={handleUpdateBranch}>
+                <form className="grid-2 helper-panel" onSubmit={handleUpdateBranch}>
                   <AdminField label="Branch name">
                     <input
                       value={branchEditForm.name}
@@ -878,6 +1010,7 @@ export default function AdminDashboardPage() {
                       onChange={(event) => setBranchEditForm((prev) => ({ ...prev, location: event.target.value }))}
                     />
                   </AdminField>
+                  <p className="helper-text">Updating a branch does not change any routes or existing table behavior.</p>
                   <AdminActions>
                     <button type="submit">Save branch</button>
                     <button type="button" className="secondary" onClick={() => setEditingBranchId(null)}>
@@ -893,18 +1026,33 @@ export default function AdminDashboardPage() {
 
       <section className="panel stack-md">
         <div className="section-head">
-          <h3>Tables ({tables.length})</h3>
+          <div className="section-copy">
+            <p className="section-kicker">Floor map</p>
+            <h3>Tables ({tables.length})</h3>
+            <p className="panel-subtitle">
+              Track table status, QR readiness, and live session activity at a glance. Closed: {tablesOutOfService}.
+            </p>
+          </div>
         </div>
 
-        {tables.length === 0 ? <p className="empty">No tables found.</p> : null}
+        {tables.length === 0 ? <p className="empty empty-state">No tables found. Create tables to generate QR access and waiter-ready sessions.</p> : null}
 
         <div className="list">
           {tables.map((table) => (
-            <article key={table.id} className="list-item stack-md">
-              <div className="section-head">
-                <div>
+            <article key={table.id} className="list-item entity-card stack-md">
+              <div className="entity-top">
+                <div className="entity-title">
                   <h4>{table.name}</h4>
-                  <p className="meta">Branch: {table.branchName}</p>
+                  <p className="entity-summary">{table.branchName}</p>
+                  <div className="badge-row">
+                    <span className={getTableStatusBadgeClass(table.status)}>{getTableStatusLabel(table.status)}</span>
+                    <span className={`badge ${table.sessions.length > 0 ? "badge-status-open" : "badge-status-closed"}`}>
+                      {table.sessions.length > 0 ? "Active session" : "No active session"}
+                    </span>
+                    <span className={`badge ${table.publicToken ? "badge-status-ready" : "badge-status-pending"}`}>
+                      {table.publicToken ? "QR ready" : "QR missing"}
+                    </span>
+                  </div>
                 </div>
                 <AdminActions>
                   <button type="button" className="secondary" onClick={() => startTableEdit(table)}>
@@ -916,15 +1064,45 @@ export default function AdminDashboardPage() {
                 </AdminActions>
               </div>
 
-              <p className="meta">Code: {table.code}</p>
-              <p className="meta">Capacity: {table.capacity}</p>
-              <p className="meta">Status: {table.status}</p>
-              <p className="meta">QR URL: {getTablePublicUrl(table.publicToken)}</p>
-              <Image src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}`} alt={`QR code for ${table.name}`} width={108} height={108} loading="lazy" unoptimized />
-              <p className="meta">Session: {table.sessions.length > 0 ? `OPEN (${table.sessions[0].id.slice(0, 8)})` : "Closed"}</p>
+              <div className="qr-card">
+                <div className="stack-md">
+                  <div className="detail-grid">
+                    <div className="detail-card">
+                      <span className="detail-label">Table code</span>
+                      <span className="detail-value is-mono">{table.code}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Capacity</span>
+                      <span className="detail-value">{table.capacity} seats</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">QR link</span>
+                      <span className="detail-value is-mono">{getTablePublicUrl(table.publicToken)}</span>
+                    </div>
+                  </div>
+
+                  <p className="helper-text">
+                    {table.sessions.length > 0
+                      ? `${formatTableSessionSummary(table.name, table.sessions[0])} (${formatDateTime(table.sessions[0].openedAt)}).`
+                      : "No active session on this table right now."}
+                  </p>
+                </div>
+
+                <div className="qr-preview">
+                  <Image
+                    src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}`}
+                    alt={`QR code for ${table.name}`}
+                    width={108}
+                    height={108}
+                    loading="lazy"
+                    unoptimized
+                  />
+                  <p className="helper-text">Print-ready QR destination for customers.</p>
+                </div>
+              </div>
 
               {editingTableId === table.id ? (
-                <form className="grid-2" onSubmit={handleUpdateTable}>
+                <form className="grid-2 helper-panel" onSubmit={handleUpdateTable}>
                   <AdminField label="Table name">
                     <input
                       value={tableEditForm.name}
@@ -948,11 +1126,12 @@ export default function AdminDashboardPage() {
                     >
                       {TABLE_STATUS_OPTIONS.map((status) => (
                         <option key={status} value={status}>
-                          {status}
+                          {getTableStatusLabel(status)}
                         </option>
                       ))}
                     </select>
                   </AdminField>
+                  <p className="helper-text">Status changes only update table availability and do not alter routes or session logic.</p>
                   <AdminActions>
                     <button type="submit">Save table</button>
                     <button type="button" className="secondary" onClick={() => setEditingTableId(null)}>
@@ -968,18 +1147,26 @@ export default function AdminDashboardPage() {
 
       <section className="panel stack-md">
         <div className="section-head">
-          <h3>Menu categories ({categories.length})</h3>
+          <div className="section-copy">
+            <p className="section-kicker">Catalog</p>
+            <h3>Menu categories ({categories.length})</h3>
+            <p className="panel-subtitle">Keep category ordering readable for customers and operators.</p>
+          </div>
         </div>
 
-        {categories.length === 0 ? <p className="empty">No menu categories found.</p> : null}
+        {categories.length === 0 ? <p className="empty empty-state">No menu categories found. Add categories to organize the customer menu.</p> : null}
 
         <div className="list">
           {categories.map((category) => (
-            <article key={category.id} className="list-item stack-md">
-              <div className="section-head">
-                <div>
+            <article key={category.id} className="list-item entity-card stack-md">
+              <div className="entity-top">
+                <div className="entity-title">
                   <h4>{category.name}</h4>
-                  <p className="meta">Branch: {category.branchName}</p>
+                  <p className="entity-summary">{category.branchName}</p>
+                  <div className="badge-row">
+                    <span className="badge badge-outline">Sort {category.sortOrder}</span>
+                    <span className="badge badge-neutral">{category.items.length} linked items</span>
+                  </div>
                 </div>
                 <AdminActions>
                   <button type="button" className="secondary" onClick={() => startCategoryEdit(category)}>
@@ -991,11 +1178,8 @@ export default function AdminDashboardPage() {
                 </AdminActions>
               </div>
 
-              <p className="meta">Sort: {category.sortOrder}</p>
-              <p className="meta">Linked items: {category.items.length}</p>
-
               {editingCategoryId === category.id ? (
-                <form className="grid-2" onSubmit={handleUpdateCategory}>
+                <form className="grid-2 helper-panel" onSubmit={handleUpdateCategory}>
                   <AdminField label="Category name">
                     <input
                       value={categoryEditForm.name}
@@ -1010,6 +1194,7 @@ export default function AdminDashboardPage() {
                       onChange={(event) => setCategoryEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
                     />
                   </AdminField>
+                  <p className="helper-text">Sort order controls how categories appear in QR and waiter menus.</p>
                   <AdminActions>
                     <button type="submit">Save category</button>
                     <button type="button" className="secondary" onClick={() => setEditingCategoryId(null)}>
@@ -1025,18 +1210,30 @@ export default function AdminDashboardPage() {
 
       <section className="panel stack-md">
         <div className="section-head">
-          <h3>Menu items ({menuItems.length})</h3>
+          <div className="section-copy">
+            <p className="section-kicker">Items</p>
+            <h3>Menu items ({menuItems.length})</h3>
+            <p className="panel-subtitle">
+              Availability, pricing, and descriptions shown here feed directly into waiter and QR ordering.
+            </p>
+          </div>
         </div>
 
-        {menuItems.length === 0 ? <p className="empty">No menu items found.</p> : null}
+        {menuItems.length === 0 ? <p className="empty empty-state">No menu items found. Add dishes or drinks to make ordering available.</p> : null}
 
         <div className="list">
           {menuItems.map((item) => (
-            <article key={item.id} className="list-item stack-md">
-              <div className="section-head">
-                <div>
+            <article key={item.id} className="list-item entity-card stack-md">
+              <div className="entity-top">
+                <div className="entity-title">
                   <h4>{item.name}</h4>
-                  <p className="meta">Branch: {item.branchName}</p>
+                  <p className="entity-summary">{item.branchName}</p>
+                  <div className="badge-row">
+                    <span className={`badge ${item.isAvailable ? "badge-status-available" : "badge-danger"}`}>
+                      {item.isAvailable ? "Available to order" : "Hidden from ordering"}
+                    </span>
+                    <span className="badge badge-neutral">{item.category?.name ?? "Uncategorized"}</span>
+                  </div>
                 </div>
                 <AdminActions>
                   <button type="button" className="secondary" onClick={() => startItemEdit(item)}>
@@ -1048,13 +1245,25 @@ export default function AdminDashboardPage() {
                 </AdminActions>
               </div>
 
-              <p className="meta">Category: {item.category?.name ?? "Uncategorized"}</p>
-              <p className="meta">Price: ${Number(item.price).toFixed(2)}</p>
-              <p className="meta">Sort: {item.sortOrder}</p>
-              <p className="meta">Available: {item.isAvailable ? "Yes" : "No"}</p>
+              {item.description ? <p className="helper-text">{item.description}</p> : <p className="helper-text">No description provided yet.</p>}
+
+              <div className="detail-grid">
+                <div className="detail-card">
+                  <span className="detail-label">Price</span>
+                  <span className="detail-value">{formatCurrency(item.price)}</span>
+                </div>
+                <div className="detail-card">
+                  <span className="detail-label">Sort order</span>
+                  <span className="detail-value">{item.sortOrder}</span>
+                </div>
+                <div className="detail-card">
+                  <span className="detail-label">Category</span>
+                  <span className="detail-value">{item.category?.name ?? "Uncategorized"}</span>
+                </div>
+              </div>
 
               {editingItemId === item.id ? (
-                <form className="grid-2" onSubmit={handleUpdateItem}>
+                <form className="grid-2 helper-panel" onSubmit={handleUpdateItem}>
                   <AdminField label="Name">
                     <input
                       value={itemEditForm.name}
@@ -1107,6 +1316,7 @@ export default function AdminDashboardPage() {
                       <option value="false">Unavailable</option>
                     </select>
                   </AdminField>
+                  <p className="helper-text">Changing availability keeps the item record but blocks new orders when off.</p>
                   <AdminActions>
                     <button type="submit">Save item</button>
                     <button type="button" className="secondary" onClick={() => setEditingItemId(null)}>

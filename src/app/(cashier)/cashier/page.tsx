@@ -23,10 +23,13 @@ type OpenSession = {
   guests: Guest[];
 };
 
+type InvoiceSplitMode = "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS";
+
 type InvoiceResponse = {
   data: {
     id: string;
-    splitMode: "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS";
+    createdAt: string;
+    splitMode: InvoiceSplitMode;
     total: string;
     lines: Array<{
       id: string;
@@ -43,6 +46,72 @@ type InvoiceResponse = {
   };
   error?: string;
 };
+
+function formatCurrency(value: string | number): string {
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function formatShortTime(value: string): string {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatSessionLabel(session: OpenSession): string {
+  return `${session.branch.name} • ${session.table.name} • Active Session`;
+}
+
+function formatSessionSummary(session: OpenSession): string {
+  return `Table ${session.table.name} • Opened ${formatShortTime(session.openedAt)}`;
+}
+
+function formatInvoiceNumber(invoiceId: string, createdAt?: string): string {
+  const stamp = createdAt ? new Date(createdAt) : new Date();
+  const year = String(stamp.getFullYear());
+  const month = String(stamp.getMonth() + 1).padStart(2, "0");
+  const day = String(stamp.getDate()).padStart(2, "0");
+  const suffix = invoiceId.replace(/[^a-z0-9]/gi, "").slice(-3).toUpperCase().padStart(3, "0");
+
+  return `INV-${year}${month}${day}-${suffix}`;
+}
+
+function splitModeLabel(mode: InvoiceSplitMode): string {
+  if (mode === "FULL_BY_ONE") {
+    return "Full by one guest";
+  }
+
+  if (mode === "BY_GUEST_ITEMS") {
+    return "By guest items";
+  }
+
+  return "Equal split";
+}
+
+function splitModeDescription(mode: InvoiceSplitMode): string {
+  if (mode === "FULL_BY_ONE") {
+    return "Charge the full check to one selected guest.";
+  }
+
+  if (mode === "BY_GUEST_ITEMS") {
+    return "Charge each guest only for items assigned to their name.";
+  }
+
+  return "Divide the check equally across all joined guests.";
+}
+
+function splitModeHelper(mode: InvoiceSplitMode): string {
+  if (mode === "FULL_BY_ONE") {
+    return "Use this when one guest pays now and settles internally later.";
+  }
+
+  if (mode === "BY_GUEST_ITEMS") {
+    return "Use this for the most accurate guest-by-guest item breakdown.";
+  }
+
+  return "Use this for fast checkout when the group agrees to split evenly.";
+}
 
 async function fetchSessions(): Promise<OpenSession[]> {
   const response = await fetch("/api/sessions", { cache: "no-store" });
@@ -64,7 +133,7 @@ export default function CashierDashboardPage() {
 
   const [form, setForm] = useState({
     sessionId: "",
-    splitMode: "EQUAL" as "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS",
+    splitMode: "EQUAL" as InvoiceSplitMode,
     payerGuestId: ""
   });
 
@@ -140,13 +209,22 @@ export default function CashierDashboardPage() {
     }
   }
 
+  const totalGuests = sessions.reduce((sum, session) => sum + session.guests.length, 0);
+  const invoiceSplitTotal = invoice
+    ? invoice.splits.reduce((sum, split) => sum + Number(split.amount), 0)
+    : 0;
+  const invoiceUnassignedAmount = invoice ? Math.max(Number(invoice.total) - invoiceSplitTotal, 0) : 0;
+
   return (
     <div className="stack-md">
-      <section className="panel">
+      <section className="panel dashboard-hero stack-md">
         <div className="section-head">
-          <div>
+          <div className="dashboard-hero-copy">
+            <p className="section-kicker">Billing desk</p>
             <h2>Cashier dashboard</h2>
-            <p className="meta">Generate invoices with MVP split options only.</p>
+            <p className="panel-subtitle">
+              Review active tables, choose a split method, and present a clear bill summary for checkout.
+            </p>
           </div>
           <button
             type="button"
@@ -157,12 +235,43 @@ export default function CashierDashboardPage() {
             Refresh
           </button>
         </div>
-        {loading ? <p className="meta">Loading...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+
+        <div className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Open sessions</p>
+            <p className="dashboard-stat-value">{sessions.length}</p>
+            <p className="dashboard-stat-note">Tables ready for billing review.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Guests in house</p>
+            <p className="dashboard-stat-value">{totalGuests}</p>
+            <p className="dashboard-stat-note">Joined diners across active tables.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Selected table</p>
+            <p className="dashboard-stat-value">{selectedSession ? selectedSession.table.name : "-"}</p>
+            <p className="dashboard-stat-note">
+              {selectedSession ? formatSessionSummary(selectedSession) : "Choose an active session to begin."}
+            </p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Split mode</p>
+            <p className="dashboard-stat-value">{splitModeLabel(form.splitMode)}</p>
+            <p className="dashboard-stat-note">{splitModeDescription(form.splitMode)}</p>
+          </article>
+        </div>
+
+        <div className="status-stack">
+          {loading ? <p className="status-banner is-neutral">Loading open sessions for billing.</p> : null}
+          {error ? <p className="status-banner is-error">{error}</p> : null}
+        </div>
       </section>
 
       <form className="form-card stack-md" onSubmit={handleCalculate}>
-        <h3>Calculate split bill</h3>
+        <div className="section-copy">
+          <h3>Calculate split bill</h3>
+          <p className="helper-text">This preview reflects current session data and the selected split rule.</p>
+        </div>
 
         <label>
           Open session
@@ -174,11 +283,22 @@ export default function CashierDashboardPage() {
             <option value="">Select session</option>
             {sessions.map((session) => (
               <option key={session.id} value={session.id}>
-                {session.branch.name} - {session.table.name} ({session.id.slice(0, 8)})
+                {formatSessionLabel(session)}
               </option>
             ))}
           </select>
         </label>
+
+        {selectedSession ? (
+          <div className="selection-summary stack-md">
+            <div className="badge-row">
+              <span className="badge badge-outline">{selectedSession.branch.name}</span>
+              <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
+              <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+            </div>
+            <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+          </div>
+        ) : null}
 
         <label>
           Split mode
@@ -187,16 +307,21 @@ export default function CashierDashboardPage() {
             onChange={(event) =>
               setForm((prev) => ({
                 ...prev,
-                splitMode: event.target.value as "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS",
+                splitMode: event.target.value as InvoiceSplitMode,
                 payerGuestId: ""
               }))
             }
           >
-            <option value="FULL_BY_ONE">Full by one person</option>
+            <option value="FULL_BY_ONE">Full bill to one guest</option>
             <option value="EQUAL">Equal split</option>
             <option value="BY_GUEST_ITEMS">By guest items</option>
           </select>
         </label>
+
+        <div className="helper-panel stack-md">
+          <p className="helper-text">{splitModeDescription(form.splitMode)}</p>
+          <p className="meta">{splitModeHelper(form.splitMode)}</p>
+        </div>
 
         {form.splitMode === "FULL_BY_ONE" ? (
           <label>
@@ -216,60 +341,104 @@ export default function CashierDashboardPage() {
           </label>
         ) : null}
 
-        {form.splitMode === "BY_GUEST_ITEMS" ? (
-          <p className="meta">
-            This mode charges each guest only for their own assigned items.
-          </p>
-        ) : null}
-
         <button type="submit">Calculate invoice</button>
-        {invoiceError ? <p className="error">{invoiceError}</p> : null}
+        {invoiceError ? <p className="status-banner is-error">{invoiceError}</p> : null}
       </form>
 
       {invoice ? (
         <section className="panel stack-md">
           <div className="section-head">
-            <h3>Invoice #{invoice.id.slice(0, 8)}</h3>
-            <span className="badge">{invoice.splitMode}</span>
+            <div className="section-copy">
+              <p className="section-kicker">Invoice</p>
+              <h3>{formatInvoiceNumber(invoice.id, invoice.createdAt)}</h3>
+              <p className="panel-subtitle">Calculated from the latest session snapshot and current split mode.</p>
+            </div>
+            <span className="badge badge-outline">{splitModeLabel(invoice.splitMode)}</span>
           </div>
 
-          <p>
-            <strong>Total:</strong> ${Number(invoice.total).toFixed(2)}
+          <div className="invoice-total-card">
+            <p className="dashboard-stat-label">Grand total</p>
+            <p className="invoice-total-value">{formatCurrency(invoice.total)}</p>
+            <p className="dashboard-stat-note">
+              {invoice.splits.length} payment share(s) across {invoice.lines.length} invoice line(s).
+            </p>
+          </div>
+
+          <div className="detail-grid">
+            <div className="detail-card">
+              <span className="detail-label">Assigned to payers</span>
+              <span className="detail-value">{formatCurrency(invoiceSplitTotal)}</span>
+            </div>
+            <div className="detail-card">
+              <span className="detail-label">Remaining to assign</span>
+              <span className="detail-value">{formatCurrency(invoiceUnassignedAmount)}</span>
+            </div>
+            <div className="detail-card">
+              <span className="detail-label">Calculated at</span>
+              <span className="detail-value">{formatDateTime(invoice.createdAt)}</span>
+            </div>
+          </div>
+
+          <p className="helper-text">
+            Payment posting is separate from this calculation screen. Until payment is completed, the full total is
+            still outstanding.
           </p>
 
           <div className="grid-2">
             <div>
-              <h4>Split result</h4>
-              <div className="list">
-                {invoice.splits.map((split) => (
-                  <div key={split.id} className="list-item">
-                    <p>
-                      <strong>{split.payerLabel}</strong>
-                    </p>
-                    <p className="meta">${Number(split.amount).toFixed(2)}</p>
-                  </div>
-                ))}
+              <div className="section-copy">
+                <h4>Split result</h4>
+                <p className="helper-text">What each payer should be charged.</p>
+              </div>
+              <div className="split-grid">
+                {invoice.splits.map((split) => {
+                  const sharePercent = Number(invoice.total) > 0
+                    ? (Number(split.amount) / Number(invoice.total)) * 100
+                    : 0;
+
+                  return (
+                    <article key={split.id} className="split-card stack-md">
+                      <div className="badge-row">
+                        <span className="badge badge-outline">{split.payerLabel}</span>
+                        {split.guest ? <span className="badge badge-neutral">{split.guest.displayName}</span> : null}
+                      </div>
+                      <p>
+                        <strong>{formatCurrency(split.amount)}</strong>
+                      </p>
+                      <p className="meta">{sharePercent.toFixed(1)}% of total</p>
+                    </article>
+                  );
+                })}
               </div>
             </div>
 
             <div>
-              <h4>Invoice lines</h4>
+              <div className="section-copy">
+                <h4>Invoice lines</h4>
+                <p className="helper-text">Line items included in the total.</p>
+              </div>
               <div className="list">
                 {invoice.lines.map((line) => (
-                  <div key={line.id} className="list-item">
-                    <p>
-                      <strong>{line.label}</strong>
-                    </p>
-                    <p className="meta">
-                      ${Number(line.amount).toFixed(2)}{line.guest ? ` | ${line.guest.displayName}` : ""}
-                    </p>
+                  <div key={line.id} className="list-item entity-card stack-md">
+                    <div className="entity-top">
+                      <p>
+                        <strong>{line.label}</strong>
+                      </p>
+                      <span className="badge badge-outline">{formatCurrency(line.amount)}</span>
+                    </div>
+                    <p className="meta">{line.guest ? `Assigned to ${line.guest.displayName}` : "Shared line item"}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section className="panel">
+          <p className="empty empty-state">No invoice calculated yet. Choose an active session and split mode to preview the bill.</p>
+        </section>
+      )}
     </div>
   );
 }
+

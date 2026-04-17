@@ -36,7 +36,37 @@ function transitionButtonLabel(current: KitchenStatus, next: KitchenWorkflowStat
     return "Mark served";
   }
 
-  return next;
+  return kitchenStatusLabel(next);
+}
+
+function formatTicketPlacedAt(value: string): string {
+  const stamp = new Date(value);
+  const date = stamp.toLocaleDateString();
+  const time = stamp.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  return `${date} | ${time}`;
+}
+
+function formatTicketAge(value: string): string {
+  const diffMs = Math.max(0, Date.now() - new Date(value).getTime());
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 1) {
+    return "Now";
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m`;
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  const remainingMinutes = diffMinutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `${diffHours}h`;
+  }
+
+  return `${diffHours}h ${remainingMinutes}m`;
 }
 
 type KitchenTicket = {
@@ -106,6 +136,14 @@ function statusClass(status: KitchenStatus): string {
   return "badge";
 }
 
+function kitchenStatusLabel(status: KitchenStatus): string {
+  if (status === "IN_PROGRESS") {
+    return "In progress";
+  }
+
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
 function buttonClassForStatus(status: KitchenWorkflowStatus): string {
   if (status === "IN_PROGRESS") {
     return "secondary";
@@ -165,59 +203,166 @@ export default function KitchenDashboardPage() {
     }
   }
 
+  const lanes: Array<{
+    status: KitchenStatus;
+    title: string;
+    description: string;
+  }> = [
+    {
+      status: "PENDING",
+      title: "Waiting",
+      description: "New items that still need to enter prep."
+    },
+    {
+      status: "IN_PROGRESS",
+      title: "In prep",
+      description: "Items actively being prepared."
+    },
+    {
+      status: "READY",
+      title: "Ready",
+      description: "Items ready for waiter pickup or delivery."
+    },
+    {
+      status: "SERVED",
+      title: "Served",
+      description: "Items marked served and no longer active."
+    }
+  ];
+
+  const pendingCount = tickets.filter((ticket) => ticket.status === "PENDING").length;
+  const inProgressCount = tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
+  const readyCount = tickets.filter((ticket) => ticket.status === "READY").length;
+  const servedCount = tickets.filter((ticket) => ticket.status === "SERVED").length;
+
   return (
     <div className="stack-md">
-      <section className="panel">
+      <section className="panel dashboard-hero stack-md">
         <div className="section-head">
-          <div>
+          <div className="dashboard-hero-copy">
+            <p className="section-kicker">Kitchen flow</p>
             <h2>Kitchen board</h2>
-            <p className="meta">Workflow: PENDING -&gt; IN_PROGRESS -&gt; READY -&gt; SERVED.</p>
+            <p className="panel-subtitle">Workflow remains unchanged: pending to in progress to ready to served.</p>
           </div>
           <button type="button" onClick={loadTickets}>
             Refresh
           </button>
         </div>
-        {loading ? <p className="meta">Loading...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+
+        <div className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Waiting</p>
+            <p className="dashboard-stat-value">{pendingCount}</p>
+            <p className="dashboard-stat-note">Tickets not started yet.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">In prep</p>
+            <p className="dashboard-stat-value">{inProgressCount}</p>
+            <p className="dashboard-stat-note">Items currently being prepared.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Ready</p>
+            <p className="dashboard-stat-value">{readyCount}</p>
+            <p className="dashboard-stat-note">Awaiting handoff.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Served</p>
+            <p className="dashboard-stat-value">{servedCount}</p>
+            <p className="dashboard-stat-note">Items marked served in this refresh.</p>
+          </article>
+        </div>
+
+        <div className="status-stack">
+          {loading ? <p className="status-banner is-neutral">Loading live kitchen tickets.</p> : null}
+          {error ? <p className="status-banner is-error">{error}</p> : null}
+        </div>
       </section>
 
-      <section className="grid-2">
-        {tickets.length === 0 ? <p className="empty">No active kitchen tickets.</p> : null}
+      <section className="ticket-board">
+        {lanes.map((lane) => {
+          const laneTickets = tickets.filter((ticket) => ticket.status === lane.status);
 
-        {tickets.map((ticket) => (
-          <article key={ticket.id} className="form-card stack-md">
-            <div className="section-head">
-              <strong>
-                {ticket.order.session.branch.name} - {ticket.order.session.table.name}
-              </strong>
-              <span className={statusClass(ticket.status)}>{ticket.status}</span>
-            </div>
+          return (
+            <article key={lane.status} className="panel ticket-lane">
+              <div className="ticket-lane-head">
+                <div className="ticket-lane-copy">
+                  <h3>{lane.title}</h3>
+                  <p className="helper-text">{lane.description}</p>
+                </div>
+                <span className={statusClass(lane.status)}>{laneTickets.length}</span>
+              </div>
 
-            <p>
-              <strong>{ticket.itemName}</strong> x{ticket.quantity}
-            </p>
-            <p className="meta">Guest: {ticket.guest.displayName}</p>
-            {ticket.note ? <p className="meta">Note: {ticket.note}</p> : null}
-            <p className="meta">{new Date(ticket.createdAt).toLocaleString()}</p>
+              {laneTickets.length === 0 ? (
+                <p className="empty empty-state">No tickets in {lane.title.toLowerCase()}.</p>
+              ) : (
+                <div className="ticket-lane-list">
+                  {laneTickets.map((ticket) => (
+                    <article key={ticket.id} className="ticket-card">
+                      <div className="ticket-card-main">
+                        <div className="ticket-card-head">
+                          <div className="ticket-card-title">
+                            <h4>{ticket.itemName}</h4>
+                            <p className="entity-summary">{ticket.order.session.branch.name}</p>
+                            <p className="entity-summary">Table {ticket.order.session.table.name}</p>
+                          </div>
+                          <div className="badge-row">
+                            <span className="badge badge-outline">Qty {ticket.quantity}</span>
+                            <span className={statusClass(ticket.status)}>{kitchenStatusLabel(ticket.status)}</span>
+                          </div>
+                        </div>
 
-            <div className="grid-3">
-              {kitchenTransitionMap[ticket.status]
-                .filter((next): next is KitchenWorkflowStatus => next !== "VOID")
-                .map((next) => (
-                  <button
-                    key={`${ticket.id}-${next}`}
-                    type="button"
-                    className={buttonClassForStatus(next)}
-                    disabled={busyId === ticket.id}
-                    onClick={() => handleStatus(ticket.id, next)}
-                  >
-                    {transitionButtonLabel(ticket.status, next)}
-                  </button>
-                ))}
-            </div>
-          </article>
-        ))}
+                        <div className="ticket-meta-grid">
+                          <div className="detail-card">
+                            <span className="detail-label">Guest</span>
+                            <span className="detail-value">{ticket.guest.displayName}</span>
+                          </div>
+                          <div className="detail-card">
+                            <span className="detail-label">Queued</span>
+                            <span className="detail-value">{formatTicketAge(ticket.createdAt)}</span>
+                          </div>
+                          <div className="detail-card">
+                            <span className="detail-label">Placed at</span>
+                            <span className="detail-value">{formatTicketPlacedAt(ticket.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="ticket-card-side">
+                        {ticket.note ? (
+                          <div className="helper-panel">
+                            <p className="helper-text">Kitchen note: {ticket.note}</p>
+                          </div>
+                        ) : (
+                          <div className="ticket-note-empty">
+                            <p className="helper-text">No kitchen note</p>
+                          </div>
+                        )}
+
+                        <div className="ticket-actions">
+                          {kitchenTransitionMap[ticket.status]
+                            .filter((next): next is KitchenWorkflowStatus => next !== "VOID")
+                            .map((next) => (
+                              <button
+                                key={`${ticket.id}-${next}`}
+                                type="button"
+                                className={`ticket-action-btn ${buttonClassForStatus(next)}`.trim()}
+                                disabled={busyId === ticket.id}
+                                onClick={() => handleStatus(ticket.id, next)}
+                              >
+                                {transitionButtonLabel(ticket.status, next)}
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </section>
     </div>
   );
 }
+

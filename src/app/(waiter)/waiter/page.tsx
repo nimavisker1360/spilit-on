@@ -59,6 +59,8 @@ type OpenSession = {
 };
 
 type SessionKitchenStatus = OpenSession["orders"][number]["items"][number]["status"];
+type OrderSource = OpenSession["orders"][number]["source"];
+type OrderStatus = OpenSession["orders"][number]["status"];
 
 function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenStatus, number> {
   const counts: Record<SessionKitchenStatus, number> = {
@@ -74,6 +76,106 @@ function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenSta
   }
 
   return counts;
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function formatCurrency(value: string): string {
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function formatShortTime(value: string): string {
+  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatSessionLabel(session: OpenSession): string {
+  return `${session.branch.name} • ${session.table.name} • Active Session`;
+}
+
+function formatSessionSummary(session: OpenSession): string {
+  return `Table ${session.table.code} • Opened ${formatShortTime(session.openedAt)}`;
+}
+
+function kitchenCountBadgeClass(status: SessionKitchenStatus): string {
+  if (status === "PENDING") {
+    return "badge badge-status-pending";
+  }
+
+  if (status === "IN_PROGRESS") {
+    return "badge badge-status-progress";
+  }
+
+  if (status === "READY") {
+    return "badge badge-status-ready";
+  }
+
+  if (status === "SERVED") {
+    return "badge badge-status-served";
+  }
+
+  return "badge badge-status-closed";
+}
+
+function kitchenStatusLabel(status: SessionKitchenStatus): string {
+  if (status === "IN_PROGRESS") {
+    return "In progress";
+  }
+
+  return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+function sourceBadgeClass(source: OrderSource): string {
+  if (source === "CUSTOMER") {
+    return "badge badge-source-customer";
+  }
+
+  return "badge badge-source-waiter";
+}
+
+function orderSourceLabel(source: OrderSource): string {
+  if (source === "CUSTOMER") {
+    return "Customer app";
+  }
+
+  return "Waiter";
+}
+
+function orderStatusBadgeClass(status: OrderStatus): string {
+  if (status === "PENDING") {
+    return "badge badge-status-pending";
+  }
+
+  if (status === "IN_PROGRESS") {
+    return "badge badge-status-progress";
+  }
+
+  if (status === "READY") {
+    return "badge badge-status-ready";
+  }
+
+  if (status === "COMPLETED") {
+    return "badge badge-status-served";
+  }
+
+  return "badge badge-danger";
+}
+
+function orderStatusLabel(status: OrderStatus): string {
+  if (status === "IN_PROGRESS") {
+    return "In progress";
+  }
+
+  if (status === "COMPLETED") {
+    return "Served";
+  }
+
+  if (status === "CANCELLED") {
+    return "Cancelled";
+  }
+
+  return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -264,13 +366,23 @@ export default function WaiterDashboardPage() {
     }
   }
 
+  const totalGuests = sessions.reduce((sum, session) => sum + session.guests.length, 0);
+  const totalOrders = sessions.reduce((sum, session) => sum + session.orders.length, 0);
+  const totalActiveKitchenItems = sessions.reduce((sum, session) => {
+    const counts = getSessionKitchenCounts(session);
+    return sum + counts.PENDING + counts.IN_PROGRESS + counts.READY;
+  }, 0);
+
   return (
     <div className="stack-md">
-      <section className="panel">
+      <section className="panel dashboard-hero stack-md">
         <div className="section-head">
-          <div>
+          <div className="dashboard-hero-copy">
+            <p className="section-kicker">Floor control</p>
             <h2>Waiter dashboard</h2>
-            <p className="meta">Open table sessions and send waiter orders to kitchen.</p>
+            <p className="panel-subtitle">
+              Open tables, confirm guest joins, and place waiter-assisted orders with clear floor visibility.
+            </p>
           </div>
           <button
             type="button"
@@ -281,14 +393,52 @@ export default function WaiterDashboardPage() {
             Refresh
           </button>
         </div>
-        {loading ? <p className="meta">Loading...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
+
+        <div className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Open sessions</p>
+            <p className="dashboard-stat-value">{sessions.length}</p>
+            <p className="dashboard-stat-note">Tables currently active on the floor.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Guests seated</p>
+            <p className="dashboard-stat-value">{totalGuests}</p>
+            <p className="dashboard-stat-note">Joined diners across every open session.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Orders placed</p>
+            <p className="dashboard-stat-value">{totalOrders}</p>
+            <p className="dashboard-stat-note">Order tickets currently visible on the floor.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Kitchen active</p>
+            <p className="dashboard-stat-value">{totalActiveKitchenItems}</p>
+            <p className="dashboard-stat-note">Items still pending, cooking, or ready for handoff.</p>
+          </article>
+        </div>
+
+        <div className="status-stack">
+          {loading ? <p className="status-banner is-neutral">Loading current floor status.</p> : null}
+          {error ? <p className="status-banner is-error">{error}</p> : null}
+          {message ? <p className="status-banner is-success">{message}</p> : null}
+        </div>
       </section>
 
-      <section className="grid-2">
+      <section className="section-block">
+        <div className="section-copy">
+          <p className="section-kicker">Actions</p>
+          <h3>Session and order tools</h3>
+          <p className="panel-subtitle">
+            The waiter workflow is unchanged. This view focuses on faster reading and fewer input mistakes.
+          </p>
+        </div>
+
+        <div className="grid-2">
         <form className="form-card stack-md" onSubmit={handleOpenSession}>
-          <h3>Open session</h3>
+          <div className="section-copy">
+            <h3>Open session</h3>
+            <p className="helper-text">Use this when guests arrive and the table has not been opened yet.</p>
+          </div>
           <label>
             Table
             <select
@@ -304,11 +454,15 @@ export default function WaiterDashboardPage() {
               ))}
             </select>
           </label>
+          <p className="helper-text">Opening here keeps QR join, ordering, and routing behavior exactly the same.</p>
           <button type="submit">Open table</button>
         </form>
 
         <form className="form-card stack-md" onSubmit={handlePlaceOrder}>
-          <h3>Waiter order</h3>
+          <div className="section-copy">
+            <h3>Waiter order</h3>
+            <p className="helper-text">Assign each item to a guest so split billing and kitchen tracking stay accurate.</p>
+          </div>
           <label>
             Session
             <select
@@ -321,11 +475,24 @@ export default function WaiterDashboardPage() {
               <option value="">Select open session</option>
               {sessions.map((session) => (
                 <option key={session.id} value={session.id}>
-                  {session.branch.name} - {session.table.name} ({session.id.slice(0, 8)})
+                  {formatSessionLabel(session)}
                 </option>
               ))}
             </select>
           </label>
+
+          {selectedSession ? (
+            <div className="selection-summary stack-md">
+              <div className="badge-row">
+                <span className="badge badge-outline">{selectedSession.branch.name}</span>
+                <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
+                <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+              </div>
+              <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+            </div>
+          ) : (
+            <p className="helper-text">Select an open session to load guests and branch menu items.</p>
+          )}
 
           <label>
             Menu item
@@ -337,11 +504,15 @@ export default function WaiterDashboardPage() {
               <option value="">Select item</option>
               {menuItemsForSelectedSession.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} - ${Number(item.price).toFixed(2)}
+                  {item.name} - {formatCurrency(item.price)}
                 </option>
               ))}
             </select>
           </label>
+
+          {selectedSession && menuItemsForSelectedSession.length === 0 ? (
+            <p className="helper-text">No menu items were found for this branch yet.</p>
+          ) : null}
 
           <label>
             Quantity
@@ -377,61 +548,102 @@ export default function WaiterDashboardPage() {
             <p className="meta">No guests in this session yet. Ask guests to join before ordering.</p>
           ) : null}
         </form>
+        </div>
       </section>
 
       <section className="panel stack-md">
-        <h3>Open sessions</h3>
-        {sessions.length === 0 ? <p className="empty">No open sessions.</p> : null}
+        <div className="section-head">
+          <div className="section-copy">
+            <p className="section-kicker">Live floor</p>
+            <h3>Open sessions</h3>
+            <p className="panel-subtitle">Track guest joins, kitchen load, and the most recent tickets at a glance.</p>
+          </div>
+        </div>
+        {sessions.length === 0 ? <p className="empty empty-state">No open sessions. Open a table to start guest ordering.</p> : null}
         <div className="list">
           {sessions.map((session) => {
             const kitchenCounts = getSessionKitchenCounts(session);
             const activeKitchenItems = kitchenCounts.PENDING + kitchenCounts.IN_PROGRESS + kitchenCounts.READY;
 
             return (
-              <article key={session.id} className="list-item">
-                <div className="section-head">
-                  <div>
-                    <strong>
-                      {session.branch.name} - {session.table.name}
-                    </strong>
-                    <p className="meta">
-                      Code: {session.table.code} | Session: {session.id.slice(0, 8)} | Opened:{" "}
-                      {new Date(session.openedAt).toLocaleString()}
-                    </p>
+              <article key={session.id} className="list-item entity-card stack-md">
+                <div className="entity-top">
+                  <div className="entity-title">
+                    <h4>
+                      {formatSessionLabel(session)}
+                    </h4>
+                    <p className="entity-summary">{formatSessionSummary(session)}</p>
+                    <div className="badge-row">
+                      <span className="badge badge-outline">{session.guests.length} guests</span>
+                      <span className="badge badge-neutral">{session.orders.length} orders</span>
+                      <span className="badge badge-status-progress">{activeKitchenItems} kitchen items active</span>
+                    </div>
                   </div>
-                  <span className="badge">{session.guests.length} guests</span>
                 </div>
+
+                <div className="detail-grid">
+                  <div className="detail-card">
+                    <span className="detail-label">Pending</span>
+                    <span className="detail-value">{kitchenCounts.PENDING}</span>
+                  </div>
+                  <div className="detail-card">
+                    <span className="detail-label">In progress</span>
+                    <span className="detail-value">{kitchenCounts.IN_PROGRESS}</span>
+                  </div>
+                  <div className="detail-card">
+                    <span className="detail-label">Ready / served</span>
+                    <span className="detail-value">
+                      {kitchenCounts.READY} / {kitchenCounts.SERVED}
+                    </span>
+                  </div>
+                </div>
+
                 {session.guests.length === 0 ? (
-                  <p className="meta">No guests joined yet.</p>
+                  <div className="helper-panel">
+                    <p className="helper-text">No guests joined yet. Ask customers to scan the table QR and enter their name.</p>
+                  </div>
                 ) : (
-                  <p className="meta">Guests: {session.guests.map((guest) => guest.displayName).join(", ")}</p>
+                  <div className="guest-strip">
+                    {session.guests.map((guest) => (
+                      <span key={guest.id} className="guest-chip">
+                        {guest.displayName}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
-                <p className="meta">
-                  Orders: {session.orders.length} | Active kitchen items: {activeKitchenItems}
-                </p>
-                <p className="meta">
-                  Kitchen status: PENDING {kitchenCounts.PENDING} | IN_PROGRESS {kitchenCounts.IN_PROGRESS} | READY{" "}
-                  {kitchenCounts.READY} | SERVED {kitchenCounts.SERVED}
-                </p>
+                <div className="badge-row">
+                  <span className={kitchenCountBadgeClass("PENDING")}>Pending {kitchenCounts.PENDING}</span>
+                  <span className={kitchenCountBadgeClass("IN_PROGRESS")}>In progress {kitchenCounts.IN_PROGRESS}</span>
+                  <span className={kitchenCountBadgeClass("READY")}>Ready {kitchenCounts.READY}</span>
+                  <span className={kitchenCountBadgeClass("SERVED")}>Served {kitchenCounts.SERVED}</span>
+                </div>
 
                 {session.orders.length > 0 ? (
-                  <div className="list">
+                  <div className="order-preview-list">
                     {[...session.orders]
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                       .slice(0, 3)
                       .map((order) => (
-                        <div key={order.id} className="list-item">
-                          <p>
-                            <strong>{order.source}</strong> | {order.status} | {new Date(order.createdAt).toLocaleTimeString()}
-                          </p>
+                        <div key={order.id} className="order-preview-card stack-md">
+                          <div className="order-preview-head">
+                            <div className="badge-row">
+                              <span className={sourceBadgeClass(order.source)}>{orderSourceLabel(order.source)}</span>
+                              <span className={orderStatusBadgeClass(order.status)}>{orderStatusLabel(order.status)}</span>
+                            </div>
+                            <span className="meta">{formatShortTime(order.createdAt)}</span>
+                          </div>
                           <p className="meta">
-                            {order.items.map((item) => `${item.itemName} x${item.quantity} (${item.status})`).join(", ")}
+                            {order.items
+                              .map((item) => `${item.itemName} x${item.quantity} • ${kitchenStatusLabel(item.status)}`)
+                              .join(" | ")}
                           </p>
                         </div>
                       ))}
                   </div>
-                ) : null}
+                ) : (
+                  <p className="helper-text">No orders have been placed for this session yet.</p>
+                )}
               </article>
             );
           })}

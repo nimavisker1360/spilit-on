@@ -19,22 +19,22 @@ type RoleLayoutMeta = {
 export const ROLE_LAYOUT_META: Record<AppRole, RoleLayoutMeta> = {
   admin: {
     title: "Admin dashboard",
-    subtitle: "Manage branches, tables, menu, and QR links.",
+    subtitle: "Manage branches, tables, menu, and QR access.",
     activeHref: "/admin"
   },
   waiter: {
     title: "Waiter dashboard",
-    subtitle: "Open sessions and place floor orders quickly.",
+    subtitle: "Open tables and place floor orders quickly.",
     activeHref: "/waiter"
   },
   kitchen: {
     title: "Kitchen dashboard",
-    subtitle: "Track active tickets and update prep status.",
+    subtitle: "Track live tickets and update prep status.",
     activeHref: "/kitchen"
   },
   cashier: {
     title: "Cashier dashboard",
-    subtitle: "Calculate split bills and finalize invoices.",
+    subtitle: "Calculate split bills with clear invoice summaries.",
     activeHref: "/cashier"
   }
 };

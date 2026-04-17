@@ -58,6 +58,10 @@ async function fetchGuestState(tableCode: string): Promise<GuestState> {
   return json.data;
 }
 
+function formatCurrency(value: string): string {
+  return `$${Number(value).toFixed(2)}`;
+}
+
 type Props = {
   tableCode: string;
 };
@@ -324,47 +328,91 @@ export function GuestExperience({ tableCode }: Props) {
     }
   }
 
+  const totalMenuItems = state?.menu.reduce((sum, category) => sum + category.items.length, 0) ?? 0;
+  const availableMenuItems =
+    state?.menu.reduce((sum, category) => sum + category.items.filter((item) => item.isAvailable).length, 0) ?? 0;
+
   return (
     <div className="stack-md">
-      <section className="panel">
+      <section className="panel dashboard-hero stack-md">
         <div className="section-head">
-          <div>
-            <h2>Table access</h2>
-            <p className="meta">Opened from your table QR link.</p>
+          <div className="dashboard-hero-copy">
+            <p className="section-kicker">Table QR</p>
+            <h2>{state ? `${state.table.branch.name} - ${state.table.name}` : "Table access"}</h2>
+            <p className="panel-subtitle">Join your table, browse the live menu, and send order requests directly from your phone.</p>
           </div>
           <button type="button" onClick={load}>
             Refresh
           </button>
         </div>
 
-        {loading ? <p className="meta">Loading table...</p> : null}
         {state ? (
-          <p>
-            <strong>
-              {state.table.branch.name} - {state.table.name}
-            </strong>
-          </p>
+          <div className="dashboard-stat-grid">
+            <article className="dashboard-stat-card">
+              <p className="dashboard-stat-label">Table code</p>
+              <p className="dashboard-stat-value">{state.table.code}</p>
+              <p className="dashboard-stat-note">Use this if staff asks for table verification.</p>
+            </article>
+            <article className="dashboard-stat-card">
+              <p className="dashboard-stat-label">Session</p>
+              <p className="dashboard-stat-value">{state.session ? "Open" : "Waiting"}</p>
+              <p className="dashboard-stat-note">
+                {state.session ? `${state.session.guests.length} guest(s) joined` : "Ask staff to open the table first."}
+              </p>
+            </article>
+            <article className="dashboard-stat-card">
+              <p className="dashboard-stat-label">Categories</p>
+              <p className="dashboard-stat-value">{state.menu.length}</p>
+              <p className="dashboard-stat-note">Menu groups ready to browse.</p>
+            </article>
+            <article className="dashboard-stat-card">
+              <p className="dashboard-stat-label">Available items</p>
+              <p className="dashboard-stat-value">{availableMenuItems}</p>
+              <p className="dashboard-stat-note">{totalMenuItems} items currently listed for this branch.</p>
+            </article>
+          </div>
         ) : null}
 
-        {error ? <p className="error">{error}</p> : null}
-        {message ? <p className="success">{message}</p> : null}
+        <div className="status-stack">
+          {loading ? <p className="status-banner is-neutral">Loading your table and menu.</p> : null}
+          {error ? <p className="status-banner is-error">{error}</p> : null}
+          {message ? <p className="status-banner is-success">{message}</p> : null}
+          {orderSuccess ? (
+            <p className="status-banner is-success">
+              Confirmed: {orderSuccess.itemName} x{orderSuccess.quantity} | Ref {orderSuccess.orderId.slice(0, 8)}
+            </p>
+          ) : null}
+        </div>
       </section>
 
       {!state?.session ? (
         <section className="panel">
-          <h3>Session not open yet</h3>
-          <p className="meta">Ask a waiter to open this table from the waiter dashboard.</p>
+          <div className="section-copy">
+            <h3>Session not open yet</h3>
+            <p className="panel-subtitle">Ask a waiter to open this table from the waiter dashboard before guests can join or order.</p>
+          </div>
         </section>
       ) : (
         <>
           <form className="form-card stack-md" onSubmit={handleJoin}>
-            <h3>Join table</h3>
-            <p className="meta">Session: {state.session.id.slice(0, 8)}</p>
+            <div className="section-copy">
+              <p className="section-kicker">Session</p>
+              <h3>Join table</h3>
+              <p className="helper-text">Use your name so the kitchen and cashier can track your items correctly.</p>
+            </div>
+
+            <div className="badge-row">
+              <span className="badge badge-outline">Session {state.session.id.slice(0, 8)}</span>
+              <span className="badge badge-status-open">{state.session.guests.length} guest(s) joined</span>
+              {joinedGuest ? <span className="badge badge-neutral">You: {joinedGuest.displayName}</span> : null}
+            </div>
 
             {joinedGuest ? (
-              <p>
-                You are joined as <strong>{joinedGuest.displayName}</strong>
-              </p>
+              <div className="selection-summary">
+                <p>
+                  You are joined as <strong>{joinedGuest.displayName}</strong>
+                </p>
+              </div>
             ) : (
               <>
                 <label>
@@ -382,18 +430,36 @@ export function GuestExperience({ tableCode }: Props) {
               </>
             )}
 
-            <p className="meta">
-              Current guests: {state.session.guests.length > 0 ? state.session.guests.map((guest) => guest.displayName).join(", ") : "none"}
-            </p>
+            {state.session.guests.length > 0 ? (
+              <div className="guest-strip">
+                {state.session.guests.map((guest) => (
+                  <span key={guest.id} className="guest-chip">
+                    {guest.displayName}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="helper-text">No one has joined this table yet.</p>
+            )}
           </form>
 
           <form className="form-card stack-md" onSubmit={handleOrder}>
-            <h3>Browse menu</h3>
+            <div className="section-copy">
+              <p className="section-kicker">Menu</p>
+              <h3>Browse and order</h3>
+              <p className="helper-text">Choose a category, select an item, then send the request to the kitchen.</p>
+            </div>
 
-            {state.menu.length === 0 ? <p className="empty">No menu categories available.</p> : null}
+            {state.menu.length === 0 ? <p className="empty empty-state">No menu categories available for this table yet.</p> : null}
 
             {state.menu.length > 0 ? (
               <>
+                <div className="badge-row">
+                  <span className="badge badge-outline">{state.menu.length} categories</span>
+                  <span className="badge badge-neutral">{availableMenuItems} available item(s)</span>
+                  {activeCategory ? <span className="badge badge-status-progress">Viewing {activeCategory.name}</span> : null}
+                </div>
+
                 <div className="menu-category-scroller" role="tablist" aria-label="Menu categories">
                   {state.menu.map((category) => {
                     const isActive = activeCategory?.id === category.id;
@@ -414,8 +480,15 @@ export function GuestExperience({ tableCode }: Props) {
                 </div>
 
                 {activeCategory ? (
-                  <div className="menu-item-list">
-                    {activeCategory.items.length === 0 ? <p className="empty">No items in this category.</p> : null}
+                  <div className="stack-md">
+                    <div className="menu-section-head">
+                      <p className="helper-text">
+                        {activeCategory.items.length} item(s) in {activeCategory.name}.
+                      </p>
+                    </div>
+
+                    <div className="menu-item-list">
+                      {activeCategory.items.length === 0 ? <p className="empty empty-state">No items in this category.</p> : null}
                     {activeCategory.items.map((item) => {
                       const isSelected = item.id === menuItemId;
 
@@ -441,17 +514,26 @@ export function GuestExperience({ tableCode }: Props) {
                       );
                     })}
                   </div>
+                  </div>
                 ) : null}
               </>
             ) : null}
 
             <div className="menu-order-controls stack-md">
-              <div>
-                <p className="meta">Selected item</p>
+              <div className="selection-summary stack-md">
+                <p className="dashboard-stat-label">Selected item</p>
                 {selectedMenuItem ? (
-                  <p>
-                    <strong>{selectedMenuItem.name}</strong> - ${Number(selectedMenuItem.price).toFixed(2)}
-                  </p>
+                  <>
+                    <p>
+                      <strong>{selectedMenuItem.name}</strong> - {formatCurrency(selectedMenuItem.price)}
+                    </p>
+                    <div className="badge-row">
+                      <span className={`badge${selectedMenuItem.isAvailable ? "" : " badge-unavailable"}`}>
+                        {selectedMenuItem.isAvailable ? "Available now" : "Currently unavailable"}
+                      </span>
+                      {joinedGuest ? <span className="badge badge-neutral">Ordering as {joinedGuest.displayName}</span> : null}
+                    </div>
+                  </>
                 ) : (
                   <p className="meta">Select an item to order.</p>
                 )}
@@ -513,11 +595,6 @@ export function GuestExperience({ tableCode }: Props) {
               {ordering ? "Sending..." : "Send order"}
             </button>
             {!joinedGuest ? <p className="meta">Join with your name before ordering.</p> : null}
-            {orderSuccess ? (
-              <p className="success">
-                Confirmed: {orderSuccess.itemName} x{orderSuccess.quantity} | Ref: {orderSuccess.orderId.slice(0, 8)}
-              </p>
-            ) : null}
           </form>
         </>
       )}
