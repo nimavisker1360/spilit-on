@@ -70,6 +70,58 @@ type SettlementState = {
   status: PaymentSessionStatus;
 };
 
+type GuestPaymentEntryShare = {
+  id: string;
+  guestId: string | null;
+  payerLabel: string;
+  amount: string;
+  status: PaymentShareStatus;
+  paymentUrl: string | null;
+  provider: string | null;
+};
+
+type GuestPaymentEntryLine = {
+  id: string;
+  label: string;
+  amount: string;
+  guestId: string | null;
+  guestName: string | null;
+};
+
+export type GuestPaymentEntryDetail = {
+  table: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  session: {
+    id: string;
+    openedAt: string;
+    guests: Array<{
+      id: string;
+      displayName: string;
+    }>;
+  } | null;
+  identifiedGuest: {
+    id: string;
+    displayName: string;
+  } | null;
+  paymentSession: {
+    id: string;
+    splitMode: SplitMode;
+    status: PaymentSessionStatus;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
+    currency: string;
+    fullBillOptionEnabled: boolean;
+    myShare: GuestPaymentEntryShare | null;
+    fullBillShare: GuestPaymentEntryShare | null;
+    shares: GuestPaymentEntryShare[];
+    invoiceLines: GuestPaymentEntryLine[];
+  } | null;
+};
+
 const CASH_PROVIDER = "CASH_DESK";
 const CARD_PROVIDER = "CARD_POS";
 const ONLINE_PROVIDER = "MOCK_ONLINE_LINK";
@@ -196,6 +248,37 @@ function hydratePaymentSessionDetail(
   });
 }
 
+function sortByCreatedAtDesc<T extends { createdAt: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
+function toGuestPaymentEntryShare(share: PaymentShareDetail): GuestPaymentEntryShare {
+  return {
+    id: share.id,
+    guestId: share.guestId,
+    payerLabel: share.payerLabel,
+    amount: share.amount,
+    status: share.status,
+    paymentUrl: share.paymentUrl,
+    provider: share.provider
+  };
+}
+
+function resolveFullBillShare(paymentSession: PaymentSessionDetail): PaymentShareDetail | null {
+  if (paymentSession.shares.length === 0) {
+    return null;
+  }
+
+  if (paymentSession.splitMode === SplitMode.FULL_BY_ONE) {
+    return paymentSession.shares[0] ?? null;
+  }
+
+  const totalAmountCents = toCents(paymentSession.totalAmount);
+  const exactTotalShare = paymentSession.shares.find((share) => toCents(share.amount) === totalAmountCents);
+
+  return exactTotalShare ?? null;
+}
+
 function buildPaymentShareDrafts(
   store: LocalStoreData,
   invoice: InvoiceRecord
@@ -211,10 +294,14 @@ function buildPaymentShareDrafts(
   const assignments = store.invoiceAssignments.filter((assignment) => assignment.invoiceId === invoice.id);
 
   if (invoice.splitMode === SplitMode.FULL_BY_ONE) {
+    const fullPaymentAssignment = assignments[0] ?? null;
+
     return [
       {
-        guestId: null,
-        payerLabel: formatFullPaymentLabel(table?.name ?? ""),
+        guestId: fullPaymentAssignment?.guestId ?? null,
+        payerLabel: fullPaymentAssignment
+          ? resolveGuestLabel(fullPaymentAssignment, guestMap)
+          : formatFullPaymentLabel(table?.name ?? ""),
         amount: invoice.total
       }
     ];
@@ -539,6 +626,106 @@ export async function applyCashierPaymentShareAction(
   const parsed = applyCashierPaymentShareActionSchema.parse({ paymentShareId, action });
 
   return updateStore((store) => applyPaymentShareActionInStore(store, parsed.paymentShareId, parsed.action, currentTimestamp()));
+}
+
+export async function getGuestPaymentEntry(tableCode: string, guestId?: string): Promise<GuestPaymentEntryDetail> {
+  const normalizedTableCode = tableCode.trim();
+  const normalizedGuestId = guestId?.trim() ?? "";
+
+  if (!normalizedTableCode) {
+    throw new Error("Table code is required.");
+  }
+
+  const store = readStore();
+  const table = store.tables.find((entry) => entry.code === normalizedTableCode);
+
+  if (!table || table.status === "OUT_OF_SERVICE") {
+    throw new Error("Table not found");
+  }
+
+  const activeSession = store.sessions.find((entry) => entry.tableId === table.id && entry.status === "OPEN") ?? null;
+
+  if (!activeSession) {
+    return cloneValue({
+      table: {
+        id: table.id,
+        name: table.name,
+        code: table.code
+      },
+      session: null,
+      identifiedGuest: null,
+      paymentSession: null
+    });
+  }
+
+  const joinedGuests = getSessionGuests(store, activeSession.id).map((guest) => ({
+    id: guest.id,
+    displayName: guest.displayName
+  }));
+  const joinedGuestMap = new Map(joinedGuests.map((guest) => [guest.id, guest]));
+  const identifiedGuest = normalizedGuestId ? joinedGuestMap.get(normalizedGuestId) ?? null : null;
+  const latestPaymentSession =
+    sortByCreatedAtDesc(store.paymentSessions.filter((paymentSession) => paymentSession.sessionId === activeSession.id))[0] ?? null;
+
+  if (!latestPaymentSession) {
+    return cloneValue({
+      table: {
+        id: table.id,
+        name: table.name,
+        code: table.code
+      },
+      session: {
+        id: activeSession.id,
+        openedAt: activeSession.openedAt,
+        guests: joinedGuests
+      },
+      identifiedGuest,
+      paymentSession: null
+    });
+  }
+
+  const hydratedPaymentSession = hydratePaymentSessionDetail(store, latestPaymentSession);
+  const myShare = identifiedGuest
+    ? hydratedPaymentSession.shares.find((share) => share.guestId === identifiedGuest.id) ?? null
+    : null;
+  const fullBillShare = resolveFullBillShare(hydratedPaymentSession);
+  const invoiceLines = store.invoiceLines
+    .filter((entry) => entry.invoiceId === hydratedPaymentSession.invoiceId)
+    .map((entry) => ({
+      id: entry.id,
+      label: entry.label,
+      amount: entry.amount,
+      guestId: entry.guestId,
+      guestName: entry.guestId ? joinedGuestMap.get(entry.guestId)?.displayName ?? null : null
+    }));
+
+  return cloneValue({
+    table: {
+      id: table.id,
+      name: table.name,
+      code: table.code
+    },
+    session: {
+      id: activeSession.id,
+      openedAt: activeSession.openedAt,
+      guests: joinedGuests
+    },
+    identifiedGuest,
+    paymentSession: {
+      id: hydratedPaymentSession.id,
+      splitMode: hydratedPaymentSession.splitMode,
+      status: hydratedPaymentSession.status,
+      totalAmount: hydratedPaymentSession.totalAmount,
+      paidAmount: hydratedPaymentSession.paidAmount,
+      remainingAmount: hydratedPaymentSession.remainingAmount,
+      currency: hydratedPaymentSession.currency,
+      fullBillOptionEnabled: Boolean(fullBillShare),
+      myShare: myShare ? toGuestPaymentEntryShare(myShare) : null,
+      fullBillShare: fullBillShare ? toGuestPaymentEntryShare(fullBillShare) : null,
+      shares: hydratedPaymentSession.shares.map((share) => toGuestPaymentEntryShare(share)),
+      invoiceLines
+    }
+  });
 }
 
 export async function getMockPaymentLinkDetail(paymentShareId: string, token: string): Promise<MockPaymentLinkDetail> {

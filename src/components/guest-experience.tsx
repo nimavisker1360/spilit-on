@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+
+import { clearGuestIdentity, readGuestIdentity, writeGuestIdentity } from "@/lib/guest-identity";
 
 type GuestMenuItem = {
   id: string;
@@ -76,6 +80,7 @@ type Props = {
 };
 
 export function GuestExperience({ tableCode }: Props) {
+  const pathname = usePathname();
   const [state, setState] = useState<GuestState | null>(null);
   const [guestId, setGuestId] = useState("");
   const [joinName, setJoinName] = useState("");
@@ -111,6 +116,22 @@ export function GuestExperience({ tableCode }: Props) {
     () => state?.session?.guests.find((guest) => guest.id === guestId) ?? null,
     [guestId, state?.session?.guests]
   );
+  const paymentEntryHref = useMemo(() => {
+    const fallbackPath = `/guest/${encodeURIComponent(tableCode)}`;
+    const safePathname = pathname ?? fallbackPath;
+    const normalizedPath = safePathname.endsWith("/") ? safePathname.slice(0, -1) : safePathname;
+    const guestQuery = guestId ? `?guestId=${encodeURIComponent(guestId)}` : "";
+
+    return `${normalizedPath}/payment${guestQuery}`;
+  }, [guestId, pathname, tableCode]);
+
+  useEffect(() => {
+    const storedGuestId = readGuestIdentity(tableCode);
+
+    if (storedGuestId) {
+      setGuestId((current) => current || storedGuestId);
+    }
+  }, [tableCode]);
 
   useEffect(() => {
     if (!state) {
@@ -203,6 +224,9 @@ export function GuestExperience({ tableCode }: Props) {
         const activeGuest = payload.session?.guests.find((guest) => guest.id === guestId);
         if (!activeGuest) {
           setGuestId("");
+          clearGuestIdentity(tableCode);
+        } else {
+          writeGuestIdentity(tableCode, activeGuest.id);
         }
       }
     } catch (loadError) {
@@ -248,6 +272,7 @@ export function GuestExperience({ tableCode }: Props) {
       }
 
       setGuestId(json.data.guest.id);
+      writeGuestIdentity(tableCode, json.data.guest.id);
       setJoinName("");
       setMessage(`Joined as ${json.data.guest.displayName}`);
       await load();
@@ -350,9 +375,14 @@ export function GuestExperience({ tableCode }: Props) {
             <h2>{state ? `${state.table.branch.name} - ${state.table.name}` : "Table access"}</h2>
             <p className="panel-subtitle">Join your table, browse the live menu, and send order requests directly from your phone.</p>
           </div>
-          <button type="button" onClick={load}>
-            Refresh
-          </button>
+          <div className="inline">
+            <Link href={paymentEntryHref} className="guest-footer-link">
+              Payment options
+            </Link>
+            <button type="button" onClick={load}>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {state ? (
