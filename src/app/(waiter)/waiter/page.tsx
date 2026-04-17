@@ -136,10 +136,10 @@ function sourceBadgeClass(source: OrderSource): string {
 
 function orderSourceLabel(source: OrderSource): string {
   if (source === "CUSTOMER") {
-    return "Customer app";
+    return "CUSTOMER";
   }
 
-  return "Waiter";
+  return "WAITER";
 }
 
 function orderStatusBadgeClass(status: OrderStatus): string {
@@ -176,6 +176,10 @@ function orderStatusLabel(status: OrderStatus): string {
   }
 
   return status.charAt(0) + status.slice(1).toLowerCase();
+}
+
+function formatSessionTableSummary(session: OpenSession): string {
+  return formatSessionSummary(session).replace(session.table.code, session.table.name);
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -488,7 +492,7 @@ export default function WaiterDashboardPage() {
                 <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
                 <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
               </div>
-              <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+              <p className="helper-text">{formatSessionTableSummary(selectedSession)}</p>
             </div>
           ) : (
             <p className="helper-text">Select an open session to load guests and branch menu items.</p>
@@ -572,7 +576,7 @@ export default function WaiterDashboardPage() {
                     <h4>
                       {formatSessionLabel(session)}
                     </h4>
-                    <p className="entity-summary">{formatSessionSummary(session)}</p>
+                    <p className="entity-summary">{formatSessionTableSummary(session)}</p>
                     <div className="badge-row">
                       <span className="badge badge-outline">{session.guests.length} guests</span>
                       <span className="badge badge-neutral">{session.orders.length} orders</span>
@@ -636,7 +640,7 @@ export default function WaiterDashboardPage() {
                           <p className="meta">
                             {order.items
                               .map((item) => `${item.itemName} x${item.quantity} • ${kitchenStatusLabel(item.status)}`)
-                              .join(" | ")}
+                              .join("\n")}
                           </p>
                         </div>
                       ))}

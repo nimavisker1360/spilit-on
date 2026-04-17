@@ -2,7 +2,19 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { KitchenItemStatus, OrderSource, OrderStatus, PaymentStatus, SessionStatus, SplitMode, TableStatus } from "@prisma/client";
+import {
+  KitchenItemStatus,
+  OrderSource,
+  OrderStatus,
+  PaymentSessionStatus,
+  PaymentShareStatus,
+  PaymentStatus,
+  SessionStatus,
+  SplitMode,
+  TableStatus
+} from "@prisma/client";
+
+import type { JsonValue, PaymentAttemptStatus } from "@/features/payment/payment.types";
 
 type RestaurantRecord = {
   id: string;
@@ -135,6 +147,47 @@ type PaymentRecord = {
   updatedAt: string;
 };
 
+type PaymentSessionRecord = {
+  id: string;
+  sessionId: string;
+  invoiceId: string;
+  splitMode: SplitMode;
+  totalAmount: string;
+  currency: string;
+  status: PaymentSessionStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PaymentShareRecord = {
+  id: string;
+  paymentSessionId: string;
+  guestId: string | null;
+  payerLabel: string;
+  amount: string;
+  status: PaymentShareStatus;
+  provider: string | null;
+  providerPaymentId: string | null;
+  providerConversationId: string | null;
+  paymentUrl: string | null;
+  qrPayload: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PaymentAttemptRecord = {
+  id: string;
+  paymentShareId: string;
+  provider: string;
+  requestPayload: JsonValue;
+  callbackPayload: JsonValue | null;
+  status: PaymentAttemptStatus;
+  failureReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type LocalStoreData = {
   restaurants: RestaurantRecord[];
   branches: BranchRecord[];
@@ -149,6 +202,9 @@ export type LocalStoreData = {
   invoiceLines: InvoiceLineRecord[];
   invoiceAssignments: InvoiceAssignmentRecord[];
   payments: PaymentRecord[];
+  paymentSessions: PaymentSessionRecord[];
+  paymentShares: PaymentShareRecord[];
+  paymentAttempts: PaymentAttemptRecord[];
 };
 
 const DATA_DIRECTORY = path.join(process.cwd(), "data");
@@ -258,7 +314,19 @@ function defaultStore(): LocalStoreData {
     invoices: [],
     invoiceLines: [],
     invoiceAssignments: [],
-    payments: []
+    payments: [],
+    paymentSessions: [],
+    paymentShares: [],
+    paymentAttempts: []
+  };
+}
+
+function normalizeStore(store: LocalStoreData): LocalStoreData {
+  return {
+    ...store,
+    paymentSessions: Array.isArray(store.paymentSessions) ? store.paymentSessions : [],
+    paymentShares: Array.isArray(store.paymentShares) ? store.paymentShares : [],
+    paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : []
   };
 }
 
@@ -274,7 +342,7 @@ function ensureStoreFile() {
 
 export function readStore(): LocalStoreData {
   ensureStoreFile();
-  return JSON.parse(readFileSync(STORE_FILE, "utf8")) as LocalStoreData;
+  return normalizeStore(JSON.parse(readFileSync(STORE_FILE, "utf8")) as LocalStoreData);
 }
 
 export function writeStore(store: LocalStoreData) {
@@ -357,6 +425,12 @@ export function cascadeDeleteSession(store: LocalStoreData, sessionId: string) {
   const orderIds = store.orders.filter((order) => order.sessionId === sessionId).map((order) => order.id);
   const orderItemIds = store.orderItems.filter((item) => orderIds.includes(item.orderId)).map((item) => item.id);
   const invoiceIds = store.invoices.filter((invoice) => invoice.sessionId === sessionId).map((invoice) => invoice.id);
+  const paymentSessionIds = store.paymentSessions
+    .filter((paymentSession) => paymentSession.sessionId === sessionId || invoiceIds.includes(paymentSession.invoiceId))
+    .map((paymentSession) => paymentSession.id);
+  const paymentShareIds = store.paymentShares
+    .filter((paymentShare) => paymentSessionIds.includes(paymentShare.paymentSessionId))
+    .map((paymentShare) => paymentShare.id);
 
   store.guests = store.guests.filter((guest) => guest.sessionId !== sessionId);
   store.sessions = store.sessions.filter((session) => session.id !== sessionId);
@@ -367,6 +441,9 @@ export function cascadeDeleteSession(store: LocalStoreData, sessionId: string) {
   );
   store.invoiceAssignments = store.invoiceAssignments.filter((assignment) => !invoiceIds.includes(assignment.invoiceId));
   store.payments = store.payments.filter((payment) => !invoiceIds.includes(payment.invoiceId));
+  store.paymentAttempts = store.paymentAttempts.filter((paymentAttempt) => !paymentShareIds.includes(paymentAttempt.paymentShareId));
+  store.paymentShares = store.paymentShares.filter((paymentShare) => !paymentSessionIds.includes(paymentShare.paymentSessionId));
+  store.paymentSessions = store.paymentSessions.filter((paymentSession) => !paymentSessionIds.includes(paymentSession.id));
   store.invoices = store.invoices.filter((invoice) => invoice.sessionId !== sessionId);
 }
 

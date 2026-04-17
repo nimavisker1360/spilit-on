@@ -302,8 +302,9 @@ export default function KitchenDashboardPage() {
                         <div className="ticket-card-head">
                           <div className="ticket-card-title">
                             <h4>{ticket.itemName}</h4>
-                            <p className="entity-summary">{ticket.order.session.branch.name}</p>
-                            <p className="entity-summary">Table {ticket.order.session.table.name}</p>
+                            <p className="entity-summary">
+                              {ticket.order.session.branch.name} \u2022 Table {ticket.order.session.table.name}
+                            </p>
                           </div>
                           <div className="badge-row">
                             <span className="badge badge-outline">Qty {ticket.quantity}</span>
@@ -329,11 +330,12 @@ export default function KitchenDashboardPage() {
 
                       <div className="ticket-card-side">
                         {ticket.note ? (
-                          <div className="helper-panel">
-                            <p className="helper-text">Kitchen note: {ticket.note}</p>
+                          <div className="helper-panel ticket-note-panel">
+                            <p className="detail-label">Kitchen note</p>
+                            <p className="helper-text ticket-note-text">{ticket.note}</p>
                           </div>
                         ) : (
-                          <div className="ticket-note-empty">
+                          <div className="ticket-note-empty ticket-note-panel">
                             <p className="helper-text">No kitchen note</p>
                           </div>
                         )}
@@ -365,4 +367,3 @@ export default function KitchenDashboardPage() {
     </div>
   );
 }
-

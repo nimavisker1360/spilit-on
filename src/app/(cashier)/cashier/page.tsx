@@ -24,6 +24,9 @@ type OpenSession = {
 };
 
 type InvoiceSplitMode = "FULL_BY_ONE" | "EQUAL" | "BY_GUEST_ITEMS";
+type PaymentSessionStatus = "OPEN" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "EXPIRED";
+type PaymentShareStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+type CashierPaymentShareAction = "MARK_CASH_RECEIVED" | "MARK_CARD_RECEIVED" | "CREATE_ONLINE_PAYMENT_LINK";
 
 type InvoiceResponse = {
   data: {
@@ -47,24 +50,69 @@ type InvoiceResponse = {
   error?: string;
 };
 
+type PaymentShare = {
+  id: string;
+  payerLabel: string;
+  amount: string;
+  status: PaymentShareStatus;
+  provider: string | null;
+  paymentUrl: string | null;
+  paidAt: string | null;
+  guest: Guest | null;
+};
+
+type PaymentSession = {
+  id: string;
+  invoiceId: string;
+  status: PaymentSessionStatus;
+  totalAmount: string;
+  currency: string;
+  shares: PaymentShare[];
+};
+
+type PaymentSessionResponse = {
+  data: {
+    created: boolean;
+    paymentSession: PaymentSession;
+  };
+  error?: string;
+};
+
+type PaymentShareActionResponse = {
+  data: {
+    action: CashierPaymentShareAction;
+    message: string;
+    paymentSession: PaymentSession;
+    paymentShare: PaymentShare;
+  };
+  error?: string;
+};
+
+const currencyFormatter = new Intl.NumberFormat("tr-TR", {
+  style: "currency",
+  currency: "TRY",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
 function formatCurrency(value: string | number): string {
-  return `$${Number(value).toFixed(2)}`;
+  return currencyFormatter.format(Number(value));
 }
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("tr-TR");
 }
 
 function formatShortTime(value: string): string {
-  return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(value).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatSessionLabel(session: OpenSession): string {
-  return `${session.branch.name} • ${session.table.name} • Active Session`;
+  return `${session.branch.name} | Masa ${session.table.name} | Acik hesap`;
 }
 
 function formatSessionSummary(session: OpenSession): string {
-  return `Table ${session.table.name} • Opened ${formatShortTime(session.openedAt)}`;
+  return `Masa ${session.table.name} | Acilis ${formatShortTime(session.openedAt)}`;
 }
 
 function formatInvoiceNumber(invoiceId: string, createdAt?: string): string {
@@ -79,38 +127,78 @@ function formatInvoiceNumber(invoiceId: string, createdAt?: string): string {
 
 function splitModeLabel(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Full by one guest";
+    return "Tek kisi odeme";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "By guest items";
+    return "Kisiye gore urun";
   }
 
-  return "Equal split";
+  return "Esit bolusum";
 }
 
 function splitModeDescription(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Charge the full check to one selected guest.";
+    return "Tum adisyon tek bir kisiye yazilir.";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "Charge each guest only for items assigned to their name.";
+    return "Her kisi sadece kendi urunlerini oder.";
   }
 
-  return "Divide the check equally across all joined guests.";
+  return "Toplam tutar masadaki kisilere esit bolunur.";
 }
 
 function splitModeHelper(mode: InvoiceSplitMode): string {
   if (mode === "FULL_BY_ONE") {
-    return "Use this when one guest pays now and settles internally later.";
+    return "Kurumsal masa veya tek kart odemesi icin uygundur.";
   }
 
   if (mode === "BY_GUEST_ITEMS") {
-    return "Use this for the most accurate guest-by-guest item breakdown.";
+    return "Turk restoranlarinda kisilerin kendi siparisini odedigi senaryo icin uygundur.";
   }
 
-  return "Use this for fast checkout when the group agrees to split evenly.";
+  return "Arkadas gruplarinda hizli cikis icin en pratik secenektir.";
+}
+
+function formatStatusLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function paymentShareStatusBadgeClass(status: PaymentShareStatus): string {
+  if (status === "PAID") {
+    return "badge-status-paid-payment";
+  }
+
+  if (status === "PENDING") {
+    return "badge-status-pending-payment";
+  }
+
+  if (status === "FAILED" || status === "CANCELLED") {
+    return "badge-danger";
+  }
+
+  return "badge-status-unpaid";
+}
+
+function paymentProviderLabel(provider: string): string {
+  if (provider === "CASH_DESK") {
+    return "Cash desk";
+  }
+
+  if (provider === "CARD_POS") {
+    return "Card POS";
+  }
+
+  if (provider === "MOCK_ONLINE_LINK") {
+    return "Online link (mock)";
+  }
+
+  return formatStatusLabel(provider);
 }
 
 async function fetchSessions(): Promise<OpenSession[]> {
@@ -130,6 +218,15 @@ export default function CashierDashboardPage() {
   const [error, setError] = useState("");
   const [invoiceError, setInvoiceError] = useState("");
   const [invoice, setInvoice] = useState<InvoiceResponse["data"] | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [paymentSessionNotice, setPaymentSessionNotice] = useState("");
+  const [paymentSessionError, setPaymentSessionError] = useState("");
+  const [isPreparingPayment, setIsPreparingPayment] = useState(false);
+  const [runningShareAction, setRunningShareAction] = useState<{
+    shareId: string;
+    action: CashierPaymentShareAction;
+  } | null>(null);
 
   const [form, setForm] = useState({
     sessionId: "",
@@ -182,7 +279,11 @@ export default function CashierDashboardPage() {
   async function handleCalculate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setInvoiceError("");
-    setInvoice(null);
+    setPaymentSession(null);
+    setPaymentSessionNotice("");
+    setPaymentSessionError("");
+    setRunningShareAction(null);
+    setIsCalculating(true);
 
     try {
       const response = await fetch("/api/cashier/invoices", {
@@ -206,14 +307,99 @@ export default function CashierDashboardPage() {
       setInvoice(json.data);
     } catch (calcError) {
       setInvoiceError(calcError instanceof Error ? calcError.message : "Invoice calculation failed");
+    } finally {
+      setIsCalculating(false);
     }
   }
 
+  async function handlePreparePayment() {
+    if (!invoice) {
+      return;
+    }
+
+    setPaymentSessionError("");
+    setPaymentSessionNotice("");
+    setRunningShareAction(null);
+    setIsPreparingPayment(true);
+
+    try {
+      const response = await fetch(`/api/cashier/invoices/${encodeURIComponent(invoice.id)}/payment-session`, {
+        method: "POST"
+      });
+
+      const json = (await response.json()) as PaymentSessionResponse;
+
+      if (!response.ok) {
+        throw new Error(json.error || "Payment preparation failed");
+      }
+
+      setPaymentSession(json.data.paymentSession);
+      setPaymentSessionNotice(
+        json.data.created
+          ? "Payment shares are ready. You can now collect each share from the cashier desk."
+          : "Existing payment session loaded for this invoice."
+      );
+    } catch (prepareError) {
+      setPaymentSessionError(prepareError instanceof Error ? prepareError.message : "Payment preparation failed");
+    } finally {
+      setIsPreparingPayment(false);
+    }
+  }
+
+  async function handleShareAction(shareId: string, action: CashierPaymentShareAction) {
+    setPaymentSessionError("");
+    setPaymentSessionNotice("");
+    setRunningShareAction({ shareId, action });
+
+    try {
+      const response = await fetch(`/api/cashier/payment-shares/${encodeURIComponent(shareId)}/action`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ action })
+      });
+
+      const json = (await response.json()) as PaymentShareActionResponse;
+
+      if (!response.ok) {
+        throw new Error(json.error || "Payment share update failed");
+      }
+
+      setPaymentSession(json.data.paymentSession);
+      setPaymentSessionNotice(json.data.message);
+    } catch (actionError) {
+      setPaymentSessionError(actionError instanceof Error ? actionError.message : "Payment share update failed");
+    } finally {
+      setRunningShareAction(null);
+    }
+  }
+
+  function isShareActionRunning(shareId: string, action: CashierPaymentShareAction): boolean {
+    return runningShareAction?.shareId === shareId && runningShareAction.action === action;
+  }
+
   const totalGuests = sessions.reduce((sum, session) => sum + session.guests.length, 0);
-  const invoiceSplitTotal = invoice
-    ? invoice.splits.reduce((sum, split) => sum + Number(split.amount), 0)
-    : 0;
+  const invoiceSplitTotal = invoice ? invoice.splits.reduce((sum, split) => sum + Number(split.amount), 0) : 0;
   const invoiceUnassignedAmount = invoice ? Math.max(Number(invoice.total) - invoiceSplitTotal, 0) : 0;
+  const invoiceAverageShare = invoice && invoice.splits.length > 0 ? Number(invoice.total) / invoice.splits.length : 0;
+  const paymentSummary = useMemo(() => {
+    if (!paymentSession) {
+      return null;
+    }
+
+    const totalAmount = Number(paymentSession.totalAmount);
+    const paidAmount = paymentSession.shares
+      .filter((share) => share.status === "PAID")
+      .reduce((sum, share) => sum + Number(share.amount), 0);
+
+    return {
+      totalAmount,
+      paidAmount,
+      remainingAmount: Math.max(totalAmount - paidAmount, 0),
+      unpaidShareCount: paymentSession.shares.filter((share) => share.status !== "PAID").length
+    };
+  }, [paymentSession]);
 
   return (
     <div className="stack-md">
@@ -221,9 +407,9 @@ export default function CashierDashboardPage() {
         <div className="section-head">
           <div className="dashboard-hero-copy">
             <p className="section-kicker">Billing desk</p>
-            <h2>Cashier dashboard</h2>
+            <h2>Cashier settlement desk</h2>
             <p className="panel-subtitle">
-              Review active tables, choose a split method, and present a clear bill summary for checkout.
+              Calculate split invoices, prepare payment shares, and complete settlement per payer from one clear screen.
             </p>
           </div>
           <button
@@ -240,7 +426,7 @@ export default function CashierDashboardPage() {
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Open sessions</p>
             <p className="dashboard-stat-value">{sessions.length}</p>
-            <p className="dashboard-stat-note">Tables ready for billing review.</p>
+            <p className="dashboard-stat-note">Tables waiting for checkout.</p>
           </article>
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Guests in house</p>
@@ -270,7 +456,7 @@ export default function CashierDashboardPage() {
       <form className="form-card stack-md" onSubmit={handleCalculate}>
         <div className="section-copy">
           <h3>Calculate split bill</h3>
-          <p className="helper-text">This preview reflects current session data and the selected split rule.</p>
+          <p className="helper-text">Generate the invoice summary before preparing settlement actions.</p>
         </div>
 
         <label>
@@ -293,7 +479,7 @@ export default function CashierDashboardPage() {
           <div className="selection-summary stack-md">
             <div className="badge-row">
               <span className="badge badge-outline">{selectedSession.branch.name}</span>
-              <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
+              <span className="badge badge-neutral">Masa {selectedSession.table.name}</span>
               <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
             </div>
             <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
@@ -341,17 +527,21 @@ export default function CashierDashboardPage() {
           </label>
         ) : null}
 
-        <button type="submit">Calculate invoice</button>
+        <button type="submit" disabled={isCalculating || !form.sessionId}>
+          {isCalculating ? "Calculating..." : "Calculate invoice"}
+        </button>
         {invoiceError ? <p className="status-banner is-error">{invoiceError}</p> : null}
       </form>
 
       {invoice ? (
-        <section className="panel stack-md">
+        <section className="panel stack-md invoice-result-panel">
+          {isCalculating ? <p className="status-banner is-neutral">Refreshing invoice summary with latest session data.</p> : null}
+
           <div className="section-head">
             <div className="section-copy">
               <p className="section-kicker">Invoice</p>
               <h3>{formatInvoiceNumber(invoice.id, invoice.createdAt)}</h3>
-              <p className="panel-subtitle">Calculated from the latest session snapshot and current split mode.</p>
+              <p className="panel-subtitle">Invoice summary remains visible while you prepare and settle payments.</p>
             </div>
             <span className="badge badge-outline">{splitModeLabel(invoice.splitMode)}</span>
           </div>
@@ -366,11 +556,19 @@ export default function CashierDashboardPage() {
 
           <div className="detail-grid">
             <div className="detail-card">
+              <span className="detail-label">Split mode</span>
+              <span className="detail-value">{splitModeLabel(invoice.splitMode)}</span>
+            </div>
+            <div className="detail-card">
+              <span className="detail-label">Per-guest share (avg)</span>
+              <span className="detail-value">{formatCurrency(invoiceAverageShare)}</span>
+            </div>
+            <div className="detail-card">
               <span className="detail-label">Assigned to payers</span>
               <span className="detail-value">{formatCurrency(invoiceSplitTotal)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Remaining to assign</span>
+              <span className="detail-label">Remaining / unpaid</span>
               <span className="detail-value">{formatCurrency(invoiceUnassignedAmount)}</span>
             </div>
             <div className="detail-card">
@@ -379,22 +577,155 @@ export default function CashierDashboardPage() {
             </div>
           </div>
 
-          <p className="helper-text">
-            Payment posting is separate from this calculation screen. Until payment is completed, the full total is
-            still outstanding.
-          </p>
+          <div className="prepare-payment-panel stack-md">
+            <div className="section-copy">
+              <h4>Prepare payment</h4>
+              <p className="helper-text">
+                Create local payment shares after invoice calculation. Cash, card, and online-link actions use mock
+                status transitions only.
+              </p>
+            </div>
+
+            <div className="ticket-actions">
+              <button
+                type="button"
+                className="ticket-action-btn"
+                onClick={handlePreparePayment}
+                disabled={isPreparingPayment}
+              >
+                {isPreparingPayment ? "Preparing payment..." : "Prepare payment"}
+              </button>
+            </div>
+          </div>
+
+          {paymentSessionNotice ? <p className="status-banner is-success">{paymentSessionNotice}</p> : null}
+          {paymentSessionError ? <p className="status-banner is-error">{paymentSessionError}</p> : null}
+
+          {paymentSession ? (
+            <div className="settlement-desk stack-md">
+              <div className="section-head">
+                <div className="section-copy">
+                  <p className="section-kicker">Settlement</p>
+                  <h4>Payment share control</h4>
+                  <p className="helper-text">Collect each share from cashier desk and track live settlement totals.</p>
+                </div>
+                <span className={`badge ${paymentSession.status === "PAID" ? "badge-status-paid-payment" : "badge-status-open"}`}>
+                  {formatStatusLabel(paymentSession.status)}
+                </span>
+              </div>
+
+              {paymentSummary ? (
+                <div className="grid-4 checkout-summary-grid">
+                  <article className="dashboard-stat-card checkout-summary-card">
+                    <p className="dashboard-stat-label">Total amount</p>
+                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.totalAmount)}</p>
+                    <p className="dashboard-stat-note">Invoice settlement target.</p>
+                  </article>
+                  <article className="dashboard-stat-card checkout-summary-card">
+                    <p className="dashboard-stat-label">Paid amount</p>
+                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.paidAmount)}</p>
+                    <p className="dashboard-stat-note">Collected shares marked paid.</p>
+                  </article>
+                  <article className="dashboard-stat-card checkout-summary-card">
+                    <p className="dashboard-stat-label">Remaining amount</p>
+                    <p className="dashboard-stat-value">{formatCurrency(paymentSummary.remainingAmount)}</p>
+                    <p className="dashboard-stat-note">Balance still to collect.</p>
+                  </article>
+                  <article className="dashboard-stat-card checkout-summary-card">
+                    <p className="dashboard-stat-label">Unpaid shares</p>
+                    <p className="dashboard-stat-value">{paymentSummary.unpaidShareCount}</p>
+                    <p className="dashboard-stat-note">Shares not fully settled yet.</p>
+                  </article>
+                </div>
+              ) : null}
+
+              <div className="section-copy">
+                <h4>Generated payment shares</h4>
+                <p className="helper-text">Each row includes payer label, amount, status, and direct cashier actions.</p>
+              </div>
+
+              <div className="checkout-share-grid">
+                {paymentSession.shares.map((share) => {
+                  const isPaid = share.status === "PAID";
+                  const actionLocked = Boolean(runningShareAction) || isPreparingPayment;
+
+                  return (
+                    <article key={share.id} className="checkout-share-card stack-md">
+                      <div className="checkout-share-head">
+                        <div className="checkout-share-copy">
+                          <p className="checkout-share-payer">{share.payerLabel}</p>
+                          <p className="meta">{share.guest ? `Guest: ${share.guest.displayName}` : "Session-level payer"}</p>
+                        </div>
+                        <p className="checkout-share-amount">{formatCurrency(share.amount)}</p>
+                      </div>
+
+                      <div className="badge-row">
+                        <span className={`badge ${paymentShareStatusBadgeClass(share.status)}`}>
+                          {formatStatusLabel(share.status)}
+                        </span>
+                        {share.provider ? <span className="badge badge-outline">{paymentProviderLabel(share.provider)}</span> : null}
+                        {share.paidAt ? <span className="badge badge-neutral">Paid {formatShortTime(share.paidAt)}</span> : null}
+                      </div>
+
+                      {share.paymentUrl ? (
+                        <p className="helper-text">
+                          Online link ready:{" "}
+                          <a className="checkout-link" href={share.paymentUrl} target="_blank" rel="noreferrer">
+                            Open mock payment link
+                          </a>
+                        </p>
+                      ) : null}
+
+                      <div className="ticket-actions">
+                        <button
+                          type="button"
+                          className="ticket-action-btn"
+                          onClick={() => handleShareAction(share.id, "MARK_CASH_RECEIVED")}
+                          disabled={actionLocked || isPaid}
+                        >
+                          {isShareActionRunning(share.id, "MARK_CASH_RECEIVED")
+                            ? "Recording cash..."
+                            : "Mark cash received"}
+                        </button>
+                        <button
+                          type="button"
+                          className="ticket-action-btn"
+                          onClick={() => handleShareAction(share.id, "MARK_CARD_RECEIVED")}
+                          disabled={actionLocked || isPaid}
+                        >
+                          {isShareActionRunning(share.id, "MARK_CARD_RECEIVED")
+                            ? "Recording card..."
+                            : "Mark card received"}
+                        </button>
+                        <button
+                          type="button"
+                          className="ticket-action-btn"
+                          onClick={() => handleShareAction(share.id, "CREATE_ONLINE_PAYMENT_LINK")}
+                          disabled={actionLocked || isPaid}
+                        >
+                          {isShareActionRunning(share.id, "CREATE_ONLINE_PAYMENT_LINK")
+                            ? "Generating link..."
+                            : share.status === "PENDING"
+                              ? "Refresh online payment link"
+                              : "Create online payment link"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid-2">
             <div>
               <div className="section-copy">
-                <h4>Split result</h4>
-                <p className="helper-text">What each payer should be charged.</p>
+                <h4>Per-guest invoice shares</h4>
+                <p className="helper-text">Reference split values before collecting payment.</p>
               </div>
               <div className="split-grid">
                 {invoice.splits.map((split) => {
-                  const sharePercent = Number(invoice.total) > 0
-                    ? (Number(split.amount) / Number(invoice.total)) * 100
-                    : 0;
+                  const sharePercent = Number(invoice.total) > 0 ? (Number(split.amount) / Number(invoice.total)) * 100 : 0;
 
                   return (
                     <article key={split.id} className="split-card stack-md">
@@ -415,7 +746,7 @@ export default function CashierDashboardPage() {
             <div>
               <div className="section-copy">
                 <h4>Invoice lines</h4>
-                <p className="helper-text">Line items included in the total.</p>
+                <p className="helper-text">Line items included in the current total.</p>
               </div>
               <div className="list">
                 {invoice.lines.map((line) => (
@@ -435,7 +766,7 @@ export default function CashierDashboardPage() {
         </section>
       ) : (
         <section className="panel">
-          <p className="empty empty-state">No invoice calculated yet. Choose an active session and split mode to preview the bill.</p>
+          <p className="empty empty-state">No invoice calculated yet. Choose an active session and split mode to start checkout.</p>
         </section>
       )}
     </div>

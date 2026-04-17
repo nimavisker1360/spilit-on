@@ -62,6 +62,15 @@ function formatCurrency(value: string): string {
   return `$${Number(value).toFixed(2)}`;
 }
 
+function formatSessionDisplayLabel(state: GuestState): string {
+  return `${state.table.branch.name} \u2022 ${state.table.name} \u2022 Active Session`;
+}
+
+function formatOrderReference(orderId: string): string {
+  const suffix = orderId.replace(/[^a-z0-9]/gi, "").slice(-4).toUpperCase().padStart(4, "0");
+  return `ORD-${suffix}`;
+}
+
 type Props = {
   tableCode: string;
 };
@@ -313,7 +322,7 @@ export function GuestExperience({ tableCode }: Props) {
       const firstItem = json.data.items[0];
       const totalQuantity = json.data.items.reduce((sum, item) => sum + item.quantity, 0);
 
-      setMessage(`Order #${json.data.id.slice(0, 8)} sent to kitchen.`);
+      setMessage(`${formatOrderReference(json.data.id)} sent to kitchen.`);
       if (firstItem) {
         setOrderSuccess({
           orderId: json.data.id,
@@ -379,7 +388,7 @@ export function GuestExperience({ tableCode }: Props) {
           {message ? <p className="status-banner is-success">{message}</p> : null}
           {orderSuccess ? (
             <p className="status-banner is-success">
-              Confirmed: {orderSuccess.itemName} x{orderSuccess.quantity} | Ref {orderSuccess.orderId.slice(0, 8)}
+              Confirmed: {orderSuccess.itemName} x{orderSuccess.quantity} | Ref {formatOrderReference(orderSuccess.orderId)}
             </p>
           ) : null}
         </div>
@@ -402,7 +411,7 @@ export function GuestExperience({ tableCode }: Props) {
             </div>
 
             <div className="badge-row">
-              <span className="badge badge-outline">Session {state.session.id.slice(0, 8)}</span>
+              <span className="badge badge-outline">{formatSessionDisplayLabel(state)}</span>
               <span className="badge badge-status-open">{state.session.guests.length} guest(s) joined</span>
               {joinedGuest ? <span className="badge badge-neutral">You: {joinedGuest.displayName}</span> : null}
             </div>

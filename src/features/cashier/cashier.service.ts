@@ -196,6 +196,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
         ...split,
         guest: split.guestId ? cloneValue(guestMap.get(split.guestId) ?? null) : null
       })),
+      paymentSession: null,
       session: {
         ...session,
         table: cloneValue(table),

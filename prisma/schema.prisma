@@ -42,6 +42,22 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum PaymentSessionStatus {
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  FAILED
+  EXPIRED
+}
+
+enum PaymentShareStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -84,17 +100,17 @@ model Branch {
 }
 
 model Table {
-  id        String         @id @default(cuid())
-  branchId  String
-  branch    Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  name      String
-  code       String        @unique
-  publicToken String       @unique
-  capacity  Int
-  status    TableStatus    @default(AVAILABLE)
-  sessions  TableSession[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  branchId    String
+  branch      Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name        String
+  code        String         @unique
+  publicToken String         @unique
+  capacity    Int
+  status      TableStatus    @default(AVAILABLE)
+  sessions    TableSession[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@unique([branchId, name])
   @@index([branchId, status])
@@ -132,33 +148,35 @@ model MenuItem {
 }
 
 model TableSession {
-  id       String        @id @default(cuid())
-  branchId String
-  branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  tableId  String
-  table    Table         @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  status   SessionStatus @default(OPEN)
-  openedAt DateTime      @default(now())
-  closedAt DateTime?
-  guests   Guest[]
-  orders   Order[]
-  invoices Invoice[]
+  id              String           @id @default(cuid())
+  branchId        String
+  branch          Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  tableId         String
+  table           Table            @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  status          SessionStatus    @default(OPEN)
+  openedAt        DateTime         @default(now())
+  closedAt        DateTime?
+  guests          Guest[]
+  orders          Order[]
+  invoices        Invoice[]
+  paymentSessions PaymentSession[]
 
   @@index([tableId, status])
   @@index([branchId, status])
 }
 
 model Guest {
-  id           String              @id @default(cuid())
-  sessionId    String
-  session      TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  displayName  String
-  joinedAt     DateTime            @default(now())
-  orders       Order[]             @relation("PlacedOrders")
-  orderItems   OrderItem[]
-  invoiceLines InvoiceLine[]
-  assignments  InvoiceAssignment[]
-  payments     Payment[]
+  id            String              @id @default(cuid())
+  sessionId     String
+  session       TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  displayName   String
+  joinedAt      DateTime            @default(now())
+  orders        Order[]             @relation("PlacedOrders")
+  orderItems    OrderItem[]
+  invoiceLines  InvoiceLine[]
+  assignments   InvoiceAssignment[]
+  paymentShares PaymentShare[]
+  payments      Payment[]
 
   @@index([sessionId])
   @@map("SessionGuest")
@@ -203,17 +221,76 @@ model OrderItem {
 }
 
 model Invoice {
-  id        String              @id @default(cuid())
-  sessionId String
-  session   TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  splitMode SplitMode           @map("strategy")
-  total     Decimal             @db.Decimal(10, 2)
-  createdAt DateTime            @default(now())
-  lines     InvoiceLine[]
-  splits    InvoiceAssignment[]
-  payments  Payment[]
+  id             String              @id @default(cuid())
+  sessionId      String
+  session        TableSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  splitMode      SplitMode           @map("strategy")
+  total          Decimal             @db.Decimal(10, 2)
+  createdAt      DateTime            @default(now())
+  lines          InvoiceLine[]
+  splits         InvoiceAssignment[]
+  paymentSession PaymentSession?
+  payments       Payment[]
 
   @@index([sessionId, createdAt])
+}
+
+model PaymentSession {
+  id          String               @id @default(cuid())
+  sessionId   String
+  session     TableSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  invoiceId   String               @unique
+  invoice     Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  splitMode   SplitMode
+  totalAmount Decimal              @db.Decimal(10, 2)
+  currency    String               @default("TRY") @db.VarChar(3)
+  status      PaymentSessionStatus @default(OPEN)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  shares      PaymentShare[]
+
+  @@index([sessionId, status])
+  @@index([status, createdAt])
+}
+
+model PaymentShare {
+  id                     String             @id @default(cuid())
+  paymentSessionId       String
+  paymentSession         PaymentSession     @relation(fields: [paymentSessionId], references: [id], onDelete: Cascade)
+  guestId                String?
+  guest                  Guest?             @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  payerLabel             String
+  amount                 Decimal            @db.Decimal(10, 2)
+  status                 PaymentShareStatus @default(UNPAID)
+  provider               String?            @db.VarChar(64)
+  providerPaymentId      String?            @db.VarChar(128)
+  providerConversationId String?            @db.VarChar(128)
+  paymentUrl             String?
+  qrPayload              String?
+  paidAt                 DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  attempts               PaymentAttempt[]
+
+  @@index([paymentSessionId, status])
+  @@index([guestId])
+  @@index([provider, providerPaymentId])
+}
+
+model PaymentAttempt {
+  id              String       @id @default(cuid())
+  paymentShareId  String
+  paymentShare    PaymentShare @relation(fields: [paymentShareId], references: [id], onDelete: Cascade)
+  provider        String       @db.VarChar(64)
+  requestPayload  Json
+  callbackPayload Json?
+  status          String       @db.VarChar(32)
+  failureReason   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([paymentShareId, createdAt])
+  @@index([provider, status])
 }
 
 model InvoiceLine {

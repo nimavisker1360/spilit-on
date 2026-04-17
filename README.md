@@ -91,9 +91,11 @@ npm run dev
 - `GET /api/kitchen`
 - `PATCH /api/kitchen/items/[orderItemId]`
 - `POST /api/cashier/invoices`
+- `POST /api/cashier/invoices/[invoiceId]/payment-session`
 
 ## Notes
 
 - MVP intentionally skips advanced shared-item split logic.
 - For `BY_GUEST_ITEMS`, every billable item must be assigned to a guest.
+- Payment session generation is local-only in MVP and does not call a bank provider yet.
 - Local development data is persisted in `data/local-store.json`.
