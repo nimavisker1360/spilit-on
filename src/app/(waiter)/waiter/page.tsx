@@ -51,11 +51,13 @@ type OpenSession = {
     source: "CUSTOMER" | "WAITER";
     status: "PENDING" | "IN_PROGRESS" | "READY" | "COMPLETED" | "CANCELLED";
     createdAt: string;
+    placedByGuest: Guest | null;
     items: Array<{
       id: string;
       itemName: string;
       quantity: number;
       status: "PENDING" | "IN_PROGRESS" | "READY" | "SERVED" | "VOID";
+      guest: Guest | null;
     }>;
   }>;
 };
@@ -63,6 +65,7 @@ type OpenSession = {
 type SessionKitchenStatus = OpenSession["orders"][number]["items"][number]["status"];
 type OrderSource = OpenSession["orders"][number]["source"];
 type OrderStatus = OpenSession["orders"][number]["status"];
+type OrderPreview = OpenSession["orders"][number];
 
 function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenStatus, number> {
   const counts: Record<SessionKitchenStatus, number> = {
@@ -178,6 +181,27 @@ function orderStatusLabel(status: OrderStatus): string {
 
 function formatSessionTableSummary(session: OpenSession): string {
   return formatSessionSummary(session).replace(session.table.code, session.table.name);
+}
+
+function getOrderGuestNames(order: OrderPreview): string[] {
+  const names = order.items
+    .map((item) => item.guest?.displayName?.trim() ?? "")
+    .filter((name) => name.length > 0);
+
+  if (names.length > 0) {
+    return [...new Set(names)];
+  }
+
+  return order.placedByGuest?.displayName ? [order.placedByGuest.displayName] : [];
+}
+
+function formatOrderItemSummary(order: OrderPreview): string {
+  return order.items
+    .map((item) => {
+      const guestName = item.guest?.displayName?.trim() || order.placedByGuest?.displayName || "Guest";
+      return `${guestName} | ${item.itemName} x${item.quantity} | ${kitchenStatusLabel(item.status)}`;
+    })
+    .join("\n");
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -485,7 +509,7 @@ export default function WaiterDashboardPage() {
 
           {selectedSession ? (
             <div className="selection-summary stack-md">
-              <div className="badge-row">
+                              <div className="badge-row">
                 <span className="badge badge-outline">{selectedSession.branch.name}</span>
                 <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
                 <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
@@ -633,22 +657,35 @@ export default function WaiterDashboardPage() {
                     {[...session.orders]
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                       .slice(0, 3)
-                      .map((order) => (
-                        <div key={order.id} className="order-preview-card stack-md">
-                          <div className="order-preview-head">
+                      .map((order) => {
+                        const guestNames = getOrderGuestNames(order);
+
+                        return (
+                          <div key={order.id} className="order-preview-card stack-md">
+                            <div className="order-preview-head">
                             <div className="badge-row">
                               <span className={sourceBadgeClass(order.source)}>{orderSourceLabel(order.source)}</span>
                               <span className={orderStatusBadgeClass(order.status)}>{orderStatusLabel(order.status)}</span>
+                              {guestNames.map((guestName) => (
+                                <span key={`${order.id}-${guestName}`} className="badge badge-neutral">
+                                  {guestName}
+                                </span>
+                              ))}
                             </div>
                             <span className="meta">{formatShortTime(order.createdAt)}</span>
                           </div>
-                          <p className="meta">
-                            {order.items
+                          {false ? (
+                            <p className="meta">
+                              {order.items
                               .map((item) => `${item.itemName} x${item.quantity} • ${kitchenStatusLabel(item.status)}`)
                               .join("\n")}
-                          </p>
+                            </p>
+                          ) : (
+                            <p className="meta">{formatOrderItemSummary(order)}</p>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 ) : (
                   <p className="helper-text">No orders have been placed for this session yet.</p>

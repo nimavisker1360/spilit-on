@@ -58,6 +58,11 @@ type GuestPaymentEntryDebug = {
     sessionId: string | null;
     sessionScoped: boolean;
   };
+  sessionGuests: Array<{
+    guestId: string;
+    displayName: string;
+  }>;
+  addAnotherGuestAvailable: boolean;
   detectedGuestCandidates: Array<{
     guestId: string;
     displayName: string;

@@ -71,13 +71,29 @@ function buildOpenSessionFeed(store: ReturnType<typeof readStore>, sessionId: st
     return null;
   }
 
+  const guestMap = new Map(session.guests.map((guest) => [guest.id, guest]));
+
   return {
     ...session,
     orders: getSessionOrders(store, session.id).map((order) => ({
       ...order,
-      items: cloneValue(getOrderItems(store, order.id))
+      placedByGuest: order.placedByGuestId
+        ? cloneValue(guestMap.get(order.placedByGuestId) ?? null)
+        : null,
+      items: getOrderItems(store, order.id).map((item) => ({
+        ...item,
+        guest: cloneValue(guestMap.get(item.guestId) ?? null)
+      }))
     }))
   };
+}
+
+function normalizeGuestDisplayName(value: string): string {
+  return value.normalize("NFKC").replace(/\s+/g, " ").trim();
+}
+
+function foldGuestDisplayName(value: string): string {
+  return normalizeGuestDisplayName(value).toLocaleLowerCase("tr-TR");
 }
 
 export async function openSession(input: OpenSessionInput) {
@@ -148,14 +164,16 @@ export async function joinSession(input: JoinSessionInput) {
     }
 
     const currentGuests = getSessionGuests(store, activeSession.id);
-    const existingGuest = currentGuests.find(
-      (guest) => guest.displayName.toLowerCase() === parsed.displayName.trim().toLowerCase()
-    );
+    const requestedDisplayName = normalizeGuestDisplayName(parsed.displayName);
+    const requestedFoldedName = foldGuestDisplayName(requestedDisplayName);
+    const reusableGuest = parsed.reuseGuestId
+      ? currentGuests.find((guest) => guest.id === parsed.reuseGuestId) ?? null
+      : null;
 
-    if (existingGuest) {
+    if (reusableGuest && foldGuestDisplayName(reusableGuest.displayName) === requestedFoldedName) {
       return {
         session: cloneValue(buildSessionDetail(store, activeSession.id)),
-        guest: cloneValue(existingGuest),
+        guest: cloneValue(reusableGuest),
         created: false
       };
     }
@@ -163,7 +181,7 @@ export async function joinSession(input: JoinSessionInput) {
     const guest = {
       id: makeId("guest"),
       sessionId: activeSession.id,
-      displayName: parsed.displayName.trim(),
+      displayName: requestedDisplayName,
       joinedAt: currentTimestamp()
     };
 

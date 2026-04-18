@@ -118,6 +118,11 @@ type GuestPaymentEntryDebug = {
     sessionId: string | null;
     sessionScoped: boolean;
   };
+  sessionGuests: Array<{
+    guestId: string;
+    displayName: string;
+  }>;
+  addAnotherGuestAvailable: boolean;
   detectedGuestCandidates: Array<{
     guestId: string;
     displayName: string;
@@ -914,6 +919,8 @@ export async function getGuestPaymentEntry(
               sessionId: normalizedLookup.sessionId || null,
               sessionScoped: false
             },
+            sessionGuests: [],
+            addAnotherGuestAvailable: false,
             detectedGuestCandidates: [],
             finalMatchedGuestId: null,
             matchedPaymentShareId: null
@@ -974,6 +981,11 @@ export async function getGuestPaymentEntry(
               sessionId: normalizedLookup.sessionId || null,
               sessionScoped: guestMatch.sessionScoped
             },
+            sessionGuests: joinedGuests.map((guest) => ({
+              guestId: guest.id,
+              displayName: guest.displayName
+            })),
+            addAnotherGuestAvailable: true,
             detectedGuestCandidates: guestMatch.detectedGuestCandidates,
             finalMatchedGuestId: identifiedGuest?.id ?? null,
             matchedPaymentShareId: null
@@ -1060,6 +1072,11 @@ export async function getGuestPaymentEntry(
             sessionId: normalizedLookup.sessionId || null,
             sessionScoped: guestMatch.sessionScoped
           },
+          sessionGuests: joinedGuests.map((guest) => ({
+            guestId: guest.id,
+            displayName: guest.displayName
+          })),
+          addAnotherGuestAvailable: true,
           detectedGuestCandidates: guestMatch.detectedGuestCandidates,
           finalMatchedGuestId: identifiedGuest?.id ?? null,
           matchedPaymentShareId: myShare?.id ?? null

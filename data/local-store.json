@@ -5,433 +5,371 @@
       "name": "Main Restaurant",
       "slug": "main-restaurant",
       "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-17T16:12:16.864Z"
+      "updatedAt": "2026-04-17T16:37:12.888Z"
     }
   ],
   "branches": [
     {
-      "id": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "branch_d0ad350069aa499086b401440c87b5b9",
       "restaurantId": "restaurant_main",
-      "name": "Main Branch",
+      "name": "main branch",
       "slug": "main-branch",
       "location": null,
-      "createdAt": "2026-04-17T16:12:16.864Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:12.888Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     }
   ],
   "tables": [
     {
-      "id": "table_e3b6c0d6ff74415587624b2d154963f9",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "table_caa22c89cc2545c3a588cc14a2fbd0c7",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
       "name": "T1",
       "capacity": 4,
-      "code": "MAIN-BRANCH-T1-NDPN",
-      "publicToken": "bl8l_vXAy58Yz1MoEzeuUQyw",
+      "code": "MAIN-BRANCH-T1-S2EY",
+      "publicToken": "uyrvGsycbdilYUINuugACdCL",
       "status": "OCCUPIED",
-      "createdAt": "2026-04-17T16:12:33.835Z",
-      "updatedAt": "2026-04-17T16:14:21.439Z"
+      "createdAt": "2026-04-17T16:37:24.138Z",
+      "updatedAt": "2026-04-17T16:38:43.754Z"
     }
   ],
   "menuCategories": [
     {
-      "id": "category_b9d4923e851642b7aa03760a862937fe",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "category_45c1bd3dbad84970bc38319d9e0da31c",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
       "name": "Turkish Dishes",
       "sortOrder": 1,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "category_3203b5750e5940ae8f353a6e81828da1",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
       "name": "Pizza",
       "sortOrder": 2,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "category_f43036edc87e4d758d4ab06358bba28d",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "category_91cc099506fe497c8dee61590d91ff21",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
       "name": "Soft Drinks",
       "sortOrder": 3,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "category_bff1d628ebd74efaa6ebbb348283329d",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
+      "id": "category_7853df8efdd44eacb91f15e08c6b65dc",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
       "name": "Water",
       "sortOrder": 4,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     }
   ],
   "menuItems": [
     {
-      "id": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "id": "menu_item_ad75c6676d934cc9baad561fc758a258",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_45c1bd3dbad84970bc38319d9e0da31c",
       "name": "Adana Kebab",
       "description": "Spicy minced meat kebab served with lavash and grilled vegetables",
       "price": "320.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_abd181da42ee4b4eadc445cf520b1987",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "id": "menu_item_760df870b3244cfc81d85e0c03ace870",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_45c1bd3dbad84970bc38319d9e0da31c",
       "name": "Iskender Kebab",
       "description": "Doner slices over pita with tomato sauce, yogurt, and butter",
       "price": "360.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_24c1a01aee0843cfa28d8532e99921b8",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "id": "menu_item_1fa93a04c5c84df68cb039e46bb935a2",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_45c1bd3dbad84970bc38319d9e0da31c",
       "name": "Lahmacun",
       "description": "Thin crispy flatbread topped with minced meat and herbs",
       "price": "95.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_3fc57d2e0cac48ce910711df2c3c3986",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "id": "menu_item_c2da27f09d684026bdcb1e4ccb34a56a",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_45c1bd3dbad84970bc38319d9e0da31c",
       "name": "Pide with Cheese",
       "description": "Traditional Turkish pide with melted cheese",
       "price": "180.00",
       "sortOrder": 4,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_6d4e6492b4174caf8cfbf325997dbf5e",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_b9d4923e851642b7aa03760a862937fe",
+      "id": "menu_item_14063e4405494e8c9c92aaee83bf5197",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_45c1bd3dbad84970bc38319d9e0da31c",
       "name": "Mercimek Corbasi",
       "description": "Classic Turkish red lentil soup",
       "price": "85.00",
       "sortOrder": 5,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_7799545233524939a7351c9c78535d45",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "id": "menu_item_f2ee02375e844bcba7b0f515cf4d35a4",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_3203b5750e5940ae8f353a6e81828da1",
       "name": "Margherita Pizza",
       "description": "Tomato sauce, mozzarella, and basil",
       "price": "240.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_8b2199ccdacd47c186d8abc0d5797efb",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "id": "menu_item_93f7f4bf9dad40d0a19b287cc5b3ae28",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_3203b5750e5940ae8f353a6e81828da1",
       "name": "Pepperoni Pizza",
       "description": "Mozzarella, pepperoni, and tomato sauce",
       "price": "290.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_33e1982b1fcb4e60bb6f8d1eb2fce8d6",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "id": "menu_item_e091b20f0d3447e6b9bcc0f3672734a5",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_3203b5750e5940ae8f353a6e81828da1",
       "name": "Mixed Pizza",
       "description": "Mozzarella, sucuk, mushroom, pepper, and olives",
       "price": "315.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_65ce60f73599498eb05b768fc8ddd5cf",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_0eb2b4f7d6b145f1af2e1c9e1795c762",
+      "id": "menu_item_68647e5f33d6431ab60ab4c110af33a7",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_3203b5750e5940ae8f353a6e81828da1",
       "name": "Vegetarian Pizza",
       "description": "Mozzarella, mushroom, corn, olives, and peppers",
       "price": "275.00",
       "sortOrder": 4,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_d3c4ff3f07554b148884c6890e3af0b7",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "id": "menu_item_eb79d406e97447afb76a53c7f4f7ee17",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_91cc099506fe497c8dee61590d91ff21",
       "name": "Coca-Cola 330ml",
       "description": "Chilled canned Coca-Cola",
       "price": "55.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_ab7753cf28974ff78f105724f63feaad",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "id": "menu_item_07561ccd5aef4f5795e01de75b038c3a",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_91cc099506fe497c8dee61590d91ff21",
       "name": "Fanta 330ml",
       "description": "Chilled canned orange soda",
       "price": "55.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_a0a43be1ec5b4fb99bde8a7fdfff19f8",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_f43036edc87e4d758d4ab06358bba28d",
+      "id": "menu_item_95dbd5ab5591490799357f375f177f59",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_91cc099506fe497c8dee61590d91ff21",
       "name": "Sprite 330ml",
       "description": "Chilled canned lemon-lime soda",
       "price": "55.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_83e66ae07fea486f9648c234cf19f272",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_bff1d628ebd74efaa6ebbb348283329d",
+      "id": "menu_item_6f000f1600e04defb99622e2f0d59e96",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_7853df8efdd44eacb91f15e08c6b65dc",
       "name": "Still Water 500ml",
       "description": "Bottled still water",
       "price": "20.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     },
     {
-      "id": "menu_item_01732b58ad134370898d2d1319851153",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "categoryId": "category_bff1d628ebd74efaa6ebbb348283329d",
+      "id": "menu_item_23238f983abc47aab7667f6c1e026da4",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "categoryId": "category_7853df8efdd44eacb91f15e08c6b65dc",
       "name": "Sparkling Water 250ml",
       "description": "Mineral sparkling water bottle",
       "price": "28.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-17T16:13:17.581Z",
-      "updatedAt": "2026-04-17T16:13:17.581Z"
+      "createdAt": "2026-04-17T16:37:40.688Z",
+      "updatedAt": "2026-04-17T16:37:40.688Z"
     }
   ],
   "sessions": [
     {
-      "id": "session_d18c82912ae842c286d7994451312c25",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "tableId": "table_e3b6c0d6ff74415587624b2d154963f9",
+      "id": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "tableId": "table_caa22c89cc2545c3a588cc14a2fbd0c7",
       "status": "OPEN",
-      "openedAt": "2026-04-17T16:14:21.439Z",
+      "openedAt": "2026-04-17T16:38:43.754Z",
       "closedAt": null,
       "readyToCloseAt": null
     }
   ],
   "guests": [
     {
-      "id": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "displayName": "Ali",
-      "joinedAt": "2026-04-17T16:15:04.293Z"
+      "id": "guest_bd56e4f76f6f43159f3161b6f0597999",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "displayName": "Alireza",
+      "joinedAt": "2026-04-17T16:39:19.722Z"
+    },
+    {
+      "id": "guest_e75489c960ea4a60845abd5b4e397e8c",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "displayName": "Masoud",
+      "joinedAt": "2026-04-17T16:39:36.277Z"
+    },
+    {
+      "id": "guest_46eb0c67ff06465da24d445316dcefb6",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "displayName": "Farid",
+      "joinedAt": "2026-04-17T16:39:57.833Z"
+    },
+    {
+      "id": "guest_e262e2c3fe5b4e689d517749c748f336",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "displayName": "Zahra",
+      "joinedAt": "2026-04-17T16:40:22.545Z"
     }
   ],
   "orders": [
     {
-      "id": "order_e2b3c6033fbc491fbf9124812f25a7ed",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
+      "id": "order_bcec953daed54d148784602e15bd6731",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
       "source": "CUSTOMER",
-      "status": "READY",
-      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "createdAt": "2026-04-17T16:17:08.209Z"
-    },
-    {
-      "id": "order_c1e0cc05084c4f1293165ca1384b3d29",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "source": "CUSTOMER",
-      "status": "READY",
-      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "createdAt": "2026-04-17T16:17:29.354Z"
-    },
-    {
-      "id": "order_924884661c074f96af381731f87fc572",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "source": "CUSTOMER",
-      "status": "READY",
-      "placedByGuestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "createdAt": "2026-04-17T16:18:11.434Z"
-    },
-    {
-      "id": "order_4bc4c6636b6d4b5989b527508df859c2",
-      "branchId": "branch_2b792806dcda4340b8165e6a3595fd29",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "source": "WAITER",
       "status": "PENDING",
-      "placedByGuestId": null,
+      "placedByGuestId": "guest_e75489c960ea4a60845abd5b4e397e8c",
       "note": null,
-      "createdAt": "2026-04-17T16:20:50.523Z"
+      "createdAt": "2026-04-17T16:41:16.704Z"
+    },
+    {
+      "id": "order_1d3c4f25807f4e1a9b28bd795c114dfa",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "source": "CUSTOMER",
+      "status": "PENDING",
+      "placedByGuestId": "guest_e75489c960ea4a60845abd5b4e397e8c",
+      "note": null,
+      "createdAt": "2026-04-17T16:41:59.999Z"
+    },
+    {
+      "id": "order_99cbaca5ade04f2ab09521e2413c9911",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "source": "CUSTOMER",
+      "status": "PENDING",
+      "placedByGuestId": "guest_bd56e4f76f6f43159f3161b6f0597999",
+      "note": null,
+      "createdAt": "2026-04-17T16:42:35.544Z"
+    },
+    {
+      "id": "order_df78161d7a5e4e1b8f4eed613280b953",
+      "branchId": "branch_d0ad350069aa499086b401440c87b5b9",
+      "sessionId": "session_f5c98970df9441da9fa689e8d1bafd84",
+      "source": "CUSTOMER",
+      "status": "PENDING",
+      "placedByGuestId": "guest_e262e2c3fe5b4e689d517749c748f336",
+      "note": null,
+      "createdAt": "2026-04-17T16:52:13.890Z"
     }
   ],
   "orderItems": [
     {
-      "id": "order_item_c19f247384c946aaa28d2ff1ec07d885",
-      "orderId": "order_e2b3c6033fbc491fbf9124812f25a7ed",
-      "menuItemId": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
+      "id": "order_item_89c9a3debd1d4c1ba0e617cbbbca759e",
+      "orderId": "order_bcec953daed54d148784602e15bd6731",
+      "menuItemId": "menu_item_ad75c6676d934cc9baad561fc758a258",
       "itemName": "Adana Kebab",
       "quantity": 1,
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "unitPrice": "320.00",
-      "status": "READY",
-      "createdAt": "2026-04-17T16:17:08.209Z"
-    },
-    {
-      "id": "order_item_ca2996c22fb043f09e48267e0293979f",
-      "orderId": "order_c1e0cc05084c4f1293165ca1384b3d29",
-      "menuItemId": "menu_item_7799545233524939a7351c9c78535d45",
-      "itemName": "Margherita Pizza",
-      "quantity": 1,
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "unitPrice": "240.00",
-      "status": "READY",
-      "createdAt": "2026-04-17T16:17:29.354Z"
-    },
-    {
-      "id": "order_item_aac4a41183cd42c2939c98de82287da6",
-      "orderId": "order_924884661c074f96af381731f87fc572",
-      "menuItemId": "menu_item_ab7753cf28974ff78f105724f63feaad",
-      "itemName": "Fanta 330ml",
-      "quantity": 1,
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "note": null,
-      "unitPrice": "55.00",
-      "status": "READY",
-      "createdAt": "2026-04-17T16:18:11.434Z"
-    },
-    {
-      "id": "order_item_c1538fe03a44426aabb7ed3207eb210f",
-      "orderId": "order_4bc4c6636b6d4b5989b527508df859c2",
-      "menuItemId": "menu_item_6e174dde9e13419ea8d6bd4dda8ff779",
-      "itemName": "Adana Kebab",
-      "quantity": 1,
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
+      "guestId": "guest_e75489c960ea4a60845abd5b4e397e8c",
       "note": null,
       "unitPrice": "320.00",
       "status": "PENDING",
-      "createdAt": "2026-04-17T16:20:50.523Z"
-    }
-  ],
-  "invoices": [
-    {
-      "id": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "splitMode": "EQUAL",
-      "total": "935.00",
-      "createdAt": "2026-04-17T16:21:26.027Z"
-    }
-  ],
-  "invoiceLines": [
-    {
-      "id": "invoice_line_ccffc12cc35c4152975c2803ca787448",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "orderItemId": "order_item_c19f247384c946aaa28d2ff1ec07d885",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "amount": "320.00",
-      "label": "Adana Kebab x1"
+      "createdAt": "2026-04-17T16:41:16.704Z"
     },
     {
-      "id": "invoice_line_b9d39cef089d4525a6ada217f19b1585",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "orderItemId": "order_item_ca2996c22fb043f09e48267e0293979f",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "amount": "240.00",
-      "label": "Margherita Pizza x1"
+      "id": "order_item_df3220f40bda4939b8a9467c0383a9ae",
+      "orderId": "order_1d3c4f25807f4e1a9b28bd795c114dfa",
+      "menuItemId": "menu_item_eb79d406e97447afb76a53c7f4f7ee17",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "guestId": "guest_e75489c960ea4a60845abd5b4e397e8c",
+      "note": null,
+      "unitPrice": "55.00",
+      "status": "PENDING",
+      "createdAt": "2026-04-17T16:41:59.999Z"
     },
     {
-      "id": "invoice_line_b8b1f3fd6230431e917d7e90a2221242",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "orderItemId": "order_item_aac4a41183cd42c2939c98de82287da6",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "amount": "55.00",
-      "label": "Fanta 330ml x1"
+      "id": "order_item_040255213658472bbef87267c9ea84f9",
+      "orderId": "order_99cbaca5ade04f2ab09521e2413c9911",
+      "menuItemId": "menu_item_93f7f4bf9dad40d0a19b287cc5b3ae28",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "guestId": "guest_bd56e4f76f6f43159f3161b6f0597999",
+      "note": null,
+      "unitPrice": "290.00",
+      "status": "PENDING",
+      "createdAt": "2026-04-17T16:42:35.544Z"
     },
     {
-      "id": "invoice_line_dd0aed8e056c4eda9f0bd54090376b62",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "orderItemId": "order_item_c1538fe03a44426aabb7ed3207eb210f",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "amount": "320.00",
-      "label": "Adana Kebab x1"
+      "id": "order_item_13e8563f810e45328372454234a2246d",
+      "orderId": "order_df78161d7a5e4e1b8f4eed613280b953",
+      "menuItemId": "menu_item_1fa93a04c5c84df68cb039e46bb935a2",
+      "itemName": "Lahmacun",
+      "quantity": 1,
+      "guestId": "guest_e262e2c3fe5b4e689d517749c748f336",
+      "note": null,
+      "unitPrice": "95.00",
+      "status": "PENDING",
+      "createdAt": "2026-04-17T16:52:13.890Z"
     }
   ],
-  "invoiceAssignments": [
-    {
-      "id": "invoice_split_2e53982fb83b4767bf8e98fcaaa5e525",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "payerLabel": "Ali",
-      "amount": "935.00"
-    }
-  ],
+  "invoices": [],
+  "invoiceLines": [],
+  "invoiceAssignments": [],
   "payments": [],
-  "paymentSessions": [
-    {
-      "id": "payment_session_66ce6202db184ef09010941fe5873cfe",
-      "sessionId": "session_d18c82912ae842c286d7994451312c25",
-      "invoiceId": "invoice_ada8dbad6eb846b3a810270116ba657a",
-      "splitMode": "EQUAL",
-      "totalAmount": "935.00",
-      "paidAmount": "0.00",
-      "remainingAmount": "935.00",
-      "currency": "TRY",
-      "status": "OPEN",
-      "createdAt": "2026-04-17T16:21:46.619Z",
-      "updatedAt": "2026-04-17T16:21:46.619Z"
-    }
-  ],
-  "paymentShares": [
-    {
-      "id": "payment_share_a8a4a6122ddf4db2b0d31331bfef44b0",
-      "paymentSessionId": "payment_session_66ce6202db184ef09010941fe5873cfe",
-      "guestId": "guest_67cd236ff1ba4960bd64941c36e45c7b",
-      "payerLabel": "Ali",
-      "amount": "935.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
-      "createdAt": "2026-04-17T16:21:46.619Z",
-      "updatedAt": "2026-04-17T16:21:46.619Z"
-    }
-  ],
+  "paymentSessions": [],
+  "paymentShares": [],
   "paymentAttempts": []
 }

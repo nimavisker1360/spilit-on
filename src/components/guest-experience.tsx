@@ -48,6 +48,27 @@ type OrderSuccessState = {
   quantity: number;
 };
 
+type DeviceGuestIdentity = {
+  guestId: string;
+  guestName: string;
+  sessionId: string | null;
+};
+
+type GuestJoinDebug = {
+  joinedCustomerOnDevice: {
+    guestId: string | null;
+    guestName: string | null;
+    sessionId: string | null;
+  };
+  activeSessionId: string | null;
+  sessionGuests: Array<{
+    guestId: string;
+    displayName: string;
+  }>;
+  addAnotherGuestAvailable: boolean;
+  showingAddAnotherGuestForm: boolean;
+};
+
 async function fetchGuestState(tableCode: string): Promise<GuestState> {
   const response = await fetch(`/api/guest/${tableCode}`, { cache: "no-store" });
   const json = (await response.json()) as { data?: GuestState; error?: string };
@@ -84,11 +105,15 @@ type Props = {
   tableCode: string;
 };
 
+const isDevelopment = process.env.NODE_ENV !== "production";
+
 export function GuestExperience({ tableCode }: Props) {
   const pathname = usePathname();
   const [state, setState] = useState<GuestState | null>(null);
   const [guestId, setGuestId] = useState("");
+  const [deviceGuestIdentity, setDeviceGuestIdentity] = useState<DeviceGuestIdentity | null>(null);
   const [joinName, setJoinName] = useState("");
+  const [showAddGuestForm, setShowAddGuestForm] = useState(false);
   const [menuItemId, setMenuItemId] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -121,6 +146,12 @@ export function GuestExperience({ tableCode }: Props) {
     () => state?.session?.guests.find((guest) => guest.id === guestId) ?? null,
     [guestId, state?.session?.guests]
   );
+  const otherJoinedGuests = useMemo(
+    () => state?.session?.guests.filter((guest) => guest.id !== joinedGuest?.id) ?? [],
+    [joinedGuest?.id, state?.session?.guests]
+  );
+  const shouldShowJoinForm = !joinedGuest || showAddGuestForm;
+  const addAnotherGuestAvailable = Boolean(state?.session);
   const paymentEntryHref = useMemo(() => {
     const fallbackPath = `/guest/${encodeURIComponent(tableCode)}`;
     const safePathname = pathname ?? fallbackPath;
@@ -128,11 +159,81 @@ export function GuestExperience({ tableCode }: Props) {
 
     return `${normalizedPath}/payment`;
   }, [pathname, tableCode]);
+  const guestJoinDebug = useMemo<GuestJoinDebug | null>(() => {
+    if (!isDevelopment) {
+      return null;
+    }
+
+    return {
+      joinedCustomerOnDevice: {
+        guestId: deviceGuestIdentity?.guestId ?? null,
+        guestName: deviceGuestIdentity?.guestName ?? null,
+        sessionId: deviceGuestIdentity?.sessionId ?? null
+      },
+      activeSessionId: state?.session?.id ?? null,
+      sessionGuests:
+        state?.session?.guests.map((guest) => ({
+          guestId: guest.id,
+          displayName: guest.displayName
+        })) ?? [],
+      addAnotherGuestAvailable,
+      showingAddAnotherGuestForm: Boolean(joinedGuest && showAddGuestForm)
+    };
+  }, [addAnotherGuestAvailable, deviceGuestIdentity, joinedGuest, showAddGuestForm, state?.session]);
+
+  function clearCurrentGuestBinding() {
+    setGuestId("");
+    setDeviceGuestIdentity(null);
+    clearGuestIdentity(tableCode);
+  }
+
+  function persistCurrentGuestBinding(nextGuest: { id: string; displayName: string }, sessionId: string | null) {
+    const nextIdentity = {
+      guestId: nextGuest.id,
+      guestName: nextGuest.displayName,
+      sessionId
+    };
+
+    setGuestId(nextGuest.id);
+    setDeviceGuestIdentity(nextIdentity);
+    writeGuestIdentity(tableCode, nextIdentity);
+  }
+
+  function handleContinueAsCurrentGuest() {
+    if (!joinedGuest || !state?.session) {
+      return;
+    }
+
+    setError("");
+    setOrderSuccess(null);
+    setJoinName("");
+    setShowAddGuestForm(false);
+    persistCurrentGuestBinding(joinedGuest, state.session.id);
+    setMessage(`Continuing as ${joinedGuest.displayName}`);
+  }
+
+  function handleSwitchGuest(nextGuest: { id: string; displayName: string }) {
+    if (!state?.session) {
+      return;
+    }
+
+    setError("");
+    setOrderSuccess(null);
+    setJoinName("");
+    setShowAddGuestForm(false);
+    persistCurrentGuestBinding(nextGuest, state.session.id);
+    setMessage(`Switched to ${nextGuest.displayName}`);
+  }
 
   useEffect(() => {
     const storedGuestIdentity = readGuestIdentity(tableCode);
 
     if (storedGuestIdentity?.guestId) {
+      setDeviceGuestIdentity({
+        guestId: storedGuestIdentity.guestId,
+        guestName: storedGuestIdentity.guestName,
+        sessionId: storedGuestIdentity.sessionId
+      });
       setGuestId((current) => current || storedGuestIdentity.guestId);
     }
   }, [tableCode]);
@@ -228,15 +329,15 @@ export function GuestExperience({ tableCode }: Props) {
 
       if (!payload.session) {
         if (guestId || storedIdentity) {
-          setGuestId("");
-          clearGuestIdentity(tableCode);
+          clearCurrentGuestBinding();
         }
+        setShowAddGuestForm(false);
         return;
       }
 
       if (storedIdentity?.sessionId && storedIdentity.sessionId !== payload.session.id) {
-        setGuestId("");
-        clearGuestIdentity(tableCode);
+        clearCurrentGuestBinding();
+        setShowAddGuestForm(false);
         return;
       }
 
@@ -255,21 +356,12 @@ export function GuestExperience({ tableCode }: Props) {
 
       if (!activeGuest) {
         if (lookupGuestId || storedIdentity?.guestName) {
-          setGuestId("");
-          clearGuestIdentity(tableCode);
+          clearCurrentGuestBinding();
         }
         return;
       }
 
-      if (guestId !== activeGuest.id) {
-        setGuestId(activeGuest.id);
-      }
-
-      writeGuestIdentity(tableCode, {
-        guestId: activeGuest.id,
-        guestName: activeGuest.displayName,
-        sessionId: activeSessionId
-      });
+      persistCurrentGuestBinding(activeGuest, activeSessionId);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load table");
     } finally {
@@ -290,6 +382,21 @@ export function GuestExperience({ tableCode }: Props) {
     setJoining(true);
 
     try {
+      const normalizedJoinName = foldGuestName(joinName);
+      const reusableGuest =
+        deviceGuestIdentity && state?.session
+          ? state.session.guests.find((guest) => foldGuestName(guest.displayName) === normalizedJoinName) ?? null
+          : null;
+
+      if (reusableGuest && state?.session) {
+        persistCurrentGuestBinding(reusableGuest, state.session.id);
+        setJoinName("");
+        setShowAddGuestForm(false);
+        setMessage(`Continuing as ${reusableGuest.displayName}`);
+        await load();
+        return;
+      }
+
       const response = await fetch("/api/sessions/join", {
         method: "POST",
         headers: {
@@ -297,12 +404,14 @@ export function GuestExperience({ tableCode }: Props) {
         },
         body: JSON.stringify({
           tableCode,
-          displayName: joinName
+          displayName: joinName,
+          reuseGuestId: joinedGuest?.id
         })
       });
 
       const json = (await response.json()) as {
         data?: {
+          created: boolean;
           guest: { id: string; displayName: string };
         };
         error?: string;
@@ -312,14 +421,10 @@ export function GuestExperience({ tableCode }: Props) {
         throw new Error(json.error || "Join failed");
       }
 
-      setGuestId(json.data.guest.id);
-      writeGuestIdentity(tableCode, {
-        guestId: json.data.guest.id,
-        guestName: json.data.guest.displayName,
-        sessionId: state?.session?.id ?? null
-      });
+      persistCurrentGuestBinding(json.data.guest, state?.session?.id ?? null);
       setJoinName("");
-      setMessage(`Joined as ${json.data.guest.displayName}`);
+      setShowAddGuestForm(false);
+      setMessage(`${json.data.created ? "Joined" : "Continuing"} as ${json.data.guest.displayName}`);
       await load();
     } catch (joinError) {
       setError(joinError instanceof Error ? joinError.message : "Join failed");
@@ -492,15 +597,43 @@ export function GuestExperience({ tableCode }: Props) {
             </div>
 
             {joinedGuest ? (
-              <div className="selection-summary">
+              <div className="selection-summary stack-md">
                 <p>
-                  You are joined as <strong>{joinedGuest.displayName}</strong>
+                  Current guest on this device: <strong>{joinedGuest.displayName}</strong>
                 </p>
+                <div className="ticket-actions">
+                  <button type="button" className="secondary" onClick={handleContinueAsCurrentGuest}>
+                    Continue as {joinedGuest.displayName}
+                  </button>
+                  <button type="button" onClick={() => setShowAddGuestForm(true)} disabled={!addAnotherGuestAvailable}>
+                    Add another guest
+                  </button>
+                </div>
+                {otherJoinedGuests.length > 0 ? (
+                  <div className="stack-md">
+                    <p className="helper-text">Switch this device to another joined guest if needed.</p>
+                    <div className="guest-selector-list">
+                      {otherJoinedGuests.map((guest) => (
+                        <button
+                          key={guest.id}
+                          type="button"
+                          className="guest-selector-btn"
+                          onClick={() => handleSwitchGuest(guest)}
+                        >
+                          <span className="guest-selector-name">{guest.displayName}</span>
+                          <span className="guest-selector-meta">Switch this device to {guest.displayName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            ) : (
+            ) : null}
+
+            {shouldShowJoinForm ? (
               <>
                 <label>
-                  Your name
+                  {joinedGuest ? "Another guest name" : "Your name"}
                   <input
                     value={joinName}
                     onChange={(event) => setJoinName(event.target.value)}
@@ -508,11 +641,23 @@ export function GuestExperience({ tableCode }: Props) {
                     required
                   />
                 </label>
-                <button type="submit" disabled={joining}>
-                  {joining ? "Joining..." : "Join table"}
-                </button>
+                <div className="ticket-actions">
+                  <button type="submit" disabled={joining}>
+                    {joining ? "Joining..." : joinedGuest ? "Add guest to table" : "Join table"}
+                  </button>
+                  {joinedGuest ? (
+                    <button type="button" className="secondary" onClick={handleContinueAsCurrentGuest}>
+                      Continue as {joinedGuest.displayName}
+                    </button>
+                  ) : null}
+                </div>
+                {joinedGuest ? (
+                  <p className="helper-text">
+                    Shared-device or QA testing is allowed here. Adding another guest will keep the same active table session.
+                  </p>
+                ) : null}
               </>
-            )}
+            ) : null}
 
             {state.session.guests.length > 0 ? (
               <div className="guest-strip">
@@ -682,6 +827,16 @@ export function GuestExperience({ tableCode }: Props) {
           </form>
         </>
       )}
+
+      {guestJoinDebug ? (
+        <section className="panel stack-md">
+          <div className="section-copy">
+            <h3>Dev trace</h3>
+            <p className="helper-text">Visible only in development.</p>
+          </div>
+          <pre className="debug-trail">{JSON.stringify(guestJoinDebug, null, 2)}</pre>
+        </section>
+      ) : null}
     </div>
   );
 }
