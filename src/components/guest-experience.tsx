@@ -405,13 +405,13 @@ export function GuestExperience({ tableCode }: Props) {
     [activeJoinedGuestId, activeSessionId, tableCode]
   );
 
-  function clearCurrentGuestBinding() {
+  const clearCurrentGuestBinding = useCallback(() => {
     setGuestId("");
     setDeviceGuestIdentity(null);
     clearGuestIdentity(tableCode);
-  }
+  }, [tableCode]);
 
-  function persistCurrentGuestBinding(nextGuest: { id: string; displayName: string }, sessionId: string | null) {
+  const persistCurrentGuestBinding = useCallback((nextGuest: { id: string; displayName: string }, sessionId: string | null) => {
     const nextIdentity = {
       guestId: nextGuest.id,
       guestName: nextGuest.displayName,
@@ -421,7 +421,7 @@ export function GuestExperience({ tableCode }: Props) {
     setGuestId(nextGuest.id);
     setDeviceGuestIdentity(nextIdentity);
     writeGuestIdentity(tableCode, nextIdentity);
-  }
+  }, [tableCode]);
 
   function handleContinueAsCurrentGuest() {
     if (!joinedGuest || !state?.session) {
@@ -551,8 +551,10 @@ export function GuestExperience({ tableCode }: Props) {
     handleSelectItem(item);
   }
 
-  async function load() {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -599,14 +601,38 @@ export function GuestExperience({ tableCode }: Props) {
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load table");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
-  }
+  }, [clearCurrentGuestBinding, guestId, persistCurrentGuestBinding, tableCode]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableCode]);
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const intervalMs = state?.session ? 10000 : 1000;
+    const timer = window.setInterval(() => {
+      void load({ silent: true });
+    }, intervalMs);
+
+    return () => window.clearInterval(timer);
+  }, [load, state?.session]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void load({ silent: true });
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [load]);
 
   useEffect(() => {
     if (!showOrdersSheet) {
@@ -659,6 +685,13 @@ export function GuestExperience({ tableCode }: Props) {
   useRealtimeEvents({
     role: "guest",
     onEvent: (event) => {
+      if (event.type === "session.opened") {
+        if (event.tableCode.trim().toLocaleUpperCase("en-US") === tableCode.trim().toLocaleUpperCase("en-US")) {
+          void load({ silent: true });
+        }
+        return;
+      }
+
       if (!activeSessionId || !activeJoinedGuestId) {
         return;
       }
@@ -690,7 +723,7 @@ export function GuestExperience({ tableCode }: Props) {
         setJoinName("");
         setShowAddGuestForm(false);
         setMessage(`Continuing as ${reusableGuest.displayName}`);
-        await load();
+        await load({ silent: true });
         return;
       }
 
@@ -722,7 +755,7 @@ export function GuestExperience({ tableCode }: Props) {
       setJoinName("");
       setShowAddGuestForm(false);
       setMessage(`${json.data.created ? "Joined" : "Continuing"} as ${json.data.guest.displayName}`);
-      await load();
+      await load({ silent: true });
     } catch (joinError) {
       setError(joinError instanceof Error ? joinError.message : "Join failed");
     } finally {
@@ -867,7 +900,7 @@ export function GuestExperience({ tableCode }: Props) {
               <Link href={paymentEntryHref} className="guest-menu-action-link">
                 My Payment
               </Link>
-              <button type="button" className="guest-menu-action-btn" onClick={load}>
+              <button type="button" className="guest-menu-action-btn" onClick={() => void load()}>
                 Refresh
               </button>
             </div>

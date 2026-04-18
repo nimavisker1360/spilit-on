@@ -7,6 +7,12 @@ export const REALTIME_EVENT_NAME = "restaurant:sync";
 
 export type RealtimeEvent =
   | {
+      type: "session.opened";
+      sessionId: string;
+      branchId: string;
+      tableCode: string;
+    }
+  | {
       type: "order.created";
       orderId: string;
       sessionId: string;
