@@ -1,10 +1,12 @@
-import { OrderSource } from "@prisma/client";
+import { type KitchenItemStatus, OrderSource } from "@prisma/client";
 
+import { centsToDecimalString, toCents } from "@/lib/currency";
 import {
   cloneValue,
   currentTimestamp,
   getOrderItems,
   getSessionGuests,
+  getSessionOrders,
   makeId,
   readStore,
   sortByCreatedAtAsc,
@@ -29,6 +31,68 @@ type CreateOrderInternalInput = {
     note?: string;
   }>;
 };
+
+type GuestOrderLookupInput = {
+  guestId?: string;
+  sessionId?: string;
+};
+
+type GuestStatusCounts = {
+  PENDING: number;
+  IN_PROGRESS: number;
+  READY: number;
+  SERVED: number;
+  VOID: number;
+};
+
+export type GuestOrderFeedDetail = {
+  table: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  session: {
+    id: string;
+    openedAt: string;
+  } | null;
+  identifiedGuest: {
+    id: string;
+    displayName: string;
+  } | null;
+  summary: {
+    guestName: string | null;
+    itemCount: number;
+    subtotal: string;
+    unpaidAmount: string | null;
+    statusCounts: GuestStatusCounts;
+  };
+  orders: Array<{
+    id: string;
+    source: OrderSource;
+    createdAt: string;
+    subtotal: string;
+    items: Array<{
+      id: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: string;
+      lineTotal: string;
+      note: string | null;
+      createdAt: string;
+      status: KitchenItemStatus;
+    }>;
+  }>;
+};
+
+function createEmptyStatusCounts(): GuestStatusCounts {
+  return {
+    PENDING: 0,
+    IN_PROGRESS: 0,
+    READY: 0,
+    SERVED: 0,
+    VOID: 0
+  };
+}
 
 async function createOrderInternal(input: CreateOrderInternalInput) {
   return updateStore((store) => {
@@ -157,4 +221,131 @@ export async function getSessionOrderFeed(sessionId: string) {
         }))
       }))
   );
+}
+
+export async function getGuestOrderFeed(tableCode: string, lookup: GuestOrderLookupInput): Promise<GuestOrderFeedDetail> {
+  const normalizedTableCode = tableCode.trim();
+  const normalizedGuestId = lookup.guestId?.trim() ?? "";
+  const normalizedSessionId = lookup.sessionId?.trim() ?? "";
+  const store = readStore();
+  const table = store.tables.find((entry) => entry.code === normalizedTableCode);
+
+  if (!table || table.status === "OUT_OF_SERVICE") {
+    throw new Error("Table not found");
+  }
+
+  const activeSession = store.sessions.find((session) => session.tableId === table.id && session.status === "OPEN") ?? null;
+  const guests = activeSession ? getSessionGuests(store, activeSession.id) : [];
+  const baseDetail: GuestOrderFeedDetail = {
+    table: {
+      id: table.id,
+      name: table.name,
+      code: table.code
+    },
+    session: activeSession
+      ? {
+          id: activeSession.id,
+          openedAt: activeSession.openedAt
+        }
+      : null,
+    identifiedGuest: null,
+    summary: {
+      guestName: null,
+      itemCount: 0,
+      subtotal: "0.00",
+      unpaidAmount: null,
+      statusCounts: createEmptyStatusCounts()
+    },
+    orders: []
+  };
+
+  if (!activeSession) {
+    return cloneValue(baseDetail);
+  }
+
+  if (!normalizedGuestId || (normalizedSessionId && normalizedSessionId !== activeSession.id)) {
+    return cloneValue(baseDetail);
+  }
+
+  const guest = guests.find((entry) => entry.id === normalizedGuestId) ?? null;
+
+  if (!guest) {
+    return cloneValue(baseDetail);
+  }
+
+  const statusCounts = createEmptyStatusCounts();
+  let itemCount = 0;
+  let subtotalCents = 0;
+
+  const orders = getSessionOrders(store, activeSession.id)
+    .map((order) => {
+      let orderSubtotalCents = 0;
+
+      const items = getOrderItems(store, order.id)
+        .filter((item) => item.guestId === guest.id)
+        .map((item) => {
+          statusCounts[item.status] += 1;
+          itemCount += item.quantity;
+
+          const lineTotalCents = toCents(item.unitPrice) * item.quantity;
+          if (item.status !== "VOID") {
+            subtotalCents += lineTotalCents;
+            orderSubtotalCents += lineTotalCents;
+          }
+
+          return {
+            id: item.id,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            lineTotal: centsToDecimalString(lineTotalCents),
+            note: item.note,
+            createdAt: item.createdAt,
+            status: item.status
+          };
+        });
+
+      if (items.length === 0) {
+        return null;
+      }
+
+      return {
+        id: order.id,
+        source: order.source,
+        createdAt: order.createdAt,
+        subtotal: centsToDecimalString(orderSubtotalCents),
+        items
+      };
+    })
+    .filter((order): order is NonNullable<typeof order> => Boolean(order))
+    .reverse();
+
+  const paymentSession =
+    sortByCreatedAtAsc(store.paymentSessions.filter((entry) => entry.sessionId === activeSession.id)).at(-1) ?? null;
+  const paymentShare =
+    paymentSession
+      ? store.paymentShares.find((entry) => entry.paymentSessionId === paymentSession.id && entry.guestId === guest.id) ?? null
+      : null;
+
+  return cloneValue({
+    ...baseDetail,
+    identifiedGuest: {
+      id: guest.id,
+      displayName: guest.displayName
+    },
+    summary: {
+      guestName: guest.displayName,
+      itemCount,
+      subtotal: centsToDecimalString(subtotalCents),
+      unpaidAmount: paymentShare
+        ? paymentShare.status === "PAID"
+          ? "0.00"
+          : paymentShare.status === "CANCELLED"
+            ? null
+            : paymentShare.amount
+        : null,
+      statusCounts
+    },
+    orders
+  });
 }

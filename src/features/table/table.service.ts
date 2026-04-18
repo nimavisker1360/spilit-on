@@ -137,12 +137,20 @@ export async function getTableByCode(tableCode: string) {
     return null;
   }
 
+  const restaurant = store.restaurants.find((entry) => entry.id === branch.restaurantId);
+
   return cloneValue({
     ...table,
     branch: {
       id: branch.id,
       name: branch.name,
-      slug: branch.slug
+      slug: branch.slug,
+      restaurantName: restaurant?.name ?? null,
+      logoUrl: branch.logoUrl,
+      coverImageUrl: branch.coverImageUrl,
+      primaryColor: branch.primaryColor,
+      accentColor: branch.accentColor,
+      fontFamily: branch.fontFamily
     }
   });
 }
@@ -167,12 +175,20 @@ export async function resolveTableByPublicToken(token: string) {
     return null;
   }
 
+  const restaurant = store.restaurants.find((entry) => entry.id === branch.restaurantId);
+
   return cloneValue({
     ...table,
     branch: {
       id: branch.id,
       name: branch.name,
-      slug: branch.slug
+      slug: branch.slug,
+      restaurantName: restaurant?.name ?? null,
+      logoUrl: branch.logoUrl,
+      coverImageUrl: branch.coverImageUrl,
+      primaryColor: branch.primaryColor,
+      accentColor: branch.accentColor,
+      fontFamily: branch.fontFamily
     }
   });
 }

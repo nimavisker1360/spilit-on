@@ -50,40 +50,40 @@ type Props = {
 };
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("tr-TR");
+  return new Date(value).toLocaleString("en-US");
 }
 
 function formatStatusLabel(value: string) {
   if (value === "OPEN") {
-    return "Acik";
+    return "Open";
   }
 
   if (value === "PARTIALLY_PAID") {
-    return "Kismi odendi";
+    return "Partially paid";
   }
 
   if (value === "PAID") {
-    return "Odendi";
+    return "Paid";
   }
 
   if (value === "FAILED") {
-    return "Basarisiz";
+    return "Failed";
   }
 
   if (value === "EXPIRED") {
-    return "Suresi doldu";
+    return "Expired";
   }
 
   if (value === "UNPAID") {
-    return "Odenmedi";
+    return "Unpaid";
   }
 
   if (value === "PENDING") {
-    return "Beklemede";
+    return "Pending";
   }
 
   if (value === "CANCELLED") {
-    return "Iptal edildi";
+    return "Cancelled";
   }
 
   return value;
@@ -114,7 +114,7 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
 
   async function load() {
     if (!token) {
-      setError("Odeme baglantisi eksik.");
+      setError("Missing payment link.");
       setLoading(false);
       return;
     }
@@ -129,12 +129,12 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
       const json = (await response.json()) as PaymentLinkResponse;
 
       if (!response.ok || !json.data) {
-        throw new Error(json.error || "Odeme linki yuklenemedi.");
+        throw new Error(json.error || "Failed to load payment link.");
       }
 
       setState(json.data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Odeme linki yuklenemedi.");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load payment link.");
     } finally {
       setLoading(false);
     }
@@ -172,7 +172,7 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
       }
 
       setState(json.data);
-      setMessage(action === "COMPLETE" ? "Odeme tamamlandi." : "Odeme basarisiz olarak isaretlendi.");
+      setMessage(action === "COMPLETE" ? "Payment completed." : "Payment marked as failed.");
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Mock payment action failed.");
     } finally {
@@ -188,10 +188,10 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
       <section className="panel dashboard-hero stack-md">
         <div className="section-head">
           <div className="dashboard-hero-copy">
-            <p className="section-kicker">Odeme linki</p>
-            <h2>{paymentSession?.session?.table ? `Masa ${paymentSession.session.table.name}` : "Odeme talebi"}</h2>
+            <p className="section-kicker">Payment link</p>
+            <h2>{paymentSession?.session?.table ? `Table ${paymentSession.session.table.name}` : "Payment request"}</h2>
             <p className="panel-subtitle">
-              Bu sayfa, gercek odeme saglayicisi baglanmadan once TRY odeme tamamlama adimini simule eder.
+              This page simulates the TRY payment completion step before a real payment provider is connected.
             </p>
           </div>
           <button type="button" onClick={() => void load()}>
@@ -200,7 +200,7 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
         </div>
 
         <div className="status-stack">
-          {loading ? <p className="status-banner is-neutral">Odeme detaylari yukleniyor.</p> : null}
+          {loading ? <p className="status-banner is-neutral">Loading payment details.</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
           {message ? <p className="status-banner is-success">{message}</p> : null}
         </div>
@@ -211,26 +211,26 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
           <div className="section-head">
             <div className="section-copy">
               <h3>{paymentShare.payerLabel}</h3>
-              <p className="helper-text">Bu odeme talebi icin tahsil edilecek tutar.</p>
+              <p className="helper-text">Amount to be collected for this payment request.</p>
             </div>
             <span className={`badge ${statusBadgeClass(paymentShare.status)}`}>{formatStatusLabel(paymentShare.status)}</span>
           </div>
 
           <div className="detail-grid">
             <div className="detail-card">
-              <span className="detail-label">Sizin payiniz</span>
+              <span className="detail-label">Your share</span>
               <span className="detail-value">{formatTryCurrency(paymentShare.amount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Odenen tutar</span>
+              <span className="detail-label">Paid amount</span>
               <span className="detail-value">{formatTryCurrency(paymentSession.paidAmount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Kalan tutar</span>
+              <span className="detail-label">Remaining amount</span>
               <span className="detail-value">{formatTryCurrency(paymentSession.remainingAmount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Odeme durumu</span>
+              <span className="detail-label">Payment status</span>
               <span className="detail-value">{formatStatusLabel(paymentSession.status)}</span>
             </div>
           </div>
@@ -240,10 +240,10 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
           {paymentShare.status === "PENDING" ? (
             <div className="ticket-actions">
               <button type="button" className="ticket-action-btn" onClick={() => void handleAction("COMPLETE")} disabled={Boolean(runningAction)}>
-                {runningAction === "COMPLETE" ? "Tamamlaniyor..." : "Odemeyi tamamla"}
+                {runningAction === "COMPLETE" ? "Completing..." : "Complete payment"}
               </button>
               <button type="button" className="ticket-action-btn warn" onClick={() => void handleAction("FAIL")} disabled={Boolean(runningAction)}>
-                {runningAction === "FAIL" ? "Isaretleniyor..." : "Basarisiz isaretle"}
+                {runningAction === "FAIL" ? "Updating..." : "Mark as failed"}
               </button>
             </div>
           ) : null}
@@ -251,10 +251,10 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
           {paymentShare.status === "PAID" ? (
             <div className="selection-summary stack-md">
               <p>
-                <strong>Odeme alindi.</strong>
+                <strong>Payment received.</strong>
               </p>
               <p className="helper-text">
-                Kasadaki odeme takibi guncellendi. Tum paylar odendiginde masa kapatmaya hazir olur.
+                Cashier payment tracking has been updated. Once all shares are paid, the table becomes ready to close.
               </p>
             </div>
           ) : null}
@@ -262,9 +262,9 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
           {paymentShare.status === "FAILED" ? (
             <div className="selection-summary stack-md">
               <p>
-                <strong>Odeme basarisiz.</strong>
+                <strong>Payment failed.</strong>
               </p>
-              <p className="helper-text">Kasadan nakit, kart veya yeni bir odeme linkiyle tekrar deneyin.</p>
+              <p className="helper-text">Retry via cashier with cash, card, or a new payment link.</p>
             </div>
           ) : null}
         </section>

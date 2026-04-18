@@ -95,6 +95,9 @@ export async function createInvoice(input: CreateInvoiceInput) {
       return {
         orderItemId: item.id,
         guestId: item.guestId,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
         label: `${item.itemName} x${item.quantity}`,
         amountCents
       };
@@ -171,7 +174,10 @@ export async function createInvoice(input: CreateInvoiceInput) {
       orderItemId: line.orderItemId,
       guestId: line.guestId,
       amount: centsToDecimalString(line.amountCents),
-      label: line.label
+      label: line.label,
+      itemName: line.itemName,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice
     }));
 
     const splits = assignments.map((assignment) => ({

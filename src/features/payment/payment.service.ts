@@ -83,6 +83,9 @@ type GuestPaymentEntryLine = {
   id: string;
   label: string;
   amount: string;
+  itemName: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
   guestId: string | null;
   guestName: string | null;
 };
@@ -182,14 +185,14 @@ function formatFullPaymentLabel(tableName: string): string {
   const trimmed = tableName.trim();
 
   if (!trimmed) {
-    return "Tum hesap";
+    return "Full bill";
   }
 
   if (/^table\b/i.test(trimmed) || /^masa\b/i.test(trimmed)) {
-    return `${trimmed} - Tum hesap`;
+    return `${trimmed} - Full bill`;
   }
 
-  return `Masa ${trimmed} - Tum hesap`;
+  return `Table ${trimmed} - Full bill`;
 }
 
 function resolveGuestLabel(assignment: InvoiceAssignmentRecord, guestMap: Map<string, GuestRecord>): string {
@@ -204,13 +207,13 @@ function getPaymentShareContext(store: LocalStoreData, paymentShareId: string): 
   const share = store.paymentShares.find((entry) => entry.id === paymentShareId);
 
   if (!share) {
-    throw new Error("Odeme payi bulunamadi.");
+    throw new Error("Payment share not found.");
   }
 
   const paymentSession = store.paymentSessions.find((entry) => entry.id === share.paymentSessionId);
 
   if (!paymentSession) {
-    throw new Error("Odeme oturumu bulunamadi.");
+    throw new Error("Payment session not found.");
   }
 
   return {
@@ -777,14 +780,14 @@ function getValidatedMockPaymentLinkDetail(
   const { share, paymentSession } = getPaymentShareContext(store, paymentShareId);
 
   if (share.provider !== ONLINE_PROVIDER || !share.providerConversationId || share.providerConversationId !== token) {
-    throw new Error("Odeme linki gecersiz veya suresi dolmus.");
+    throw new Error("Payment link is invalid or expired.");
   }
 
   const hydratedPaymentSession = hydratePaymentSessionDetail(store, paymentSession);
   const hydratedShare = hydratedPaymentSession.shares.find((entry) => entry.id === share.id);
 
   if (!hydratedShare) {
-    throw new Error("Bu link icin odeme payi bulunamadi.");
+    throw new Error("Payment share for this link was not found.");
   }
 
   return {
@@ -938,8 +941,8 @@ export async function getGuestPaymentEntry(
       mapping: {
         matchSource: null,
         requiresSelection: false,
-        message: "Bu masada su an acik bir oturum yok. Personelden masayi acmasini isteyin.",
-        payMyShareDisabledReason: "Acik masa oturumu olmadigi icin kendi payinizi secemezsiniz.",
+        message: "This table currently has no open session. Ask staff to open the table.",
+        payMyShareDisabledReason: "No open table session, so your own share cannot be selected.",
         candidates: []
       },
       paymentSession: null,
@@ -968,10 +971,10 @@ export async function getGuestPaymentEntry(
   if (!latestPaymentSession) {
     const requiresSelection = !identifiedGuest && joinedGuests.length > 0;
     const mappingMessage = identifiedGuest
-      ? `${identifiedGuest.displayName} olarak eslestiniz. Hesap hazirlaninca payiniz burada gosterilecek.`
+      ? `You are matched as ${identifiedGuest.displayName}. Your share will appear here when the check is prepared.`
       : joinedGuests.length > 0
-        ? "Kendi payinizi gormek icin adinizi secin. Hesap hazir oldugunda eslestirme korunur."
-        : "Once masaya adinizla katilin. Hesap hazir oldugunda kendi payinizi gorebilirsiniz.";
+        ? "Select your name to view your own share. The mapping will be kept when the check is prepared."
+        : "Join the table with your name first. You can view your share when the check is prepared.";
     const debug =
       process.env.NODE_ENV !== "production"
         ? {
@@ -1008,7 +1011,7 @@ export async function getGuestPaymentEntry(
         matchSource: guestMatch.matchSource,
         requiresSelection,
         message: mappingMessage,
-        payMyShareDisabledReason: "Kasada odeme paylari henuz hazir degil.",
+        payMyShareDisabledReason: "Payment shares are not ready in cashier yet.",
         candidates: baseGuestCandidates
       },
       paymentSession: null,
@@ -1036,6 +1039,9 @@ export async function getGuestPaymentEntry(
       id: entry.id,
       label: entry.label,
       amount: entry.amount,
+      itemName: entry.itemName ?? null,
+      quantity: entry.quantity ?? null,
+      unitPrice: entry.unitPrice ?? null,
       guestId: entry.guestId,
       guestName: entry.guestId ? joinedGuestMap.get(entry.guestId)?.displayName ?? null : null
     }));
@@ -1047,20 +1053,20 @@ export async function getGuestPaymentEntry(
   if (!identifiedGuest) {
     mappingMessage =
       guestCandidates.length > 0
-        ? "Adinizi secerek kendi payinizi eslestirin."
-        : "Kendi payinizi odemek icin once masaya adinizla katilin.";
+        ? "Select your name to map your own share."
+        : "Join the table with your name first to pay your own share.";
     payMyShareDisabledReason =
       guestCandidates.length > 0
-        ? "Kendi payinizi odemek icin once adinizi secin."
-        : "Kendi payinizi odemek icin once masaya adinizla katilin.";
+        ? "Select your name first to pay your own share."
+        : "Join the table with your name first to pay your own share.";
   } else if (!myShare) {
-    mappingMessage = `${identifiedGuest.displayName} icin aktif bir odeme payi bulunamadi. Kasadan kontrol isteyin.`;
-    payMyShareDisabledReason = "Secilen kisi icin odenebilir bir pay bulunamadi.";
+    mappingMessage = `No active payment share found for ${identifiedGuest.displayName}. Ask cashier to verify.`;
+    payMyShareDisabledReason = "No payable share was found for the selected guest.";
   } else if (myShare.status === PaymentShareStatus.PAID) {
-    mappingMessage = `${identifiedGuest.displayName} icin odeme tamamlanmis gorunuyor.`;
-    payMyShareDisabledReason = "Bu pay daha once odenmis.";
+    mappingMessage = `Payment appears completed for ${identifiedGuest.displayName}.`;
+    payMyShareDisabledReason = "This share was already paid.";
   } else {
-    mappingMessage = `${identifiedGuest.displayName} icin payiniz hazir.`;
+    mappingMessage = `Your share for ${identifiedGuest.displayName} is ready.`;
   }
 
   const debug =
@@ -1135,7 +1141,7 @@ export async function applyMockPaymentLinkAction(
 
     if (action === "COMPLETE") {
       if (linkDetail.paymentShare.status !== PaymentShareStatus.PENDING) {
-        throw new Error("Yalnizca bekleyen odeme linkleri tamamlanabilir.");
+        throw new Error("Only pending payment links can be completed.");
       }
 
       const result = applyPaymentShareActionInStore(store, paymentShareId, "COMPLETE_PENDING_PAYMENT", currentTimestamp());

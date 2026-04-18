@@ -95,6 +95,7 @@ export async function createMenuItem(input: CreateMenuItemInput) {
       categoryId: parsed.categoryId ?? null,
       name: parsed.name,
       description: parsed.description || null,
+      imageUrl: parsed.imageUrl || null,
       price: normalizeMoneyStorage(parsed.price),
       sortOrder: parsed.sortOrder,
       isAvailable: parsed.isAvailable,
@@ -168,6 +169,7 @@ export async function updateMenuItem(input: UpdateMenuItemInput) {
     existing.categoryId = parsed.categoryId ?? null;
     existing.name = parsed.name;
     existing.description = parsed.description || null;
+    existing.imageUrl = parsed.imageUrl || null;
     existing.price = normalizeMoneyStorage(parsed.price);
     existing.sortOrder = parsed.sortOrder;
     existing.isAvailable = parsed.isAvailable;
@@ -295,6 +297,7 @@ export async function importMenuItems(input: ImportMenuItemsInput) {
         categoryId: rowCategoryId,
         name: rowName,
         description: rowDescription || null,
+        imageUrl: null,
         price: rowPrice,
         sortOrder: row.sortOrder,
         isAvailable: row.isAvailable,

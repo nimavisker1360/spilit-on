@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -32,6 +33,7 @@ type MenuItem = {
   categoryId: string | null;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   price: string;
   isAvailable: boolean;
   sortOrder: number;
@@ -55,6 +57,11 @@ type Branch = {
   name: string;
   slug: string;
   location: string | null;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
+  fontFamily: string | null;
   tables: TableRecord[];
   menuCategories: MenuCategory[];
   menuItems: MenuItem[];
@@ -427,7 +434,12 @@ export default function AdminDashboardPage() {
     restaurantId: "",
     name: "",
     slug: "",
-    location: ""
+    location: "",
+    logoUrl: "",
+    coverImageUrl: "",
+    primaryColor: "#f28c28",
+    accentColor: "#ffd6b5",
+    fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
   });
 
   const [tableForm, setTableForm] = useState({
@@ -447,6 +459,7 @@ export default function AdminDashboardPage() {
     categoryId: "",
     name: "",
     description: "",
+    imageUrl: "",
     price: "",
     sortOrder: "1",
     isAvailable: "true" as AvailabilityValue
@@ -466,7 +479,12 @@ export default function AdminDashboardPage() {
     id: "",
     name: "",
     slug: "",
-    location: ""
+    location: "",
+    logoUrl: "",
+    coverImageUrl: "",
+    primaryColor: "#f28c28",
+    accentColor: "#ffd6b5",
+    fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
   });
 
   const [editingTableId, setEditingTableId] = useState<string | null>(null);
@@ -491,6 +509,7 @@ export default function AdminDashboardPage() {
     categoryId: "",
     name: "",
     description: "",
+    imageUrl: "",
     price: "",
     sortOrder: "1",
     isAvailable: "true" as AvailabilityValue
@@ -572,6 +591,27 @@ export default function AdminDashboardPage() {
       return [];
     }
 
+    const selectedImportBranchTokens = selectedImportBranch
+      ? new Set([
+          normalizeImportColumnName(selectedImportBranch.name),
+          normalizeImportColumnName(selectedImportBranch.slug)
+        ])
+      : null;
+    const normalizedBranchValuesInFile = new Set<string>();
+
+    if (importColumnMapping.branchName) {
+      for (const rawRow of importSourceRows) {
+        const branchValue = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.branchName));
+        const normalizedValue = normalizeImportColumnName(branchValue);
+
+        if (normalizedValue) {
+          normalizedBranchValuesInFile.add(normalizedValue);
+        }
+      }
+    }
+
+    const hasMixedBranchValues = normalizedBranchValuesInFile.size > 1;
+
     return importSourceRows
       .map((rawRow, index) => {
         const branchName = toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.branchName));
@@ -606,9 +646,10 @@ export default function AdminDashboardPage() {
           importColumnMapping.branchName &&
           branchName &&
           selectedImportBranch &&
-          normalizeImportColumnName(branchName) !== normalizeImportColumnName(selectedImportBranch.name)
+          hasMixedBranchValues &&
+          !selectedImportBranchTokens?.has(normalizeImportColumnName(branchName))
         ) {
-          errors.push("Branch kolonu secili branch ile uyusmuyor.");
+          errors.push("Branch column contains mixed values that do not match the selected branch.");
         }
 
         return {
@@ -715,11 +756,23 @@ export default function AdminDashboardPage() {
         restaurantId: branchForm.restaurantId,
         name: branchForm.name,
         slug: branchForm.slug || slugify(branchForm.name),
-        location: branchForm.location
+        location: branchForm.location,
+        logoUrl: branchForm.logoUrl,
+        coverImageUrl: branchForm.coverImageUrl,
+        primaryColor: branchForm.primaryColor,
+        accentColor: branchForm.accentColor,
+        fontFamily: branchForm.fontFamily
       });
 
       setMessage("Branch created.");
-      setBranchForm((prev) => ({ ...prev, name: "", slug: "", location: "" }));
+      setBranchForm((prev) => ({
+        ...prev,
+        name: "",
+        slug: "",
+        location: "",
+        logoUrl: "",
+        coverImageUrl: ""
+      }));
       await loadSnapshot();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Create branch failed");
@@ -777,6 +830,7 @@ export default function AdminDashboardPage() {
         categoryId: itemForm.categoryId || undefined,
         name: itemForm.name,
         description: itemForm.description,
+        imageUrl: itemForm.imageUrl,
         price: itemForm.price,
         sortOrder: Number(itemForm.sortOrder),
         isAvailable: itemForm.isAvailable === "true"
@@ -788,6 +842,7 @@ export default function AdminDashboardPage() {
         categoryId: "",
         name: "",
         description: "",
+        imageUrl: "",
         price: "",
         sortOrder: "1",
         isAvailable: "true"
@@ -949,7 +1004,12 @@ export default function AdminDashboardPage() {
       id: branch.id,
       name: branch.name,
       slug: branch.slug,
-      location: branch.location ?? ""
+      location: branch.location ?? "",
+      logoUrl: branch.logoUrl ?? "",
+      coverImageUrl: branch.coverImageUrl ?? "",
+      primaryColor: branch.primaryColor ?? "#f28c28",
+      accentColor: branch.accentColor ?? "#ffd6b5",
+      fontFamily: branch.fontFamily ?? "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
     });
   }
 
@@ -963,7 +1023,12 @@ export default function AdminDashboardPage() {
         id: branchEditForm.id,
         name: branchEditForm.name,
         slug: branchEditForm.slug || slugify(branchEditForm.name),
-        location: branchEditForm.location
+        location: branchEditForm.location,
+        logoUrl: branchEditForm.logoUrl,
+        coverImageUrl: branchEditForm.coverImageUrl,
+        primaryColor: branchEditForm.primaryColor,
+        accentColor: branchEditForm.accentColor,
+        fontFamily: branchEditForm.fontFamily
       });
 
       setMessage("Branch updated.");
@@ -1127,6 +1192,7 @@ export default function AdminDashboardPage() {
       categoryId: item.categoryId ?? "",
       name: item.name,
       description: item.description ?? "",
+      imageUrl: item.imageUrl ?? "",
       price: formatTryMoneyInput(item.price),
       sortOrder: String(item.sortOrder),
       isAvailable: item.isAvailable ? "true" : "false"
@@ -1145,6 +1211,7 @@ export default function AdminDashboardPage() {
         categoryId: itemEditForm.categoryId || undefined,
         name: itemEditForm.name,
         description: itemEditForm.description,
+        imageUrl: itemEditForm.imageUrl,
         price: itemEditForm.price,
         sortOrder: Number(itemEditForm.sortOrder),
         isAvailable: itemEditForm.isAvailable === "true"
@@ -1290,7 +1357,49 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically.</p>
+            <AdminField label="Logo URL">
+              <input
+                type="url"
+                value={branchForm.logoUrl}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
+                placeholder="https://..."
+              />
+            </AdminField>
+
+            <AdminField label="Cover image URL">
+              <input
+                type="url"
+                value={branchForm.coverImageUrl}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))}
+                placeholder="https://..."
+              />
+            </AdminField>
+
+            <AdminField label="Primary color">
+              <input
+                value={branchForm.primaryColor}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, primaryColor: event.target.value }))}
+                placeholder="#f28c28"
+              />
+            </AdminField>
+
+            <AdminField label="Accent color">
+              <input
+                value={branchForm.accentColor}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, accentColor: event.target.value }))}
+                placeholder="#ffd6b5"
+              />
+            </AdminField>
+
+            <AdminField label="Font family">
+              <input
+                value={branchForm.fontFamily}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, fontFamily: event.target.value }))}
+                placeholder={'"Trebuchet MS", "Segoe UI", sans-serif'}
+              />
+            </AdminField>
+
+            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically. Brand fields control the customer menu look per branch.</p>
 
             <AdminActions>
               <button type="submit">Create branch</button>
@@ -1435,6 +1544,15 @@ export default function AdminDashboardPage() {
               <textarea
                 value={itemForm.description}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </AdminField>
+
+            <AdminField label="Image URL">
+              <input
+                type="url"
+                value={itemForm.imageUrl}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
+                placeholder="https://..."
               />
             </AdminField>
 
@@ -1674,6 +1792,23 @@ export default function AdminDashboardPage() {
                   <span className="detail-label">Menu items</span>
                   <span className="detail-value">{branch.menuItems.length}</span>
                 </div>
+                <div className="detail-card">
+                  <span className="detail-label">Brand theme</span>
+                  <span className="detail-value">{branch.primaryColor ?? "#f28c28"}</span>
+                </div>
+              </div>
+
+              <div className="branch-brand-preview">
+                <span
+                  className="branch-brand-swatch"
+                  style={{
+                    background: `linear-gradient(135deg, ${branch.primaryColor ?? "#f28c28"}, ${branch.accentColor ?? "#ffd6b5"})`
+                  }}
+                />
+                <p className="helper-text">
+                  {branch.logoUrl ? "Logo set" : "No logo"} | {branch.coverImageUrl ? "Cover set" : "No cover"} |{" "}
+                  {branch.fontFamily ? `Font: ${branch.fontFamily}` : "Default font"}
+                </p>
               </div>
 
               <p className="helper-text">
@@ -1703,7 +1838,44 @@ export default function AdminDashboardPage() {
                       onChange={(event) => setBranchEditForm((prev) => ({ ...prev, location: event.target.value }))}
                     />
                   </AdminField>
-                  <p className="helper-text">Updating a branch does not change any routes or existing table behavior.</p>
+                  <AdminField label="Logo URL">
+                    <input
+                      type="url"
+                      value={branchEditForm.logoUrl}
+                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </AdminField>
+                  <AdminField label="Cover image URL">
+                    <input
+                      type="url"
+                      value={branchEditForm.coverImageUrl}
+                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </AdminField>
+                  <AdminField label="Primary color">
+                    <input
+                      value={branchEditForm.primaryColor}
+                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, primaryColor: event.target.value }))}
+                      placeholder="#f28c28"
+                    />
+                  </AdminField>
+                  <AdminField label="Accent color">
+                    <input
+                      value={branchEditForm.accentColor}
+                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, accentColor: event.target.value }))}
+                      placeholder="#ffd6b5"
+                    />
+                  </AdminField>
+                  <AdminField label="Font family">
+                    <input
+                      value={branchEditForm.fontFamily}
+                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, fontFamily: event.target.value }))}
+                      placeholder={'"Trebuchet MS", "Segoe UI", sans-serif'}
+                    />
+                  </AdminField>
+                  <p className="helper-text">Updating a branch does not change QR routes. It updates branding and metadata only.</p>
                   <AdminActions>
                     <button type="submit">Save branch</button>
                     <button type="button" className="secondary" onClick={() => setEditingBranchId(null)}>
@@ -1938,7 +2110,17 @@ export default function AdminDashboardPage() {
                 </AdminActions>
               </div>
 
-              {item.description ? <p className="helper-text">{item.description}</p> : <p className="helper-text">No description provided yet.</p>}
+              <div className="admin-menu-item-preview">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.name} className="admin-menu-item-image" />
+                ) : (
+                  <div className="admin-menu-item-image admin-menu-item-image--empty">{item.name.slice(0, 2).toUpperCase()}</div>
+                )}
+                <div className="stack-md">
+                  {item.description ? <p className="helper-text">{item.description}</p> : <p className="helper-text">No description provided yet.</p>}
+                  <p className="helper-text">{item.imageUrl ? "Image attached to customer menu." : "No image attached yet."}</p>
+                </div>
+              </div>
 
               <div className="detail-grid">
                 <div className="detail-card">
@@ -1952,6 +2134,10 @@ export default function AdminDashboardPage() {
                 <div className="detail-card">
                   <span className="detail-label">Category</span>
                   <span className="detail-value">{item.category?.name ?? "Uncategorized"}</span>
+                </div>
+                <div className="detail-card">
+                  <span className="detail-label">Image</span>
+                  <span className="detail-value">{item.imageUrl ? "Ready" : "Missing"}</span>
                 </div>
               </div>
 
@@ -1981,6 +2167,14 @@ export default function AdminDashboardPage() {
                     <textarea
                       value={itemEditForm.description}
                       onChange={(event) => setItemEditForm((prev) => ({ ...prev, description: event.target.value }))}
+                    />
+                  </AdminField>
+                  <AdminField label="Image URL">
+                    <input
+                      type="url"
+                      value={itemEditForm.imageUrl}
+                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
+                      placeholder="https://..."
                     />
                   </AdminField>
                   <AdminField label="Fiyat (TL)">

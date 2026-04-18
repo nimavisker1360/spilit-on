@@ -152,6 +152,11 @@ export async function createBranch(input: CreateBranchInput) {
       name: parsed.name,
       slug: parsed.slug,
       location: parsed.location || null,
+      logoUrl: parsed.logoUrl || null,
+      coverImageUrl: parsed.coverImageUrl || null,
+      primaryColor: parsed.primaryColor || "#f28c28",
+      accentColor: parsed.accentColor || "#ffd6b5",
+      fontFamily: parsed.fontFamily || "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
       createdAt: now,
       updatedAt: now
     };
@@ -185,6 +190,11 @@ export async function updateBranch(input: UpdateBranchInput) {
     existing.name = parsed.name;
     existing.slug = parsed.slug;
     existing.location = parsed.location || null;
+    existing.logoUrl = parsed.logoUrl || null;
+    existing.coverImageUrl = parsed.coverImageUrl || null;
+    existing.primaryColor = parsed.primaryColor || "#f28c28";
+    existing.accentColor = parsed.accentColor || "#ffd6b5";
+    existing.fontFamily = parsed.fontFamily || "\"Trebuchet MS\", \"Segoe UI\", sans-serif";
     existing.updatedAt = currentTimestamp();
 
     return cloneValue(existing);

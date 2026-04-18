@@ -31,6 +31,11 @@ type BranchRecord = {
   name: string;
   slug: string;
   location: string | null;
+  logoUrl: string | null;
+  coverImageUrl: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
+  fontFamily: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -62,6 +67,7 @@ type MenuItemRecord = {
   categoryId: string | null;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   price: string;
   isAvailable: boolean;
   sortOrder: number;
@@ -125,6 +131,9 @@ type InvoiceLineRecord = {
   guestId: string | null;
   amount: string;
   label: string;
+  itemName: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
 };
 
 type InvoiceAssignmentRecord = {
@@ -236,6 +245,11 @@ function defaultStore(): LocalStoreData {
         name: "Main Branch",
         slug: "main-branch",
         location: "Center",
+        logoUrl: null,
+        coverImageUrl: null,
+        primaryColor: "#f28c28",
+        accentColor: "#ffd6b5",
+        fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
         createdAt: timestamp(),
         updatedAt: timestamp()
       }
@@ -292,6 +306,7 @@ function defaultStore(): LocalStoreData {
         categoryId: "menu_category_main",
         name: "Cheese Burger",
         description: "Classic burger",
+        imageUrl: null,
         price: "11.50",
         isAvailable: true,
         sortOrder: 1,
@@ -304,6 +319,7 @@ function defaultStore(): LocalStoreData {
         categoryId: "menu_category_main",
         name: "Cola",
         description: "Cold drink",
+        imageUrl: null,
         price: "2.80",
         isAvailable: true,
         sortOrder: 2,
@@ -328,9 +344,24 @@ function defaultStore(): LocalStoreData {
 function normalizeStore(store: LocalStoreData): LocalStoreData {
   return {
     ...store,
+    branches: Array.isArray(store.branches)
+      ? store.branches.map((branch) => ({
+          ...branch,
+          location: typeof branch.location === "string" ? branch.location : null,
+          logoUrl: typeof branch.logoUrl === "string" ? branch.logoUrl : null,
+          coverImageUrl: typeof branch.coverImageUrl === "string" ? branch.coverImageUrl : null,
+          primaryColor: typeof branch.primaryColor === "string" ? branch.primaryColor : "#f28c28",
+          accentColor: typeof branch.accentColor === "string" ? branch.accentColor : "#ffd6b5",
+          fontFamily:
+            typeof branch.fontFamily === "string" && branch.fontFamily.trim()
+              ? branch.fontFamily
+              : "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
+        }))
+      : [],
     menuItems: Array.isArray(store.menuItems)
       ? store.menuItems.map((item) => ({
           ...item,
+          imageUrl: typeof item.imageUrl === "string" ? item.imageUrl : null,
           price: normalizeMoneyStorage(item.price)
         }))
       : [],
@@ -353,10 +384,17 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
         }))
       : [],
     invoiceLines: Array.isArray(store.invoiceLines)
-      ? store.invoiceLines.map((line) => ({
-          ...line,
-          amount: normalizeMoneyStorage(line.amount)
-        }))
+      ? store.invoiceLines.map((line) => {
+          const normalizedQuantity = typeof line.quantity === "number" && Number.isInteger(line.quantity) && line.quantity > 0 ? line.quantity : null;
+
+          return {
+            ...line,
+            amount: normalizeMoneyStorage(line.amount),
+            itemName: typeof line.itemName === "string" && line.itemName.trim() ? line.itemName : null,
+            quantity: normalizedQuantity,
+            unitPrice: typeof line.unitPrice === "string" ? normalizeMoneyStorage(line.unitPrice) : null
+          };
+        })
       : [],
     invoiceAssignments: Array.isArray(store.invoiceAssignments)
       ? store.invoiceAssignments.map((assignment) => ({

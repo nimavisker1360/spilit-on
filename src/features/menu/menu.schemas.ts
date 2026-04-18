@@ -52,6 +52,7 @@ const importAvailabilitySchema = z.preprocess((value) => {
 
   return value;
 }, z.boolean());
+const optionalItemImageUrlSchema = z.string().url().max(500).optional().or(z.literal(""));
 
 export const createMenuCategorySchema = z.object({
   branchId: z.string().min(1),
@@ -74,6 +75,7 @@ export const createMenuItemSchema = z.object({
   categoryId: z.string().min(1).optional(),
   name: z.string().min(2).max(120),
   description: z.string().max(400).optional().or(z.literal("")),
+  imageUrl: optionalItemImageUrlSchema,
   price: priceSchema,
   sortOrder: z.coerce.number().int().min(0).max(999).default(0),
   isAvailable: z.boolean().optional().default(true)

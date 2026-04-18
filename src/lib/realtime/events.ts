@@ -1,6 +1,6 @@
 import type { KitchenItemStatus, OrderSource } from "@prisma/client";
 
-export type RealtimeRole = "kitchen" | "waiter" | "cashier";
+export type RealtimeRole = "kitchen" | "waiter" | "cashier" | "guest";
 
 export const REALTIME_SOCKET_PATH = "/api/socket/io";
 export const REALTIME_EVENT_NAME = "restaurant:sync";
@@ -19,7 +19,7 @@ export type RealtimeEvent =
       status: KitchenItemStatus;
     };
 
-const validRoles = new Set<RealtimeRole>(["kitchen", "waiter", "cashier"]);
+const validRoles = new Set<RealtimeRole>(["kitchen", "waiter", "cashier", "guest"]);
 
 export function parseRealtimeRole(value: unknown): RealtimeRole | null {
   if (typeof value !== "string") {
@@ -34,5 +34,5 @@ export function roomForRole(role: RealtimeRole): string {
 }
 
 export function getRealtimeTargets(_event: RealtimeEvent): RealtimeRole[] {
-  return ["kitchen", "waiter", "cashier"];
+  return ["kitchen", "waiter", "cashier", "guest"];
 }
