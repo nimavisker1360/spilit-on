@@ -6,6 +6,7 @@ type Props = {
   };
   searchParams: {
     guestId?: string;
+    handoff?: string;
   };
 };
 
@@ -14,6 +15,7 @@ export default function GuestPaymentEntryPage({ params, searchParams }: Props) {
     <GuestPaymentEntry
       tableCode={params.tableCode}
       initialGuestId={searchParams.guestId ?? ""}
+      handoffMode={searchParams.handoff ?? ""}
       backHref={`/guest/${encodeURIComponent(params.tableCode)}`}
     />
   );

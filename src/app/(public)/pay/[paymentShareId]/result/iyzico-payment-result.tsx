@@ -205,6 +205,9 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
     return centsToDecimalString(toCents(paymentShare.amount) + toCents(paymentShare.tip));
   }, [paymentShare]);
   const tableCode = paymentSession?.session?.table?.code ?? "";
+  const hasRemainingGuestPayments = Boolean(
+    paymentShare?.status === "PAID" && paymentSession && paymentSession.status === "PARTIALLY_PAID" && toCents(paymentSession.remainingAmount) > 0
+  );
 
   return (
     <div className="stack-md">
@@ -281,9 +284,16 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
           ) : null}
 
           {tableCode ? (
-            <Link className="checkout-link" href={`/guest/${encodeURIComponent(tableCode)}/payment`}>
-              Hesaba geri don
-            </Link>
+            <div className="ticket-actions">
+              {hasRemainingGuestPayments ? (
+                <Link className="checkout-link" href={`/guest/${encodeURIComponent(tableCode)}/payment?handoff=next`}>
+                  Siradaki odemeye gec
+                </Link>
+              ) : null}
+              <Link className="checkout-link" href={`/guest/${encodeURIComponent(tableCode)}/payment`}>
+                Hesaba geri don
+              </Link>
+            </div>
           ) : null}
         </section>
       ) : null}

@@ -11,6 +11,7 @@ type Props = {
   };
   searchParams: {
     guestId?: string;
+    handoff?: string;
   };
 };
 
@@ -31,6 +32,7 @@ export default async function TableTokenPaymentEntryPage({ params, searchParams 
     <GuestPaymentEntry
       tableCode={table.code}
       initialGuestId={searchParams.guestId ?? ""}
+      handoffMode={searchParams.handoff ?? ""}
     />
   );
 }

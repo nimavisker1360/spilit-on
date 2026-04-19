@@ -241,12 +241,16 @@ export async function getActiveSessionByTableCode(tableCode: string) {
   return cloneValue(buildSessionDetail(store, activeSession.id));
 }
 
-export async function listOpenSessions(branchId?: string) {
+export async function listOpenSessions(branchId?: string, branchIds?: string[] | null) {
   const store = readStore();
+  const allowedBranchIds = branchIds ? new Set(branchIds) : null;
 
   return sortByOpenedAtAsc(
     store.sessions.filter(
-      (session) => session.status === "OPEN" && (!branchId || session.branchId === branchId)
+      (session) =>
+        session.status === "OPEN" &&
+        (!branchId || session.branchId === branchId) &&
+        (!allowedBranchIds || allowedBranchIds.has(session.branchId))
     )
   )
     .map((session) => buildOpenSessionFeed(store, session.id))

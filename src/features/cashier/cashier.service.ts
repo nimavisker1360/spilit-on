@@ -1,4 +1,4 @@
-import { SplitMode } from "@prisma/client";
+import { PaymentSessionStatus, PaymentShareStatus, SplitMode } from "@prisma/client";
 
 import { createInvoiceSchema, type CreateInvoiceInput } from "@/features/cashier/cashier.schemas";
 import { centsToDecimalString, sumCents, toCents } from "@/lib/currency";
@@ -19,11 +19,34 @@ function distributeEqual(totalCents: number, count: number): number[] {
   return Array.from({ length: count }, (_, index) => (index < remainder ? base + 1 : base));
 }
 
-export async function listSessionsForCashier(branchId?: string) {
+function sortByTimestampDesc<T extends { createdAt?: string; updatedAt?: string; paidAt?: string | null }>(items: T[]): T[] {
+  return [...items].sort((left, right) => {
+    const leftTime = new Date(left.paidAt ?? left.updatedAt ?? left.createdAt ?? 0).getTime();
+    const rightTime = new Date(right.paidAt ?? right.updatedAt ?? right.createdAt ?? 0).getTime();
+
+    return rightTime - leftTime;
+  });
+}
+
+function latestTimestamp(values: Array<string | null | undefined>): string | null {
+  const timestamps = values.filter((value): value is string => Boolean(value));
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return timestamps.sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
+}
+
+export async function listSessionsForCashier(branchId?: string, branchIds?: string[] | null) {
   const store = readStore();
+  const allowedBranchIds = branchIds ? new Set(branchIds) : null;
   const sessions = sortByOpenedAtAsc(
     store.sessions.filter(
-      (session) => session.status === "OPEN" && (!branchId || session.branchId === branchId)
+      (session) =>
+        session.status === "OPEN" &&
+        (!branchId || session.branchId === branchId) &&
+        (!allowedBranchIds || allowedBranchIds.has(session.branchId))
     )
   );
 
@@ -59,6 +82,124 @@ export async function listSessionsForCashier(branchId?: string) {
         total: Number(centsToDecimalString(totalCents))
       };
     })
+  );
+}
+
+export async function listReceiptsForCashier(branchId?: string, branchIds?: string[] | null) {
+  const store = readStore();
+  const allowedBranchIds = branchIds ? new Set(branchIds) : null;
+  const paidPaymentSessions = sortByTimestampDesc(
+    store.paymentSessions.filter((paymentSession) => paymentSession.status === PaymentSessionStatus.PAID)
+  );
+
+  return cloneValue(
+    paidPaymentSessions
+      .map((paymentSession) => {
+        const invoice = store.invoices.find((entry) => entry.id === paymentSession.invoiceId);
+        const session = store.sessions.find((entry) => entry.id === paymentSession.sessionId);
+
+        if (!invoice || !session) {
+          return null;
+        }
+
+        if (branchId && session.branchId !== branchId) {
+          return null;
+        }
+
+        if (allowedBranchIds && !allowedBranchIds.has(session.branchId)) {
+          return null;
+        }
+
+        const branch = store.branches.find((entry) => entry.id === session.branchId);
+        const table = store.tables.find((entry) => entry.id === session.tableId);
+        const guests = getSessionGuests(store, session.id);
+        const guestMap = new Map(guests.map((guest) => [guest.id, guest]));
+        const shares = sortByTimestampDesc(store.paymentShares.filter((share) => share.paymentSessionId === paymentSession.id));
+        const payments = sortByTimestampDesc(store.payments.filter((payment) => payment.invoiceId === invoice.id));
+        const lines = store.invoiceLines.filter((line) => line.invoiceId === invoice.id);
+        const paidShares = shares.filter((share) => share.status === PaymentShareStatus.PAID);
+        const tipCents = sumCents(paidShares.map((share) => toCents(share.tip)));
+        const collectedCents =
+          payments.length > 0
+            ? sumCents(payments.map((payment) => toCents(payment.amount)))
+            : sumCents(paidShares.map((share) => toCents(share.amount) + toCents(share.tip)));
+        const paidAt =
+          latestTimestamp([
+            session.closedAt,
+            paymentSession.updatedAt,
+            ...paidShares.map((share) => share.paidAt),
+            ...payments.map((payment) => payment.paidAt)
+          ]) ?? paymentSession.updatedAt;
+
+        return {
+          id: paymentSession.id,
+          invoiceId: invoice.id,
+          sessionId: session.id,
+          splitMode: invoice.splitMode,
+          status: paymentSession.status,
+          currency: paymentSession.currency,
+          total: invoice.total,
+          paidAmount: paymentSession.paidAmount,
+          remainingAmount: paymentSession.remainingAmount,
+          tipAmount: centsToDecimalString(tipCents),
+          collectedAmount: centsToDecimalString(collectedCents),
+          createdAt: invoice.createdAt,
+          paidAt,
+          branch: branch
+            ? {
+                id: branch.id,
+                name: branch.name
+              }
+            : null,
+          table: table
+            ? {
+                id: table.id,
+                name: table.name,
+                code: table.code
+              }
+            : null,
+          guests: guests.map((guest) => ({
+            id: guest.id,
+            displayName: guest.displayName
+          })),
+          lines: lines.map((line) => ({
+            id: line.id,
+            label: line.label,
+            amount: line.amount,
+            itemName: line.itemName,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            guestId: line.guestId,
+            guestName: line.guestId ? guestMap.get(line.guestId)?.displayName ?? null : null
+          })),
+          shares: shares.map((share) => ({
+            id: share.id,
+            payerLabel: share.payerLabel,
+            guestId: share.guestId,
+            guestName: share.guestId ? guestMap.get(share.guestId)?.displayName ?? null : null,
+            amount: share.amount,
+            tip: share.tip,
+            totalCharged: centsToDecimalString(toCents(share.amount) + toCents(share.tip)),
+            status: share.status,
+            provider: share.provider,
+            providerPaymentId: share.providerPaymentId,
+            paidAt: share.paidAt
+          })),
+          payments: payments.map((payment) => ({
+            id: payment.id,
+            guestId: payment.guestId,
+            guestName: payment.guestId ? guestMap.get(payment.guestId)?.displayName ?? null : null,
+            amount: payment.amount,
+            currency: payment.currency,
+            method: payment.method,
+            status: payment.status,
+            reference: payment.reference,
+            paidAt: payment.paidAt,
+            createdAt: payment.createdAt
+          }))
+        };
+      })
+      .filter((receipt): receipt is NonNullable<typeof receipt> => Boolean(receipt))
   );
 }
 

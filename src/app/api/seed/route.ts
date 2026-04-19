@@ -2,13 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
+import { requirePermission } from "@/features/auth/auth-context";
 import { createMenuCategory, createMenuItem } from "@/features/menu/menu.service";
 import { createBranch, ensureDefaultRestaurant, getAdminSnapshot } from "@/features/restaurant/restaurant.service";
 import { createTable } from "@/features/table/table.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { RouteAccessError, routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    if (process.env.NODE_ENV === "production") {
+      throw new RouteAccessError("Seed endpoint is disabled in production.", 403);
+    }
+
+    await requirePermission(request, "tenant.update");
     const restaurant = await ensureDefaultRestaurant();
 
     if (restaurant.branches.length === 0) {
@@ -63,6 +69,6 @@ export async function POST() {
 
     return NextResponse.json({ data: { ok: true } }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

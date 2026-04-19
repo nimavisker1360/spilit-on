@@ -15,12 +15,34 @@ import {
 } from "@prisma/client";
 
 import type { JsonValue, PaymentAttemptStatus } from "@/features/payment/payment.types";
+import type {
+  AuditActorType,
+  BillingPeriod,
+  MembershipStatus,
+  RestaurantStatus,
+  StaffRole,
+  SubscriptionStatus,
+  SupportedLocale,
+  WorkspaceMode
+} from "@/features/auth/auth.types";
 import { normalizeCurrencyCode, normalizeMoneyStorage } from "@/lib/currency";
 
 type RestaurantRecord = {
   id: string;
   name: string;
   slug: string;
+  legalName: string | null;
+  taxNumber: string | null;
+  taxOffice: string | null;
+  billingEmail: string | null;
+  phone: string | null;
+  status: RestaurantStatus;
+  workspaceMode: WorkspaceMode;
+  defaultLocale: SupportedLocale;
+  defaultCurrency: string;
+  currentPlanId: string | null;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -36,8 +58,73 @@ type BranchRecord = {
   primaryColor: string | null;
   accentColor: string | null;
   fontFamily: string | null;
+  currency: string;
+  localeDefault: SupportedLocale;
+  openingHours: JsonValue | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type BranchSettingsRecord = {
+  id: string;
+  restaurantId: string;
+  branchId: string;
+  taxIncludedInPrices: boolean;
+  defaultTaxRatePercent: string;
+  serviceFeeType: "NONE" | "PERCENT" | "FIXED";
+  serviceFeeValue: string;
+  allowCustomerNotes: boolean;
+  allowSplitBill: boolean;
+  allowOnlinePayment: boolean;
+  requireStaffApprovalForQrOrders: boolean;
+  autoAcceptQrOrders: boolean;
+  supportedLocales: SupportedLocale[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type UserRecord = {
+  id: string;
+  email: string;
+  phone: string | null;
+  name: string;
+  passwordHash: string | null;
+  emailVerifiedAt: string | null;
+  phoneVerifiedAt: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type MembershipRecord = {
+  id: string;
+  restaurantId: string;
+  userId: string;
+  role: StaffRole;
+  status: MembershipStatus;
+  invitedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type MembershipBranchAccessRecord = {
+  id: string;
+  membershipId: string;
+  branchId: string;
+  createdAt: string;
+};
+
+type InvitationRecord = {
+  id: string;
+  restaurantId: string;
+  email: string;
+  role: StaffRole;
+  branchIds: string[];
+  tokenHash: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+  invitedByUserId: string | null;
+  createdAt: string;
 };
 
 type TableRecord = {
@@ -206,9 +293,76 @@ type PaymentAttemptRecord = {
   updatedAt: string;
 };
 
+type SubscriptionPlanRecord = {
+  id: string;
+  code: string;
+  name: string;
+  monthlyPrice: string;
+  annualPrice: string;
+  currency: string;
+  includedTables: number;
+  includedBranches: number;
+  includedStaff: number;
+  commissionRate: string;
+  features: Record<string, boolean | number | string>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TenantSubscriptionRecord = {
+  id: string;
+  restaurantId: string;
+  planId: string;
+  provider: string;
+  providerSubscriptionId: string | null;
+  status: SubscriptionStatus;
+  billingPeriod: BillingPeriod;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type UsageCounterRecord = {
+  id: string;
+  restaurantId: string;
+  branchId: string | null;
+  metric: string;
+  value: number;
+  periodStart: string;
+  periodEnd: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AuditLogRecord = {
+  id: string;
+  restaurantId: string | null;
+  branchId: string | null;
+  actorType: AuditActorType;
+  actorUserId: string | null;
+  actorRole: StaffRole | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  before: JsonValue | null;
+  after: JsonValue | null;
+  metadata: JsonValue | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+};
+
 export type LocalStoreData = {
   restaurants: RestaurantRecord[];
   branches: BranchRecord[];
+  branchSettings: BranchSettingsRecord[];
+  users: UserRecord[];
+  memberships: MembershipRecord[];
+  membershipBranchAccess: MembershipBranchAccessRecord[];
+  invitations: InvitationRecord[];
   tables: TableRecord[];
   menuCategories: MenuCategoryRecord[];
   menuItems: MenuItemRecord[];
@@ -223,6 +377,10 @@ export type LocalStoreData = {
   paymentSessions: PaymentSessionRecord[];
   paymentShares: PaymentShareRecord[];
   paymentAttempts: PaymentAttemptRecord[];
+  subscriptionPlans: SubscriptionPlanRecord[];
+  subscriptions: TenantSubscriptionRecord[];
+  usageCounters: UsageCounterRecord[];
+  auditLogs: AuditLogRecord[];
 };
 
 const DATA_DIRECTORY = path.join(process.cwd(), "data");
@@ -239,6 +397,18 @@ function defaultStore(): LocalStoreData {
         id: "restaurant_main",
         name: "Main Restaurant",
         slug: "main-restaurant",
+        legalName: null,
+        taxNumber: null,
+        taxOffice: null,
+        billingEmail: null,
+        phone: null,
+        status: "TRIALING",
+        workspaceMode: "TRIAL",
+        defaultLocale: "tr",
+        defaultCurrency: "TRY",
+        currentPlanId: "plan_trial",
+        trialStartedAt: timestamp(),
+        trialEndsAt: timestamp("2026-05-15T09:00:00.000Z"),
         createdAt: timestamp(),
         updatedAt: timestamp()
       }
@@ -255,10 +425,60 @@ function defaultStore(): LocalStoreData {
         primaryColor: "#f28c28",
         accentColor: "#ffd6b5",
         fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
+        currency: "TRY",
+        localeDefault: "tr",
+        openingHours: null,
         createdAt: timestamp(),
         updatedAt: timestamp()
       }
     ],
+    branchSettings: [
+      {
+        id: "branch_settings_main",
+        restaurantId: "restaurant_main",
+        branchId: "branch_main",
+        taxIncludedInPrices: true,
+        defaultTaxRatePercent: "10.00",
+        serviceFeeType: "NONE",
+        serviceFeeValue: "0.00",
+        allowCustomerNotes: true,
+        allowSplitBill: true,
+        allowOnlinePayment: false,
+        requireStaffApprovalForQrOrders: false,
+        autoAcceptQrOrders: true,
+        supportedLocales: ["tr", "en"],
+        createdAt: timestamp(),
+        updatedAt: timestamp()
+      }
+    ],
+    users: [
+      {
+        id: "user_owner_demo",
+        email: "owner@splittable.local",
+        phone: null,
+        name: "Demo Owner",
+        passwordHash: null,
+        emailVerifiedAt: timestamp(),
+        phoneVerifiedAt: null,
+        lastLoginAt: null,
+        createdAt: timestamp(),
+        updatedAt: timestamp()
+      }
+    ],
+    memberships: [
+      {
+        id: "membership_owner_demo",
+        restaurantId: "restaurant_main",
+        userId: "user_owner_demo",
+        role: "OWNER",
+        status: "ACTIVE",
+        invitedByUserId: null,
+        createdAt: timestamp(),
+        updatedAt: timestamp()
+      }
+    ],
+    membershipBranchAccess: [],
+    invitations: [],
     tables: [
       {
         id: "table_t1",
@@ -342,13 +562,202 @@ function defaultStore(): LocalStoreData {
     payments: [],
     paymentSessions: [],
     paymentShares: [],
-    paymentAttempts: []
+    paymentAttempts: [],
+    subscriptionPlans: [
+      {
+        id: "plan_trial",
+        code: "trial",
+        name: "Trial",
+        monthlyPrice: "0.00",
+        annualPrice: "0.00",
+        currency: "TRY",
+        includedTables: 5,
+        includedBranches: 1,
+        includedStaff: 3,
+        commissionRate: "0.00",
+        features: {
+          qrOrdering: true,
+          splitBill: true,
+          kitchenDisplay: true,
+          onlinePayments: false,
+          advancedAnalytics: false
+        },
+        isActive: true,
+        createdAt: timestamp(),
+        updatedAt: timestamp()
+      }
+    ],
+    subscriptions: [
+      {
+        id: "subscription_trial_main",
+        restaurantId: "restaurant_main",
+        planId: "plan_trial",
+        provider: "manual",
+        providerSubscriptionId: null,
+        status: "TRIALING",
+        billingPeriod: "MONTHLY",
+        currentPeriodStart: timestamp(),
+        currentPeriodEnd: timestamp("2026-05-15T09:00:00.000Z"),
+        cancelAtPeriodEnd: false,
+        createdAt: timestamp(),
+        updatedAt: timestamp()
+      }
+    ],
+    usageCounters: [],
+    auditLogs: []
   };
+}
+
+function isRestaurantStatus(value: unknown): value is RestaurantStatus {
+  return value === "TRIALING" || value === "ACTIVE" || value === "PAST_DUE" || value === "SUSPENDED" || value === "CANCELLED";
+}
+
+function isWorkspaceMode(value: unknown): value is WorkspaceMode {
+  return value === "DEMO" || value === "TRIAL" || value === "LIVE";
+}
+
+function isStaffRole(value: unknown): value is StaffRole {
+  return (
+    value === "PLATFORM_OWNER" ||
+    value === "PLATFORM_SUPPORT" ||
+    value === "OWNER" ||
+    value === "ADMIN" ||
+    value === "BRANCH_MANAGER" ||
+    value === "CASHIER" ||
+    value === "WAITER" ||
+    value === "KITCHEN"
+  );
+}
+
+function isMembershipStatus(value: unknown): value is MembershipStatus {
+  return value === "INVITED" || value === "ACTIVE" || value === "DISABLED";
+}
+
+function isSubscriptionStatus(value: unknown): value is SubscriptionStatus {
+  return value === "TRIALING" || value === "ACTIVE" || value === "PAST_DUE" || value === "CANCELLED";
+}
+
+function isBillingPeriod(value: unknown): value is BillingPeriod {
+  return value === "MONTHLY" || value === "ANNUAL";
+}
+
+function isAuditActorType(value: unknown): value is AuditActorType {
+  return value === "USER" || value === "CUSTOMER" || value === "SYSTEM" || value === "PLATFORM";
+}
+
+function normalizeSupportedLocale(value: unknown): SupportedLocale {
+  return value === "en" || value === "EN" ? "en" : "tr";
+}
+
+function isJsonValue(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+
+  if (typeof value !== "object") {
+    return false;
+  }
+
+  return Object.values(value as Record<string, unknown>).every(isJsonValue);
+}
+
+function normalizeBranchSettings(store: LocalStoreData): BranchSettingsRecord[] {
+  const existingSettings = Array.isArray(store.branchSettings) ? store.branchSettings : [];
+  const byBranchId = new Map(existingSettings.map((settings) => [settings.branchId, settings]));
+  const now = currentTimestamp();
+
+  return (Array.isArray(store.branches) ? store.branches : []).map((branch) => {
+    const existing = byBranchId.get(branch.id);
+
+    return {
+      id: typeof existing?.id === "string" ? existing.id : makeId("branch_settings"),
+      restaurantId: branch.restaurantId,
+      branchId: branch.id,
+      taxIncludedInPrices: typeof existing?.taxIncludedInPrices === "boolean" ? existing.taxIncludedInPrices : true,
+      defaultTaxRatePercent: normalizeMoneyStorage(existing?.defaultTaxRatePercent ?? "10.00"),
+      serviceFeeType:
+        existing?.serviceFeeType === "PERCENT" || existing?.serviceFeeType === "FIXED"
+          ? existing.serviceFeeType
+          : "NONE",
+      serviceFeeValue: normalizeMoneyStorage(existing?.serviceFeeValue ?? "0.00", "0.00"),
+      allowCustomerNotes: typeof existing?.allowCustomerNotes === "boolean" ? existing.allowCustomerNotes : true,
+      allowSplitBill: typeof existing?.allowSplitBill === "boolean" ? existing.allowSplitBill : true,
+      allowOnlinePayment: typeof existing?.allowOnlinePayment === "boolean" ? existing.allowOnlinePayment : false,
+      requireStaffApprovalForQrOrders:
+        typeof existing?.requireStaffApprovalForQrOrders === "boolean" ? existing.requireStaffApprovalForQrOrders : false,
+      autoAcceptQrOrders: typeof existing?.autoAcceptQrOrders === "boolean" ? existing.autoAcceptQrOrders : true,
+      supportedLocales:
+        Array.isArray(existing?.supportedLocales) && existing.supportedLocales.length > 0
+          ? existing.supportedLocales.map(normalizeSupportedLocale)
+          : ["tr", "en"],
+      createdAt: typeof existing?.createdAt === "string" ? existing.createdAt : now,
+      updatedAt: typeof existing?.updatedAt === "string" ? existing.updatedAt : now
+    };
+  });
+}
+
+function normalizeSubscriptionPlans(store: LocalStoreData): SubscriptionPlanRecord[] {
+  const plans = Array.isArray(store.subscriptionPlans) && store.subscriptionPlans.length > 0
+    ? store.subscriptionPlans
+    : defaultStore().subscriptionPlans;
+
+  return plans.map((plan) => ({
+    ...plan,
+    monthlyPrice: normalizeMoneyStorage(plan.monthlyPrice, "0.00"),
+    annualPrice: normalizeMoneyStorage(plan.annualPrice, "0.00"),
+    currency: normalizeCurrencyCode(plan.currency),
+    includedTables: Number.isInteger(plan.includedTables) && plan.includedTables >= 0 ? plan.includedTables : 0,
+    includedBranches: Number.isInteger(plan.includedBranches) && plan.includedBranches >= 0 ? plan.includedBranches : 0,
+    includedStaff: Number.isInteger(plan.includedStaff) && plan.includedStaff >= 0 ? plan.includedStaff : 0,
+    commissionRate: normalizeMoneyStorage(plan.commissionRate, "0.00"),
+    features: plan.features && typeof plan.features === "object" && !Array.isArray(plan.features) ? plan.features : {},
+    isActive: typeof plan.isActive === "boolean" ? plan.isActive : true
+  }));
+}
+
+function normalizeSubscriptions(store: LocalStoreData): TenantSubscriptionRecord[] {
+  const subscriptions = Array.isArray(store.subscriptions) ? store.subscriptions : [];
+
+  return subscriptions.map((subscription) => ({
+    ...subscription,
+    provider: typeof subscription.provider === "string" ? subscription.provider : "manual",
+    providerSubscriptionId:
+      typeof subscription.providerSubscriptionId === "string" ? subscription.providerSubscriptionId : null,
+    status: isSubscriptionStatus(subscription.status) ? subscription.status : "TRIALING",
+    billingPeriod: isBillingPeriod(subscription.billingPeriod) ? subscription.billingPeriod : "MONTHLY",
+    cancelAtPeriodEnd: typeof subscription.cancelAtPeriodEnd === "boolean" ? subscription.cancelAtPeriodEnd : false
+  }));
 }
 
 function normalizeStore(store: LocalStoreData): LocalStoreData {
   return {
     ...store,
+    restaurants: Array.isArray(store.restaurants)
+      ? store.restaurants.map((restaurant) => ({
+          ...restaurant,
+          legalName: typeof restaurant.legalName === "string" ? restaurant.legalName : null,
+          taxNumber: typeof restaurant.taxNumber === "string" ? restaurant.taxNumber : null,
+          taxOffice: typeof restaurant.taxOffice === "string" ? restaurant.taxOffice : null,
+          billingEmail: typeof restaurant.billingEmail === "string" ? restaurant.billingEmail : null,
+          phone: typeof restaurant.phone === "string" ? restaurant.phone : null,
+          status: isRestaurantStatus(restaurant.status) ? restaurant.status : "TRIALING",
+          workspaceMode: isWorkspaceMode(restaurant.workspaceMode) ? restaurant.workspaceMode : "TRIAL",
+          defaultLocale: normalizeSupportedLocale(restaurant.defaultLocale),
+          defaultCurrency: normalizeCurrencyCode(restaurant.defaultCurrency),
+          currentPlanId: typeof restaurant.currentPlanId === "string" ? restaurant.currentPlanId : "plan_trial",
+          trialStartedAt: typeof restaurant.trialStartedAt === "string" ? restaurant.trialStartedAt : null,
+          trialEndsAt: typeof restaurant.trialEndsAt === "string" ? restaurant.trialEndsAt : null
+        }))
+      : [],
     branches: Array.isArray(store.branches)
       ? store.branches.map((branch) => ({
           ...branch,
@@ -360,7 +769,39 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
           fontFamily:
             typeof branch.fontFamily === "string" && branch.fontFamily.trim()
               ? branch.fontFamily
-              : "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
+              : "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
+          currency: normalizeCurrencyCode(branch.currency),
+          localeDefault: normalizeSupportedLocale(branch.localeDefault),
+          openingHours: isJsonValue(branch.openingHours) ? branch.openingHours : null
+        }))
+      : [],
+    branchSettings: normalizeBranchSettings(store),
+    users: Array.isArray(store.users)
+      ? store.users.map((user) => ({
+          ...user,
+          phone: typeof user.phone === "string" ? user.phone : null,
+          passwordHash: typeof user.passwordHash === "string" ? user.passwordHash : null,
+          emailVerifiedAt: typeof user.emailVerifiedAt === "string" ? user.emailVerifiedAt : null,
+          phoneVerifiedAt: typeof user.phoneVerifiedAt === "string" ? user.phoneVerifiedAt : null,
+          lastLoginAt: typeof user.lastLoginAt === "string" ? user.lastLoginAt : null
+        }))
+      : [],
+    memberships: Array.isArray(store.memberships)
+      ? store.memberships.map((membership) => ({
+          ...membership,
+          role: isStaffRole(membership.role) ? membership.role : "WAITER",
+          status: isMembershipStatus(membership.status) ? membership.status : "ACTIVE",
+          invitedByUserId: typeof membership.invitedByUserId === "string" ? membership.invitedByUserId : null
+        }))
+      : [],
+    membershipBranchAccess: Array.isArray(store.membershipBranchAccess) ? store.membershipBranchAccess : [],
+    invitations: Array.isArray(store.invitations)
+      ? store.invitations.map((invitation) => ({
+          ...invitation,
+          role: isStaffRole(invitation.role) ? invitation.role : "WAITER",
+          branchIds: Array.isArray(invitation.branchIds) ? invitation.branchIds.filter((id) => typeof id === "string") : [],
+          acceptedAt: typeof invitation.acceptedAt === "string" ? invitation.acceptedAt : null,
+          invitedByUserId: typeof invitation.invitedByUserId === "string" ? invitation.invitedByUserId : null
         }))
       : [],
     menuItems: Array.isArray(store.menuItems)
@@ -434,7 +875,26 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
           tip: normalizeMoneyStorage(paymentShare.tip, "0.00")
         }))
       : [],
-    paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : []
+    paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : [],
+    subscriptionPlans: normalizeSubscriptionPlans(store),
+    subscriptions: normalizeSubscriptions(store),
+    usageCounters: Array.isArray(store.usageCounters) ? store.usageCounters : [],
+    auditLogs: Array.isArray(store.auditLogs)
+      ? store.auditLogs.map((auditLog) => ({
+          ...auditLog,
+          restaurantId: typeof auditLog.restaurantId === "string" ? auditLog.restaurantId : null,
+          branchId: typeof auditLog.branchId === "string" ? auditLog.branchId : null,
+          actorType: isAuditActorType(auditLog.actorType) ? auditLog.actorType : "SYSTEM",
+          actorUserId: typeof auditLog.actorUserId === "string" ? auditLog.actorUserId : null,
+          actorRole: isStaffRole(auditLog.actorRole) ? auditLog.actorRole : null,
+          entityId: typeof auditLog.entityId === "string" ? auditLog.entityId : null,
+          before: isJsonValue(auditLog.before) ? auditLog.before : null,
+          after: isJsonValue(auditLog.after) ? auditLog.after : null,
+          metadata: isJsonValue(auditLog.metadata) ? auditLog.metadata : null,
+          ipAddress: typeof auditLog.ipAddress === "string" ? auditLog.ipAddress : null,
+          userAgent: typeof auditLog.userAgent === "string" ? auditLog.userAgent : null
+        }))
+      : []
   };
 }
 
@@ -575,6 +1035,8 @@ export function cascadeDeleteBranch(store: LocalStoreData, branchId: string) {
   }
 
   store.tables = store.tables.filter((table) => !tableIds.includes(table.id));
+  store.branchSettings = store.branchSettings.filter((settings) => settings.branchId !== branchId);
+  store.membershipBranchAccess = store.membershipBranchAccess.filter((access) => access.branchId !== branchId);
   store.menuItems = store.menuItems.filter((item) => item.branchId !== branchId);
   store.menuCategories = store.menuCategories.filter((category) => category.branchId !== branchId);
   store.branches = store.branches.filter((branch) => branch.id !== branchId);

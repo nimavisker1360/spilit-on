@@ -72,31 +72,198 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum TenantStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+}
+
+enum WorkspaceMode {
+  DEMO
+  TRIAL
+  LIVE
+}
+
+enum LocaleCode {
+  TR
+  EN
+}
+
+enum StaffRole {
+  PLATFORM_OWNER
+  PLATFORM_SUPPORT
+  OWNER
+  ADMIN
+  BRANCH_MANAGER
+  CASHIER
+  WAITER
+  KITCHEN
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum ServiceFeeType {
+  NONE
+  PERCENT
+  FIXED
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum AuditActorType {
+  USER
+  CUSTOMER
+  SYSTEM
+  PLATFORM
+}
+
 model Restaurant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  branches  Branch[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String               @id @default(cuid())
+  name            String
+  slug            String               @unique
+  legalName       String?
+  taxNumber       String?
+  taxOffice       String?
+  billingEmail    String?
+  phone           String?
+  status          TenantStatus         @default(TRIALING)
+  workspaceMode   WorkspaceMode        @default(TRIAL)
+  defaultLocale   LocaleCode           @default(TR)
+  defaultCurrency String               @default("TRY") @db.VarChar(3)
+  currentPlanId   String?
+  currentPlan     SubscriptionPlan?    @relation("CurrentTenantPlan", fields: [currentPlanId], references: [id], onDelete: SetNull)
+  trialStartedAt  DateTime?
+  trialEndsAt     DateTime?
+  branches        Branch[]
+  memberships     Membership[]
+  invitations     Invitation[]
+  subscriptions   TenantSubscription[]
+  usageCounters   UsageCounter[]
+  auditLogs       AuditLog[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 }
 
 model Branch {
-  id             String         @id @default(cuid())
+  id             String                   @id @default(cuid())
   restaurantId   String
-  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant     Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   name           String
   slug           String
   location       String?
+  currency       String                   @default("TRY") @db.VarChar(3)
+  localeDefault  LocaleCode               @default(TR)
+  openingHours   Json?
   tables         Table[]
   menuCategories MenuCategory[]
   menuItems      MenuItem[]
   sessions       TableSession[]
   orders         Order[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  settings       BranchSettings?
+  staffAccess    MembershipBranchAccess[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
 
   @@unique([restaurantId, slug])
+}
+
+model BranchSettings {
+  id                              String         @id @default(cuid())
+  restaurantId                    String
+  branchId                        String         @unique
+  branch                          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  taxIncludedInPrices             Boolean        @default(true)
+  defaultTaxRatePercent           Decimal        @default(10) @db.Decimal(5, 2)
+  serviceFeeType                  ServiceFeeType @default(NONE)
+  serviceFeeValue                 Decimal        @default(0) @db.Decimal(10, 2)
+  allowCustomerNotes              Boolean        @default(true)
+  allowSplitBill                  Boolean        @default(true)
+  allowOnlinePayment              Boolean        @default(false)
+  requireStaffApprovalForQrOrders Boolean        @default(false)
+  autoAcceptQrOrders              Boolean        @default(true)
+  supportedLocales                Json
+  createdAt                       DateTime       @default(now())
+  updatedAt                       DateTime       @updatedAt
+
+  @@index([restaurantId])
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  phone           String?
+  name            String
+  passwordHash    String?
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  memberships     Membership[]
+  auditLogs       AuditLog[]   @relation("AuditActorUser")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Membership {
+  id              String                   @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role            StaffRole
+  status          MembershipStatus         @default(INVITED)
+  invitedByUserId String?
+  branchAccess    MembershipBranchAccess[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@unique([restaurantId, userId])
+  @@index([restaurantId, role])
+  @@index([userId])
+}
+
+model MembershipBranchAccess {
+  id           String     @id @default(cuid())
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  branchId     String
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([membershipId, branchId])
+  @@index([branchId])
+}
+
+model Invitation {
+  id              String     @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  email           String
+  role            StaffRole
+  branchIds       Json?
+  tokenHash       String     @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  invitedByUserId String?
+  createdAt       DateTime   @default(now())
+
+  @@index([restaurantId, email])
 }
 
 model Table {
@@ -240,20 +407,20 @@ model Invoice {
 }
 
 model PaymentSession {
-  id          String               @id @default(cuid())
-  sessionId   String
-  session     TableSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  invoiceId   String               @unique
-  invoice     Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  splitMode   SplitMode
-  totalAmount Decimal              @db.Decimal(10, 2)
-  paidAmount  Decimal              @default(0) @db.Decimal(10, 2)
-  remainingAmount Decimal          @db.Decimal(10, 2)
-  currency    String               @default("TRY") @db.VarChar(3)
-  status      PaymentSessionStatus @default(OPEN)
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  shares      PaymentShare[]
+  id              String               @id @default(cuid())
+  sessionId       String
+  session         TableSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  invoiceId       String               @unique
+  invoice         Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  splitMode       SplitMode
+  totalAmount     Decimal              @db.Decimal(10, 2)
+  paidAmount      Decimal              @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal              @db.Decimal(10, 2)
+  currency        String               @default("TRY") @db.VarChar(3)
+  status          PaymentSessionStatus @default(OPEN)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  shares          PaymentShare[]
 
   @@index([sessionId, status])
   @@index([status, createdAt])
@@ -347,4 +514,85 @@ model Payment {
   @@index([invoiceId, createdAt])
   @@index([guestId])
   @@index([status, createdAt])
+}
+
+model SubscriptionPlan {
+  id               String               @id @default(cuid())
+  code             String               @unique
+  name             String
+  monthlyPrice     Decimal              @default(0) @db.Decimal(10, 2)
+  annualPrice      Decimal              @default(0) @db.Decimal(10, 2)
+  currency         String               @default("TRY") @db.VarChar(3)
+  includedTables   Int                  @default(10)
+  includedBranches Int                  @default(1)
+  includedStaff    Int                  @default(5)
+  commissionRate   Decimal              @default(0) @db.Decimal(5, 2)
+  features         Json
+  isActive         Boolean              @default(true)
+  currentTenants   Restaurant[]         @relation("CurrentTenantPlan")
+  subscriptions    TenantSubscription[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model TenantSubscription {
+  id                     String             @id @default(cuid())
+  restaurantId           String
+  restaurant             Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  planId                 String
+  plan                   SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  provider               String             @default("manual") @db.VarChar(64)
+  providerSubscriptionId String?
+  status                 SubscriptionStatus @default(TRIALING)
+  billingPeriod          BillingPeriod      @default(MONTHLY)
+  currentPeriodStart     DateTime
+  currentPeriodEnd       DateTime
+  cancelAtPeriodEnd      Boolean            @default(false)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([restaurantId, status])
+  @@index([provider, providerSubscriptionId])
+}
+
+model UsageCounter {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  branchId     String?
+  metric       String     @db.VarChar(64)
+  value        Int        @default(0)
+  periodStart  DateTime
+  periodEnd    DateTime
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([restaurantId, branchId, metric, periodStart])
+  @@index([restaurantId, metric])
+}
+
+model AuditLog {
+  id           String         @id @default(cuid())
+  restaurantId String?
+  restaurant   Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+  branchId     String?
+  branch       Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  actorType    AuditActorType
+  actorUserId  String?
+  actorUser    User?          @relation("AuditActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorRole    StaffRole?
+  action       String         @db.VarChar(120)
+  entityType   String         @db.VarChar(80)
+  entityId     String?
+  before       Json?
+  after        Json?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime       @default(now())
+
+  @@index([restaurantId, createdAt])
+  @@index([branchId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
 }

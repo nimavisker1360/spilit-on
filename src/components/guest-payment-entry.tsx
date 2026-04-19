@@ -150,12 +150,17 @@ type Props = {
   tableCode: string;
   initialGuestId?: string;
   backHref?: string;
+  handoffMode?: string;
 };
 
 type GuestIdentityState = Pick<GuestIdentityRecord, "guestId" | "guestName" | "sessionId">;
 type CheckoutStep = "bill" | "split" | "tip" | "payment";
 type SplitChoice = "equal" | "items" | "custom";
 type PaymentMethod = "card";
+type PendingGuestNavigation = {
+  guestId: string;
+  step: Extract<CheckoutStep, "split" | "payment">;
+};
 type BillGroup = {
   key: string;
   guestId: string | null;
@@ -325,6 +330,26 @@ function isSharePayable(status: PaymentShareStatus): boolean {
   return status === "UNPAID" || status === "FAILED";
 }
 
+function isCandidatePayable(status: PaymentShareStatus | null): boolean {
+  return status === "UNPAID" || status === "FAILED" || status === "PENDING";
+}
+
+function candidatePaymentPriority(status: PaymentShareStatus | null): number {
+  if (status === "UNPAID") {
+    return 0;
+  }
+
+  if (status === "FAILED") {
+    return 1;
+  }
+
+  if (status === "PENDING") {
+    return 2;
+  }
+
+  return 3;
+}
+
 function hasPendingPaymentLink(share: GuestPaymentEntryShare | null): share is GuestPaymentEntryShare & { paymentUrl: string } {
   return Boolean(share?.status === "PENDING" && share.paymentUrl);
 }
@@ -463,7 +488,7 @@ async function payPaymentShare(shareId: string, input: { userId?: string | null;
   return json.data;
 }
 
-export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: Props) {
+export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, handoffMode = "" }: Props) {
   const [state, setState] = useState<GuestPaymentEntryState | null>(null);
   const [identity, setIdentity] = useState<GuestIdentityState | null>(() =>
     initialGuestId.trim()
@@ -480,12 +505,16 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
   const [showBreakdown, setShowBreakdown] = useState(true);
   const [joinName, setJoinName] = useState("");
   const [joining, setJoining] = useState(false);
+  const [showAddGuestForm, setShowAddGuestForm] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>("bill");
   const [selectedSplitChoice, setSelectedSplitChoice] = useState<SplitChoice>("equal");
   const [equalPeopleCount, setEqualPeopleCount] = useState(2);
   const [selectedTipRate, setSelectedTipRate] = useState<number>(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("card");
   const [payingShareId, setPayingShareId] = useState<string | null>(null);
+  const [pendingGuestNavigation, setPendingGuestNavigation] = useState<PendingGuestNavigation | null>(null);
+  const [seenPaymentSessionId, setSeenPaymentSessionId] = useState<string | null>(null);
+  const [handoffConsumed, setHandoffConsumed] = useState(false);
 
   const persistIdentity = useCallback(
     (nextIdentity: GuestIdentityState | null) => {
@@ -578,6 +607,22 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     () => state?.session?.guests.map((guest) => guest.displayName).filter(Boolean) ?? [],
     [state?.session?.guests]
   );
+  const nextPaymentCandidates = useMemo(
+    () =>
+      mapping.candidates
+        .filter((candidate) => candidate.id !== identifiedGuestId && candidate.hasPaymentShare && isCandidatePayable(candidate.shareStatus))
+        .sort((left, right) => {
+          const priorityDifference = candidatePaymentPriority(left.shareStatus) - candidatePaymentPriority(right.shareStatus);
+
+          if (priorityDifference !== 0) {
+            return priorityDifference;
+          }
+
+          return left.displayName.localeCompare(right.displayName, "tr-TR");
+        }),
+    [identifiedGuestId, mapping.candidates]
+  );
+  const nextPayableGuestCandidate = nextPaymentCandidates[0] ?? null;
   const billGroups = useMemo<BillGroup[]>(() => {
     if (!paymentSession) {
       return [];
@@ -743,6 +788,79 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
   );
   const isCheckoutClosed = Boolean(paymentSession?.status === "PAID" || state?.session?.status === "CLOSED");
 
+  useEffect(() => {
+    if (!paymentSession) {
+      setSeenPaymentSessionId(null);
+      return;
+    }
+
+    if (seenPaymentSessionId === paymentSession.id) {
+      return;
+    }
+
+    setSeenPaymentSessionId(paymentSession.id);
+
+    if (handoffMode === "next" || isCheckoutClosed) {
+      return;
+    }
+
+    setCheckoutStep("split");
+  }, [handoffMode, isCheckoutClosed, paymentSession, seenPaymentSessionId]);
+
+  useEffect(() => {
+    if (!pendingGuestNavigation || identifiedGuestId !== pendingGuestNavigation.guestId || !paymentSession) {
+      return;
+    }
+
+    setPendingGuestNavigation(null);
+
+    if (pendingGuestNavigation.step === "payment" && canOpenPaymentShare(paymentShare) && !isCheckoutClosed) {
+      setCheckoutStep("payment");
+      return;
+    }
+
+    setCheckoutStep("split");
+  }, [identifiedGuestId, isCheckoutClosed, paymentSession, paymentShare, pendingGuestNavigation]);
+
+  useEffect(() => {
+    if (
+      handoffMode !== "next" ||
+      handoffConsumed ||
+      !state?.session ||
+      !paymentSession ||
+      isCheckoutClosed ||
+      myShare?.status !== "PAID" ||
+      !nextPayableGuestCandidate
+    ) {
+      return;
+    }
+
+    setHandoffConsumed(true);
+    setShowAddGuestForm(false);
+    setJoinName("");
+    setSelectedTipRate(0);
+    setPendingGuestNavigation({
+      guestId: nextPayableGuestCandidate.id,
+      step: "payment"
+    });
+    setMessage(`Next payer: ${nextPayableGuestCandidate.displayName}.`);
+    setError("");
+    persistIdentity({
+      guestId: nextPayableGuestCandidate.id,
+      guestName: nextPayableGuestCandidate.displayName,
+      sessionId: state.session.id
+    });
+  }, [
+    handoffConsumed,
+    handoffMode,
+    isCheckoutClosed,
+    myShare?.status,
+    nextPayableGuestCandidate,
+    paymentSession,
+    persistIdentity,
+    state?.session
+  ]);
+
   async function handlePayShare(share: GuestPaymentEntryShare | null, fallback: string) {
     setMessage("");
 
@@ -805,13 +923,22 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     void handlePayShare(fullBillShare, "Tum hesabi odeme secenegi bu hesap icin kullanilamaz.");
   }
 
-  function handleSelectGuest(candidate: GuestPaymentEntryGuestCandidate) {
+  function handleSelectGuest(candidate: GuestPaymentEntryGuestCandidate, options?: { continueToPayment?: boolean }) {
     if (!state?.session) {
       return;
     }
 
     setMessage(`${candidate.displayName} selected. Loading your share.`);
     setError("");
+    setJoinName("");
+    setShowAddGuestForm(false);
+    setSelectedTipRate(0);
+
+    setPendingGuestNavigation({
+      guestId: candidate.id,
+      step: options?.continueToPayment ? "payment" : "split"
+    });
+
     persistIdentity({
       guestId: candidate.id,
       guestName: candidate.displayName,
@@ -822,7 +949,30 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
   function handleResetGuest() {
     persistIdentity(null);
     setJoinName("");
+    setShowAddGuestForm(false);
     setMessage("Select or enter the correct guest name to continue.");
+  }
+
+  function handleAddGuestClick() {
+    setShowAddGuestForm(true);
+    setJoinName("");
+    setMessage("");
+    setError("");
+  }
+
+  function handleCancelAddGuest() {
+    setShowAddGuestForm(false);
+    setJoinName("");
+    setError("");
+  }
+
+  function handleNextGuestPayment() {
+    if (!nextPayableGuestCandidate) {
+      setMessage("No unpaid guest share is ready yet.");
+      return;
+    }
+
+    handleSelectGuest(nextPayableGuestCandidate, { continueToPayment: true });
   }
 
   async function handleJoin(event: FormEvent<HTMLFormElement>) {
@@ -854,6 +1004,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           sessionId: state.session.id
         });
         setJoinName("");
+        setShowAddGuestForm(false);
+        setSelectedTipRate(0);
+        setPendingGuestNavigation({
+          guestId: reusableGuest.id,
+          step: "split"
+        });
         setMessage(`Continuing as ${reusableGuest.displayName}.`);
         return;
       }
@@ -865,6 +1021,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
         sessionId: result.session.id
       });
       setJoinName("");
+      setShowAddGuestForm(false);
+      setSelectedTipRate(0);
+      setPendingGuestNavigation({
+        guestId: result.guest.id,
+        step: "split"
+      });
       setMessage(`${result.created ? "Joined" : "Continuing"} as ${result.guest.displayName}.`);
     } catch (joinError) {
       setError(joinError instanceof Error ? joinError.message : "Failed to join this bill.");
@@ -873,14 +1035,16 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     }
   }
 
-  function renderGuestSelector() {
-    if (mapping.candidates.length === 0) {
+  function renderGuestSelector(options?: { excludeGuestId?: string; continueToPayment?: boolean }) {
+    const visibleCandidates = mapping.candidates.filter((candidate) => candidate.id !== options?.excludeGuestId);
+
+    if (visibleCandidates.length === 0) {
       return null;
     }
 
     return (
       <div className="guest-checkout-candidates">
-        {mapping.candidates.map((candidate) => {
+        {visibleCandidates.map((candidate) => {
           const candidateShareMeta = candidate.hasPaymentShare
             ? `${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatus(candidate.shareStatus) : "Ready"}`
             : paymentSession
@@ -892,7 +1056,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
               key={candidate.id}
               type="button"
               className="guest-checkout-candidate"
-              onClick={() => handleSelectGuest(candidate)}
+              onClick={() => handleSelectGuest(candidate, { continueToPayment: options?.continueToPayment })}
             >
               <span>{candidate.displayName}</span>
               <small>{candidateShareMeta}</small>
@@ -903,12 +1067,32 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     );
   }
 
+  function renderJoinedGuestsList(options?: { excludeGuestId?: string; continueToPayment?: boolean }) {
+    const visibleGuestCount = mapping.candidates.filter((candidate) => candidate.id !== options?.excludeGuestId).length;
+
+    if (visibleGuestCount === 0) {
+      return null;
+    }
+
+    return (
+      <div className="guest-checkout-joined-guests">
+        <div className="guest-checkout-joined-guests-head">
+          <span>Guests</span>
+          <small>{state?.session?.guests.length ?? mapping.candidates.length} joined</small>
+        </div>
+        {renderGuestSelector(options)}
+      </div>
+    );
+  }
+
   function renderIdentityCard() {
     if (!state?.session) {
       return null;
     }
 
     if (state.identifiedGuest) {
+      const currentSharePaid = myShare?.status === "PAID" && !isCheckoutClosed;
+
       return (
         <div className="guest-checkout-identity">
           <div className="guest-checkout-person">
@@ -928,9 +1112,51 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
             )}
             {mapping.matchSource ? <small>Matched by {formatMatchSource(mapping.matchSource)}</small> : null}
           </div>
-          <button type="button" className="guest-checkout-text-btn" onClick={handleResetGuest}>
-            Change
-          </button>
+          <div className="guest-checkout-identity-actions">
+            <button type="button" className="guest-checkout-text-btn" onClick={handleResetGuest}>
+              Change
+            </button>
+            <button type="button" className="guest-checkout-text-btn" onClick={handleAddGuestClick}>
+              Add guest
+            </button>
+          </div>
+          {currentSharePaid ? (
+            <div className="guest-checkout-handoff">
+              <div>
+                <strong>{state.identifiedGuest.displayName} paid.</strong>
+                <small>
+                  {nextPayableGuestCandidate
+                    ? `Next payable share: ${nextPayableGuestCandidate.displayName}`
+                    : "No other unpaid share is ready yet."}
+                </small>
+              </div>
+              {nextPayableGuestCandidate ? (
+                <button type="button" onClick={handleNextGuestPayment}>
+                  Pay next
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {renderJoinedGuestsList({ excludeGuestId: state.identifiedGuest.id })}
+          {showAddGuestForm ? (
+            <div className="guest-checkout-inline-join">
+              <form className="guest-checkout-join-form" onSubmit={handleJoin}>
+                <input
+                  type="text"
+                  value={joinName}
+                  onChange={(event) => setJoinName(event.target.value)}
+                  placeholder="Guest name"
+                  autoComplete="name"
+                />
+                <button type="submit" disabled={joining || !state.session}>
+                  {joining ? "Adding..." : "Add"}
+                </button>
+              </form>
+              <button type="button" className="guest-checkout-text-btn" onClick={handleCancelAddGuest}>
+                Cancel
+              </button>
+            </div>
+          ) : null}
         </div>
       );
     }

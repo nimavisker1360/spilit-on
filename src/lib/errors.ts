@@ -1,6 +1,20 @@
 import { Prisma } from "@prisma/client";
 
+export class RouteAccessError extends Error {
+  status: number;
+
+  constructor(message: string, status = 403) {
+    super(message);
+    this.name = "RouteAccessError";
+    this.status = status;
+  }
+}
+
 export function routeErrorMessage(error: unknown): string {
+  if (error instanceof RouteAccessError) {
+    return error.message;
+  }
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
       const target = Array.isArray(error.meta?.target) ? error.meta.target.map(String) : [];
@@ -25,4 +39,12 @@ export function routeErrorMessage(error: unknown): string {
     return error.message;
   }
   return "Unexpected server error";
+}
+
+export function routeErrorStatus(error: unknown): number {
+  if (error instanceof RouteAccessError) {
+    return error.status;
+  }
+
+  return 400;
 }

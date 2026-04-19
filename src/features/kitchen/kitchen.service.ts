@@ -58,8 +58,9 @@ function deriveOrderStatus(itemStatuses: KitchenItemStatus[]): OrderStatus {
   return "PENDING";
 }
 
-export async function listKitchenBoard(branchId?: string) {
+export async function listKitchenBoard(branchId?: string, branchIds?: string[] | null) {
   const store = readStore();
+  const allowedBranchIds = branchIds ? new Set(branchIds) : null;
 
   return cloneValue(
     sortByCreatedAtAsc(
@@ -75,7 +76,7 @@ export async function listKitchenBoard(branchId?: string) {
           return false;
         }
 
-        return !branchId || order.branchId === branchId;
+        return (!branchId || order.branchId === branchId) && (!allowedBranchIds || allowedBranchIds.has(order.branchId));
       })
     ).map((item) => {
       const order = store.orders.find((entry) => entry.id === item.orderId);

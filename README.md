@@ -4,7 +4,7 @@ Production-oriented restaurant management MVP as a **web PWA** (not native), wit
 
 ## Core decisions
 
-- No full authentication/role system in MVP (no NextAuth/Clerk yet)
+- RBAC/auth foundation exists for internal APIs, but there is no login UI/Auth.js session flow yet
 - Customer entry via QR table URL: `/table/[token]`
 - Internal dashboards remain simple for MVP: `/admin`, `/waiter`, `/kitchen`, `/cashier`
 - Business logic is in service modules (`src/features/*`), not page components
@@ -16,6 +16,7 @@ Production-oriented restaurant management MVP as a **web PWA** (not native), wit
 - Local JSON persistence inside `data/local-store.json`
 - zod validation
 - PWA manifest + service worker + install prompt + standalone mode
+- Prisma schema is the production data-model target; local JSON remains the MVP persistence adapter
 
 ## Project structure
 
@@ -31,6 +32,7 @@ Production-oriented restaurant management MVP as a **web PWA** (not native), wit
 ## MVP modules implemented
 
 - Restaurant/branch management
+- Tenant status, trial metadata, branch settings, membership, subscription plan, and audit-log foundation
 - Table management with QR code/token
 - QR-based table guest access
 - Menu categories and menu items
@@ -99,3 +101,4 @@ npm run dev
 - For `BY_GUEST_ITEMS`, every billable item must be assigned to a guest.
 - Payment session generation is local-only in MVP and does not call a bank provider yet.
 - Local development data is persisted in `data/local-store.json`.
+- Internal API access uses a demo owner context in development. In production, set up real auth before disabling the guard; `SPLITTABLE_ENABLE_DEV_AUTH=true` is only for local/staging smoke tests.

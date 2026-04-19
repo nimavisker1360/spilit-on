@@ -2,16 +2,18 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 
+import { getReadableBranchIds, requirePermission } from "@/features/auth/auth-context";
 import { listKitchenBoard } from "@/features/kitchen/kitchen.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const branchId = searchParams.get("branchId") || undefined;
-    const tickets = await listKitchenBoard(branchId);
+    const context = await requirePermission(request, "kitchen.read", { branchId });
+    const tickets = await listKitchenBoard(branchId, getReadableBranchIds(context));
     return NextResponse.json({ data: tickets });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

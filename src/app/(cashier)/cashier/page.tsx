@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
@@ -112,6 +113,78 @@ type PaymentShareActionResponse = {
     paymentSession: PaymentSession;
     paymentShare: PaymentShare;
   };
+  error?: string;
+};
+
+type CashierReceiptLine = {
+  id: string;
+  label: string;
+  amount: string;
+  itemName: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
+  guestId: string | null;
+  guestName: string | null;
+};
+
+type CashierReceiptShare = {
+  id: string;
+  payerLabel: string;
+  guestId: string | null;
+  guestName: string | null;
+  amount: string;
+  tip: string;
+  totalCharged: string;
+  status: PaymentShareStatus;
+  provider: string | null;
+  providerPaymentId: string | null;
+  paidAt: string | null;
+};
+
+type CashierReceiptPayment = {
+  id: string;
+  guestId: string | null;
+  guestName: string | null;
+  amount: string;
+  currency: string;
+  method: string;
+  status: string;
+  reference: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+type CashierReceipt = {
+  id: string;
+  invoiceId: string;
+  sessionId: string;
+  splitMode: InvoiceSplitMode;
+  status: PaymentSessionStatus;
+  currency: string;
+  total: string;
+  paidAmount: string;
+  remainingAmount: string;
+  tipAmount: string;
+  collectedAmount: string;
+  createdAt: string;
+  paidAt: string;
+  branch: {
+    id: string;
+    name: string;
+  } | null;
+  table: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  guests: Guest[];
+  lines: CashierReceiptLine[];
+  shares: CashierReceiptShare[];
+  payments: CashierReceiptPayment[];
+};
+
+type ReceiptsResponse = {
+  data?: CashierReceipt[];
   error?: string;
 };
 
@@ -293,10 +366,351 @@ async function fetchSessions(): Promise<OpenSession[]> {
   return json.data ?? [];
 }
 
+async function fetchReceipts(): Promise<CashierReceipt[]> {
+  const response = await fetch("/api/cashier/receipts", { cache: "no-store" });
+  const json = (await response.json()) as ReceiptsResponse;
+
+  if (!response.ok) {
+    throw new Error(json.error || "Could not load receipt archive");
+  }
+
+  return json.data ?? [];
+}
+
+function formatOptionalDateTime(value: string | null | undefined): string {
+  return value ? formatDateTime(value) : "";
+}
+
+function formatGuestList(guests: Guest[]): string {
+  return guests.map((guest) => guest.displayName).join(", ");
+}
+
+function formatFileDate(value = new Date()): string {
+  const year = String(value.getFullYear());
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  const hours = String(value.getHours()).padStart(2, "0");
+  const minutes = String(value.getMinutes()).padStart(2, "0");
+
+  return `${year}${month}${day}-${hours}${minutes}`;
+}
+
+function sanitizeFileToken(value: string): string {
+  return value.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "");
+}
+
+function buildReceiptWorkbook(receipts: CashierReceipt[]) {
+  const workbook = XLSX.utils.book_new();
+
+  const receiptRows = receipts.map((receipt) => ({
+    "Receipt No": formatInvoiceNumber(receipt.invoiceId, receipt.createdAt),
+    "Invoice ID": receipt.invoiceId,
+    Branch: receipt.branch?.name ?? "",
+    Table: receipt.table?.name ?? "",
+    "Table Code": receipt.table?.code ?? "",
+    "Split Mode": splitModeLabel(receipt.splitMode),
+    "Subtotal TRY": Number(receipt.total),
+    "Tip TRY": Number(receipt.tipAmount),
+    "Collected TRY": Number(receipt.collectedAmount),
+    Currency: receipt.currency,
+    Status: formatStatusLabel(receipt.status),
+    "Created At": formatDateTime(receipt.createdAt),
+    "Paid At": formatDateTime(receipt.paidAt),
+    Guests: formatGuestList(receipt.guests),
+    "Line Count": receipt.lines.length,
+    "Payment Count": receipt.payments.length
+  }));
+
+  const lineRows = receipts.flatMap((receipt) =>
+    receipt.lines.map((line) => ({
+      "Receipt No": formatInvoiceNumber(receipt.invoiceId, receipt.createdAt),
+      Branch: receipt.branch?.name ?? "",
+      Table: receipt.table?.name ?? "",
+      Guest: line.guestName ?? "",
+      Item: line.itemName ?? line.label,
+      Quantity: line.quantity ?? "",
+      "Unit Price TRY": line.unitPrice ? Number(line.unitPrice) : "",
+      "Line Amount TRY": Number(line.amount)
+    }))
+  );
+
+  const shareRows = receipts.flatMap((receipt) =>
+    receipt.shares.map((share) => ({
+      "Receipt No": formatInvoiceNumber(receipt.invoiceId, receipt.createdAt),
+      Branch: receipt.branch?.name ?? "",
+      Table: receipt.table?.name ?? "",
+      Payer: share.payerLabel,
+      Guest: share.guestName ?? "",
+      "Share Amount TRY": Number(share.amount),
+      "Tip TRY": Number(share.tip),
+      "Total Charged TRY": Number(share.totalCharged),
+      Status: formatStatusLabel(share.status),
+      Method: share.provider ? paymentProviderLabel(share.provider) : "",
+      Reference: share.providerPaymentId ?? "",
+      "Paid At": formatOptionalDateTime(share.paidAt)
+    }))
+  );
+
+  const paymentRows = receipts.flatMap((receipt) =>
+    receipt.payments.map((payment) => ({
+      "Receipt No": formatInvoiceNumber(receipt.invoiceId, receipt.createdAt),
+      Branch: receipt.branch?.name ?? "",
+      Table: receipt.table?.name ?? "",
+      Guest: payment.guestName ?? "",
+      Amount: Number(payment.amount),
+      Currency: payment.currency,
+      Method: paymentProviderLabel(payment.method),
+      Status: formatStatusLabel(payment.status),
+      Reference: payment.reference ?? "",
+      "Paid At": formatOptionalDateTime(payment.paidAt ?? payment.createdAt)
+    }))
+  );
+
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(receiptRows), "Receipts");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(lineRows), "Line items");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(shareRows), "Payment shares");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(paymentRows), "Payments");
+
+  return workbook;
+}
+
+function writeReceiptsExcel(receipts: CashierReceipt[], fileName: string) {
+  const workbook = buildReceiptWorkbook(receipts);
+  XLSX.writeFile(workbook, fileName);
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function receiptFileName(receipt: CashierReceipt, extension: "html" | "xlsx"): string {
+  const receiptNumber = formatInvoiceNumber(receipt.invoiceId, receipt.createdAt);
+  const tableName = receipt.table?.name ? `-${receipt.table.name}` : "";
+
+  return `${sanitizeFileToken(`${receiptNumber}${tableName}`)}.${extension}`;
+}
+
+function buildPaperReceiptHtml(receipt: CashierReceipt): string {
+  const receiptNumber = formatInvoiceNumber(receipt.invoiceId, receipt.createdAt);
+  const branchName = receipt.branch?.name ?? "Restaurant";
+  const tableName = receipt.table?.name ?? "-";
+  const guests = formatGuestList(receipt.guests);
+  const itemRows = receipt.lines
+    .map((line) => {
+      const itemName = line.itemName ?? line.label;
+      const quantity = line.quantity ?? 1;
+      const unitPrice = line.unitPrice ? formatTryCurrency(line.unitPrice) : "";
+
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(itemName)}</strong>
+            <span>${escapeHtml(line.guestName ?? "")}</span>
+          </td>
+          <td>${escapeHtml(quantity)}</td>
+          <td>${escapeHtml(unitPrice)}</td>
+          <td>${escapeHtml(formatTryCurrency(line.amount))}</td>
+        </tr>`;
+    })
+    .join("");
+  const paymentRows = receipt.shares
+    .map(
+      (share) => `
+        <div class="payment-row">
+          <div>
+            <strong>${escapeHtml(share.payerLabel)}</strong>
+            <span>${escapeHtml(share.provider ? paymentProviderLabel(share.provider) : "Payment")}</span>
+          </div>
+          <strong>${escapeHtml(formatTryCurrency(share.totalCharged))}</strong>
+        </div>`
+    )
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(receiptNumber)}</title>
+  <style>
+    @page { margin: 5mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f4f4f4;
+      color: #111;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .receipt {
+      width: 80mm;
+      max-width: 100%;
+      margin: 16px auto;
+      padding: 14px 12px;
+      background: #fff;
+      border: 1px solid #ddd;
+    }
+    .center { text-align: center; }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 18px; letter-spacing: 0; }
+    h2 { font-size: 13px; margin-top: 4px; font-weight: 700; }
+    .meta { color: #444; font-size: 11px; margin-top: 2px; }
+    .rule { border-top: 1px dashed #555; margin: 10px 0; }
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 10px;
+      margin-top: 4px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      border-bottom: 1px solid #111;
+      padding: 0 0 4px;
+      text-align: right;
+      font-size: 10px;
+    }
+    th:first-child, td:first-child { text-align: left; }
+    td {
+      padding: 6px 0;
+      text-align: right;
+      vertical-align: top;
+      border-bottom: 1px dotted #bbb;
+      font-size: 11px;
+    }
+    td strong, td span { display: block; }
+    td span { color: #555; font-size: 10px; margin-top: 1px; }
+    .totals {
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .total-row, .payment-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+    .grand-total {
+      border-top: 1px solid #111;
+      padding-top: 7px;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .payment-row { margin-top: 6px; }
+    .payment-row span {
+      display: block;
+      color: #555;
+      font-size: 10px;
+    }
+    .footer { margin-top: 12px; font-size: 11px; }
+    .print-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 14px auto;
+      width: 80mm;
+      max-width: 100%;
+    }
+    .print-actions button {
+      border: 0;
+      border-radius: 6px;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+    @media print {
+      body { background: #fff; }
+      .receipt { margin: 0; border: 0; width: 100%; padding: 0; }
+      .print-actions { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="receipt">
+    <section class="center">
+      <h1>${escapeHtml(branchName)}</h1>
+      <h2>Payment receipt</h2>
+      <p class="meta">${escapeHtml(receiptNumber)}</p>
+    </section>
+
+    <div class="rule"></div>
+
+    <section class="kv">
+      <span>Table</span><strong>${escapeHtml(tableName)}</strong>
+      <span>Table code</span><strong>${escapeHtml(receipt.table?.code ?? "-")}</strong>
+      <span>Paid at</span><strong>${escapeHtml(formatDateTime(receipt.paidAt))}</strong>
+      <span>Split</span><strong>${escapeHtml(splitModeLabel(receipt.splitMode))}</strong>
+      ${guests ? `<span>Guests</span><strong>${escapeHtml(guests)}</strong>` : ""}
+    </section>
+
+    <div class="rule"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Unit</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+
+    <section class="totals">
+      <div class="total-row"><span>Subtotal</span><strong>${escapeHtml(formatTryCurrency(receipt.total))}</strong></div>
+      <div class="total-row"><span>Tip</span><strong>${escapeHtml(formatTryCurrency(receipt.tipAmount))}</strong></div>
+      <div class="total-row grand-total"><span>Total paid</span><strong>${escapeHtml(formatTryCurrency(receipt.collectedAmount))}</strong></div>
+    </section>
+
+    <div class="rule"></div>
+
+    <section>
+      <strong>Payments</strong>
+      ${paymentRows}
+    </section>
+
+    <div class="rule"></div>
+
+    <p class="footer center">Thank you.</p>
+  </main>
+  <div class="print-actions">
+    <button type="button" onclick="window.print()">Print receipt</button>
+  </div>
+</body>
+</html>`;
+}
+
+function downloadPaperReceipt(receipt: CashierReceipt) {
+  const blob = new Blob([buildPaperReceiptHtml(receipt)], { type: "text/html;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = receiptFileName(receipt, "html");
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export default function CashierDashboardPage() {
   const [sessions, setSessions] = useState<OpenSession[]>([]);
+  const [receipts, setReceipts] = useState<CashierReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [receiptError, setReceiptError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState("");
   const [invoice, setInvoice] = useState<InvoiceResponse["data"] | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -326,16 +740,20 @@ export default function CashierDashboardPage() {
     }
 
     setError("");
+    setReceiptError("");
 
     try {
-      const data = await fetchSessions();
-      setSessions(data);
+      const [sessionData, receiptData] = await Promise.all([fetchSessions(), fetchReceipts()]);
+      setSessions(sessionData);
+      setReceipts(receiptData);
 
-      if (!form.sessionId && data[0]) {
-        setForm((prev) => ({ ...prev, sessionId: data[0].id }));
+      if (!form.sessionId && sessionData[0]) {
+        setForm((prev) => ({ ...prev, sessionId: sessionData[0].id }));
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load cashier data");
+      const message = loadError instanceof Error ? loadError.message : "Failed to load cashier data";
+      setError(message);
+      setReceiptError(message);
     } finally {
       if (!options?.silent) {
         setLoading(false);
@@ -483,6 +901,64 @@ export default function CashierDashboardPage() {
     }
   }
 
+  function handleExportAllReceipts() {
+    setExportError("");
+
+    if (receipts.length === 0) {
+      setExportError("No settled receipts are available to export.");
+      return;
+    }
+
+    try {
+      writeReceiptsExcel(receipts, `cashier-receipts-${formatFileDate()}.xlsx`);
+    } catch (exportFailure) {
+      setExportError(exportFailure instanceof Error ? exportFailure.message : "Receipt export failed.");
+    }
+  }
+
+  function handleExportReceipt(receipt: CashierReceipt) {
+    setExportError("");
+
+    try {
+      writeReceiptsExcel([receipt], receiptFileName(receipt, "xlsx"));
+    } catch (exportFailure) {
+      setExportError(exportFailure instanceof Error ? exportFailure.message : "Receipt export failed.");
+    }
+  }
+
+  function handleDownloadPaperReceipt(receipt: CashierReceipt) {
+    setExportError("");
+
+    try {
+      downloadPaperReceipt(receipt);
+    } catch (downloadFailure) {
+      setExportError(downloadFailure instanceof Error ? downloadFailure.message : "Paper receipt download failed.");
+    }
+  }
+
+  function handlePrintPaperReceipt(receipt: CashierReceipt) {
+    setExportError("");
+
+    try {
+      const printWindow = window.open("", "_blank", "width=420,height=720");
+
+      if (!printWindow) {
+        setExportError("The print window was blocked. Allow pop-ups for this site and try again.");
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(buildPaperReceiptHtml(receipt));
+      printWindow.document.close();
+      printWindow.focus();
+      window.setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    } catch (printFailure) {
+      setExportError(printFailure instanceof Error ? printFailure.message : "Paper receipt print failed.");
+    }
+  }
+
   function isShareActionRunning(shareId: string, action: CashierPaymentShareAction): boolean {
     return runningShareAction?.shareId === shareId && runningShareAction.action === action;
   }
@@ -531,6 +1007,15 @@ export default function CashierDashboardPage() {
       failedShareCount: paymentSession.shares.filter((share) => share.status === "FAILED").length
     };
   }, [paymentSession]);
+  const receiptSummary = useMemo(
+    () => ({
+      count: receipts.length,
+      collectedAmount: receipts.reduce((sum, receipt) => sum + Number(receipt.collectedAmount), 0),
+      tipAmount: receipts.reduce((sum, receipt) => sum + Number(receipt.tipAmount), 0),
+      lastPaidAt: receipts[0]?.paidAt ?? null
+    }),
+    [receipts]
+  );
 
   return (
     <div className="stack-md">
@@ -972,6 +1457,179 @@ export default function CashierDashboardPage() {
           <p className="empty empty-state">No check has been calculated yet. Start by selecting an open session and split mode.</p>
         </section>
       )}
+
+      <section className="panel stack-md receipt-archive-panel">
+        <div className="section-head">
+          <div className="section-copy">
+            <p className="section-kicker">Receipt archive</p>
+            <h3>Settled receipts</h3>
+            <p className="panel-subtitle">Paid checks stay available here after the table closes.</p>
+          </div>
+          <div className="ticket-actions receipt-archive-actions">
+            <button type="button" className="ticket-action-btn" onClick={handleExportAllReceipts} disabled={receipts.length === 0}>
+              Export all Excel
+            </button>
+            <button type="button" className="ticket-action-btn" onClick={() => loadData()}>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Receipts</p>
+            <p className="dashboard-stat-value">{receiptSummary.count}</p>
+            <p className="dashboard-stat-note">Fully settled checks.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Collected</p>
+            <p className="dashboard-stat-value">{formatTryCurrency(receiptSummary.collectedAmount)}</p>
+            <p className="dashboard-stat-note">Payments plus tips.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Tips</p>
+            <p className="dashboard-stat-value">{formatTryCurrency(receiptSummary.tipAmount)}</p>
+            <p className="dashboard-stat-note">Tip total in archive.</p>
+          </article>
+          <article className="dashboard-stat-card">
+            <p className="dashboard-stat-label">Last paid</p>
+            <p className="dashboard-stat-value">{receiptSummary.lastPaidAt ? formatShortTime(receiptSummary.lastPaidAt) : "-"}</p>
+            <p className="dashboard-stat-note">
+              {receiptSummary.lastPaidAt ? formatDateTime(receiptSummary.lastPaidAt) : "No receipt yet."}
+            </p>
+          </article>
+        </div>
+
+        <div className="status-stack">
+          {receiptError ? <p className="status-banner is-error">{receiptError}</p> : null}
+          {exportError ? <p className="status-banner is-error">{exportError}</p> : null}
+        </div>
+
+        {receipts.length === 0 ? (
+          <p className="empty empty-state">No settled receipts yet. Completed payments will appear here after checkout.</p>
+        ) : (
+          <div className="receipt-list">
+            {receipts.map((receipt) => {
+              const receiptNumber = formatInvoiceNumber(receipt.invoiceId, receipt.createdAt);
+              const isExpanded = expandedReceiptId === receipt.id;
+              const paidShareCount = receipt.shares.filter((share) => share.status === "PAID").length;
+
+              return (
+                <article key={receipt.id} className="list-item entity-card receipt-card stack-md">
+                  <div className="entity-top">
+                    <div className="entity-title">
+                      <h4>{receiptNumber}</h4>
+                      <p className="entity-summary">
+                        {receipt.branch?.name ?? "Branch"} | Table {receipt.table?.name ?? "-"} | {formatDateTime(receipt.paidAt)}
+                      </p>
+                    </div>
+                    <span className="badge badge-outline">{formatTryCurrency(receipt.collectedAmount)}</span>
+                  </div>
+
+                  <div className="badge-row">
+                    <span className={`badge ${paymentSessionStatusBadgeClass(receipt.status)}`}>{formatStatusLabel(receipt.status)}</span>
+                    <span className="badge badge-neutral">{splitModeLabel(receipt.splitMode)}</span>
+                    <span className="badge badge-neutral">
+                      {paidShareCount}/{receipt.shares.length} paid shares
+                    </span>
+                    {receipt.table?.code ? <span className="badge badge-outline">{receipt.table.code}</span> : null}
+                  </div>
+
+                  <div className="detail-grid">
+                    <div className="detail-card">
+                      <span className="detail-label">Subtotal</span>
+                      <span className="detail-value">{formatTryCurrency(receipt.total)}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Tips</span>
+                      <span className="detail-value">{formatTryCurrency(receipt.tipAmount)}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Collected</span>
+                      <span className="detail-value">{formatTryCurrency(receipt.collectedAmount)}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Guests</span>
+                      <span className="detail-value">{receipt.guests.length}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Items</span>
+                      <span className="detail-value">{receipt.lines.length}</span>
+                    </div>
+                    <div className="detail-card">
+                      <span className="detail-label">Payments</span>
+                      <span className="detail-value">{receipt.payments.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="ticket-actions">
+                    <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(receipt)}>
+                      Download receipt
+                    </button>
+                    <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(receipt)}>
+                      Print receipt
+                    </button>
+                    <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(receipt)}>
+                      Export Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="ticket-action-btn"
+                      onClick={() => setExpandedReceiptId(isExpanded ? null : receipt.id)}
+                    >
+                      {isExpanded ? "Hide receipt" : "View receipt"}
+                    </button>
+                  </div>
+
+                  {isExpanded ? (
+                    <div className="receipt-details">
+                      <div className="receipt-detail-column">
+                        <h4>Items</h4>
+                        <div className="receipt-row-list">
+                          {receipt.lines.map((line) => (
+                            <div key={line.id} className="receipt-row">
+                              <div>
+                                <strong>{line.itemName ?? line.label}</strong>
+                                <p className="meta">
+                                  {line.guestName ? `${line.guestName} | ` : ""}
+                                  Qty {line.quantity ?? 1}
+                                  {line.unitPrice ? ` x ${formatTryCurrency(line.unitPrice)}` : ""}
+                                </p>
+                              </div>
+                              <strong>{formatTryCurrency(line.amount)}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="receipt-detail-column">
+                        <h4>Payments</h4>
+                        <div className="receipt-row-list">
+                          {receipt.shares.map((share) => (
+                            <div key={share.id} className="receipt-row">
+                              <div>
+                                <strong>{share.payerLabel}</strong>
+                                <p className="meta">
+                                  {share.provider ? paymentProviderLabel(share.provider) : "Payment"} |{" "}
+                                  {formatStatusLabel(share.status)}
+                                  {share.providerPaymentId ? ` | ${share.providerPaymentId}` : ""}
+                                </p>
+                                {Number(share.tip) > 0 ? <p className="meta">Tip {formatTryCurrency(share.tip)}</p> : null}
+                                {share.paidAt ? <p className="meta">{formatDateTime(share.paidAt)}</p> : null}
+                              </div>
+                              <strong>{formatTryCurrency(share.totalCharged)}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

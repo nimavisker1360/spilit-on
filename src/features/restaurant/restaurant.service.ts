@@ -97,6 +97,18 @@ export async function ensureDefaultRestaurant() {
       id: makeId("restaurant"),
       name: "Main Restaurant",
       slug: "main-restaurant",
+      legalName: null,
+      taxNumber: null,
+      taxOffice: null,
+      billingEmail: null,
+      phone: null,
+      status: "TRIALING" as const,
+      workspaceMode: "TRIAL" as const,
+      defaultLocale: "tr" as const,
+      defaultCurrency: "TRY",
+      currentPlanId: "plan_trial",
+      trialStartedAt: now,
+      trialEndsAt: null,
       createdAt: now,
       updatedAt: now
     };
@@ -118,6 +130,18 @@ export async function createRestaurant(input: CreateRestaurantInput) {
       id: makeId("restaurant"),
       name: parsed.name,
       slug: parsed.slug,
+      legalName: null,
+      taxNumber: null,
+      taxOffice: null,
+      billingEmail: null,
+      phone: null,
+      status: "TRIALING" as const,
+      workspaceMode: "TRIAL" as const,
+      defaultLocale: "tr" as const,
+      defaultCurrency: "TRY",
+      currentPlanId: "plan_trial",
+      trialStartedAt: now,
+      trialEndsAt: null,
       createdAt: now,
       updatedAt: now
     };
@@ -157,11 +181,31 @@ export async function createBranch(input: CreateBranchInput) {
       primaryColor: parsed.primaryColor || "#f28c28",
       accentColor: parsed.accentColor || "#ffd6b5",
       fontFamily: parsed.fontFamily || "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
+      currency: "TRY",
+      localeDefault: "tr" as const,
+      openingHours: null,
       createdAt: now,
       updatedAt: now
     };
 
     store.branches.push(branch);
+    store.branchSettings.push({
+      id: makeId("branch_settings"),
+      restaurantId: restaurant.id,
+      branchId: branch.id,
+      taxIncludedInPrices: true,
+      defaultTaxRatePercent: "10.00",
+      serviceFeeType: "NONE",
+      serviceFeeValue: "0.00",
+      allowCustomerNotes: true,
+      allowSplitBill: true,
+      allowOnlinePayment: false,
+      requireStaffApprovalForQrOrders: false,
+      autoAcceptQrOrders: true,
+      supportedLocales: ["tr", "en"],
+      createdAt: now,
+      updatedAt: now
+    });
     restaurant.updatedAt = now;
 
     return cloneValue(branch);
@@ -226,13 +270,21 @@ export async function deleteBranch(input: DeleteBranchInput) {
   });
 }
 
-export async function getAdminSnapshot() {
+type AdminSnapshotScope = {
+  restaurantId?: string;
+  branchIds?: string[] | null;
+};
+
+export async function getAdminSnapshot(scope: AdminSnapshotScope = {}) {
   const store = readStore();
+  const allowedBranchIds = scope.branchIds ? new Set(scope.branchIds) : null;
 
   return sortByCreatedAtAsc(store.restaurants)
+    .filter((restaurant) => !scope.restaurantId || restaurant.id === scope.restaurantId)
     .map((restaurant) => {
       const branches = sortByNameAsc(
         getRestaurantBranches(store, restaurant.id)
+          .filter((branch) => !allowedBranchIds || allowedBranchIds.has(branch.id))
           .map((branch) => buildAdminBranchSnapshot(store, branch.id))
           .filter((branch): branch is NonNullable<typeof branch> => Boolean(branch))
       );
