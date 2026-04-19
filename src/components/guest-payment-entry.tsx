@@ -19,12 +19,15 @@ type GuestPaymentEntryMatchSource = "EXACT_GUEST_ID" | "NORMALIZED_NAME" | "CASE
 
 type GuestPaymentEntryShare = {
   id: string;
+  userId: string | null;
   guestId: string | null;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   paymentUrl: string | null;
   provider: string | null;
+  paidAt: string | null;
 };
 
 type GuestPaymentEntryLine = {
@@ -83,7 +86,12 @@ type GuestPaymentEntryState = {
   };
   session: {
     id: string;
+    status: "OPEN" | "CLOSED";
     openedAt: string;
+    closedAt: string | null;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
     guests: Array<{
       id: string;
       displayName: string;
@@ -130,6 +138,13 @@ type JoinSessionResponse = {
   error?: string;
 };
 
+type GuestPaymentActionResponse = {
+  data?: {
+    message: string;
+  };
+  error?: string;
+};
+
 type Props = {
   tableCode: string;
   initialGuestId?: string;
@@ -153,6 +168,7 @@ type SplitPreviewRow = {
   label: string;
   amountCents: number;
   helper: string;
+  shareStatus?: PaymentShareStatus;
   isYou?: boolean;
 };
 
@@ -170,8 +186,8 @@ const SPLIT_CHOICES: Array<{ id: SplitChoice; label: string; helper: string }> =
   { id: "custom", label: "Custom", helper: "Use the prepared custom shares." }
 ];
 const PAYMENT_METHODS: Array<{ id: PaymentMethod; label: string; helper: string }> = [
-  { id: "pay", label: "Pay with Pay", helper: "Fast wallet handoff" },
-  { id: "card", label: "Pay with Card", helper: "Secure card payment" }
+  { id: "pay", label: "Pay", helper: "Mock wallet approval" },
+  { id: "card", label: "Card", helper: "Mock card approval" }
 ];
 
 function formatCents(value: number): string {
@@ -305,6 +321,10 @@ function paymentSessionStatusBadgeClass(status: PaymentSessionStatus): string {
   return "badge-status-open";
 }
 
+function isSharePayable(status: PaymentShareStatus): boolean {
+  return status === "UNPAID" || status === "FAILED";
+}
+
 function resolveLineQuantity(line: GuestPaymentEntryLine): number {
   if (typeof line.quantity === "number" && Number.isInteger(line.quantity) && line.quantity > 0) {
     return line.quantity;
@@ -359,18 +379,6 @@ function resolveTipAmount(amount: string | null, rate: number): string {
   return centsToDecimalString(Math.round(toCents(amount) * rate));
 }
 
-function buildHostedPaymentUrl(paymentUrl: string, tipAmount: string): string {
-  const nextUrl = new URL(paymentUrl, window.location.origin);
-
-  if (toCents(tipAmount) > 0) {
-    nextUrl.searchParams.set("tip", tipAmount);
-  } else {
-    nextUrl.searchParams.delete("tip");
-  }
-
-  return nextUrl.toString();
-}
-
 async function fetchGuestPaymentEntry(tableCode: string, identity: GuestIdentityState | null): Promise<GuestPaymentEntryState> {
   const payload: GuestIdentityInput = {
     guestId: identity?.guestId ?? "",
@@ -418,6 +426,23 @@ async function joinTableSession(tableCode: string, displayName: string, reuseGue
   return json.data;
 }
 
+async function payPaymentShare(shareId: string, input: { userId?: string | null; guestId?: string | null; tip: string }) {
+  const response = await fetch(`/api/payment-shares/${encodeURIComponent(shareId)}/pay`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+  const json = (await response.json()) as GuestPaymentActionResponse;
+
+  if (!response.ok || !json.data) {
+    throw new Error(json.error || "Payment failed.");
+  }
+
+  return json.data;
+}
+
 export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: Props) {
   const [state, setState] = useState<GuestPaymentEntryState | null>(null);
   const [identity, setIdentity] = useState<GuestIdentityState | null>(() =>
@@ -440,6 +465,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
   const [equalPeopleCount, setEqualPeopleCount] = useState(2);
   const [selectedTipRate, setSelectedTipRate] = useState<number>(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("card");
+  const [payingShareId, setPayingShareId] = useState<string | null>(null);
 
   const persistIdentity = useCallback(
     (nextIdentity: GuestIdentityState | null) => {
@@ -469,8 +495,10 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     }
   }, [identity?.guestId, tableCode]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -499,12 +527,19 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load payment details.");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [identity, persistIdentity, tableCode]);
 
   useEffect(() => {
     void load();
+    const intervalId = window.setInterval(() => {
+      void load({ silent: true });
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
   }, [load]);
 
   const paymentSession = state?.paymentSession ?? null;
@@ -622,6 +657,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
         label: share.guestId === identifiedGuestId && state?.identifiedGuest ? state.identifiedGuest.displayName : share.payerLabel,
         amountCents: toCents(share.amount),
         helper: formatPaymentStatus(share.status),
+        shareStatus: share.status,
         isYou: share.guestId === identifiedGuestId
       }));
     }
@@ -639,13 +675,18 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
               itemCount: 0
             }));
 
-      return sourceRows.map((group) => ({
-        id: group.key,
-        label: group.guestId === identifiedGuestId && state?.identifiedGuest ? state.identifiedGuest.displayName : group.name,
-        amountCents: group.subtotalCents,
-        helper: group.itemCount > 0 ? `${group.itemCount} item${group.itemCount === 1 ? "" : "s"}` : "Prepared share",
-        isYou: group.guestId === identifiedGuestId
-      }));
+      return sourceRows.map((group) => {
+        const share = paymentSession.shares.find((entry) => (group.guestId ? entry.guestId === group.guestId : entry.payerLabel === group.name));
+
+        return {
+          id: group.key,
+          label: group.guestId === identifiedGuestId && state?.identifiedGuest ? state.identifiedGuest.displayName : group.name,
+          amountCents: group.subtotalCents,
+          helper: group.itemCount > 0 ? `${group.itemCount} item${group.itemCount === 1 ? "" : "s"}` : "Prepared share",
+          shareStatus: share?.status,
+          isYou: group.guestId === identifiedGuestId
+        };
+      });
     }
 
     const namedPayers =
@@ -657,12 +698,14 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     return Array.from({ length: count }, (_, index) => {
       const payer = namedPayers[index] ?? null;
       const isYou = payer?.guestId === identifiedGuestId;
+      const share = paymentSession.shares.find((entry) => (payer?.guestId ? entry.guestId === payer.guestId : entry.payerLabel === payer?.name));
 
       return {
         id: payer?.id ?? `equal-${index}`,
         label: payer?.name ?? (index === 0 && state?.identifiedGuest ? state.identifiedGuest.displayName : `Guest ${index + 1}`),
         amountCents: splitCentsEvenly(totalCents, count, index),
         helper: "Equal share",
+        shareStatus: share?.status,
         isYou
       };
     });
@@ -678,8 +721,9 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
   const myShareDiffersFromItems = Boolean(
     myShare && identifiedGuestId && Math.abs(toCents(myShare.amount) - myInvoiceSubtotalCents) > 1
   );
+  const isCheckoutClosed = Boolean(paymentSession?.status === "PAID" || state?.session?.status === "CLOSED");
 
-  function routeToHostedPayment(share: GuestPaymentEntryShare | null, fallback: string) {
+  async function handlePayShare(share: GuestPaymentEntryShare | null, fallback: string) {
     setMessage("");
 
     if (!share) {
@@ -687,18 +731,33 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
       return;
     }
 
-    if (share.status === "PAID") {
-      setMessage("This payment already appears to be completed.");
+    if (isCheckoutClosed || share.status === "PAID") {
+      setMessage("This payment is already completed.");
       return;
     }
 
-    if (!share.paymentUrl) {
-      setMessage("Online payment is not ready yet. Ask restaurant staff to send the payment link.");
+    if (!isSharePayable(share.status)) {
+      setMessage("A payment is already in progress for this share.");
       return;
     }
 
-    const tipAmount = resolveTipAmount(share.amount, selectedTipRate);
-    window.location.assign(buildHostedPaymentUrl(share.paymentUrl, tipAmount));
+    setPayingShareId(share.id);
+    setError("");
+
+    try {
+      const result = await payPaymentShare(share.id, {
+        userId: identity?.guestId || identifiedGuestId || share.userId || share.guestId || null,
+        guestId: share.guestId || identity?.guestId || identifiedGuestId || null,
+        tip: resolveTipAmount(share.amount, selectedTipRate)
+      });
+
+      setMessage(result.message);
+      await load({ silent: true });
+    } catch (payError) {
+      setError(payError instanceof Error ? payError.message : "Payment failed.");
+    } finally {
+      setPayingShareId(null);
+    }
   }
 
   function handleContinue(nextStep: CheckoutStep) {
@@ -714,11 +773,11 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
 
   function handlePaymentMethod(method: PaymentMethod) {
     setSelectedPaymentMethod(method);
-    routeToHostedPayment(paymentShare, mapping.payMyShareDisabledReason ?? "Your payment share is not ready yet.");
+    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Your payment share is not ready yet.");
   }
 
   function handlePayFullBill() {
-    routeToHostedPayment(fullBillShare, "Pay full bill option is not available for this check.");
+    void handlePayShare(fullBillShare, "Pay full bill option is not available for this check.");
   }
 
   function handleSelectGuest(candidate: GuestPaymentEntryGuestCandidate) {
@@ -837,7 +896,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           <div className="guest-checkout-identity-meta">
             {myShare ? (
               <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(myShare.status)}`}>
-                {formatTryCurrency(myShare.amount)}
+                {formatTryCurrency(myShare.amount)} | {formatPaymentStatus(myShare.status)}
               </span>
             ) : (
               <span className="guest-checkout-pill is-muted">No share yet</span>
@@ -889,6 +948,8 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           {billGroups.map((group, index) => {
             const isYou = group.guestId === identifiedGuestId;
             const visibleLines = showBreakdown ? group.lines : group.lines.slice(0, 2);
+            const shareForGroup =
+              paymentSession?.shares.find((share) => (group.guestId ? share.guestId === group.guestId : share.payerLabel === group.name)) ?? null;
 
             return (
               <article key={group.key} className={`guest-person-bill${isYou ? " is-you" : ""}`}>
@@ -898,7 +959,14 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
                     <h3>{isYou ? "You" : group.name}</h3>
                     <p>{group.itemCount > 0 ? `${group.itemCount} ordered item${group.itemCount === 1 ? "" : "s"}` : "Prepared share"}</p>
                   </div>
-                  <strong>{formatCents(group.subtotalCents)}</strong>
+                  <div className="guest-checkout-identity-meta">
+                    {shareForGroup ? (
+                      <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(shareForGroup.status)}`}>
+                        {formatPaymentStatus(shareForGroup.status)}
+                      </span>
+                    ) : null}
+                    <strong>{formatCents(group.subtotalCents)}</strong>
+                  </div>
                 </div>
 
                 <div className="guest-person-line-list">
@@ -939,6 +1007,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
             <span>Total</span>
             <strong>{formatCents(billTotalCents)}</strong>
           </div>
+          {paymentSession ? (
+            <div>
+              <span>Remaining</span>
+              <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
+            </div>
+          ) : null}
         </div>
 
         <button type="button" className="guest-checkout-primary-action" onClick={() => handleContinue("split")} disabled={!paymentSession}>
@@ -998,7 +1072,14 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
                   <small>{row.helper}</small>
                 </span>
               </div>
-              <strong>{formatCents(row.amountCents)}</strong>
+              <div className="guest-checkout-identity-meta">
+                {row.shareStatus ? (
+                  <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(row.shareStatus)}`}>
+                    {formatPaymentStatus(row.shareStatus)}
+                  </span>
+                ) : null}
+                <strong>{formatCents(row.amountCents)}</strong>
+              </div>
             </article>
           ))}
         </div>
@@ -1113,23 +1194,77 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
               type="button"
               className={selectedPaymentMethod === method.id ? "is-active" : ""}
               onClick={() => handlePaymentMethod(method.id)}
-              disabled={!paymentShare || paymentShare.status === "PAID"}
+              disabled={!paymentShare || !isSharePayable(paymentShare.status) || isCheckoutClosed || Boolean(payingShareId)}
             >
-              <span>{method.label}</span>
+              <span>{payingShareId === paymentShare?.id && selectedPaymentMethod === method.id ? "Processing..." : method.label}</span>
               <small>{method.helper}</small>
             </button>
           ))}
         </div>
 
         {fullBillShare && fullBillShare.id !== paymentShare?.id ? (
-          <button type="button" className="guest-checkout-secondary-action" onClick={handlePayFullBill} disabled={fullBillShare.status === "PAID"}>
-            Pay full bill instead
+          <button
+            type="button"
+            className="guest-checkout-secondary-action"
+            onClick={handlePayFullBill}
+            disabled={!isSharePayable(fullBillShare.status) || isCheckoutClosed || Boolean(payingShareId)}
+          >
+            {payingShareId === fullBillShare.id ? "Processing..." : "Pay full bill instead"}
           </button>
         ) : null}
 
         <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("tip")}>
           Back to Tip
         </button>
+      </section>
+    );
+  }
+
+  function renderSuccessScreen() {
+    if (!paymentSession) {
+      return null;
+    }
+
+    return (
+      <section className="guest-checkout-screen">
+        <div className="guest-checkout-title">
+          <span>Payment complete</span>
+          <h1>All set</h1>
+          <p>{state?.session?.closedAt ? `Closed ${formatDateTime(state.session.closedAt)}` : "Every payment share is settled."}</p>
+        </div>
+
+        <div className="guest-checkout-total-card">
+          <div>
+            <span>Total</span>
+            <strong>{formatTryCurrency(paymentSession.totalAmount)}</strong>
+          </div>
+          <div>
+            <span>Paid</span>
+            <strong>{formatTryCurrency(paymentSession.paidAmount)}</strong>
+          </div>
+          <div className="is-total">
+            <span>Remaining</span>
+            <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
+          </div>
+        </div>
+
+        <div className="guest-split-list">
+          <p className="guest-checkout-label">Payment shares</p>
+          {paymentSession.shares.map((share) => (
+            <article key={share.id} className={`guest-split-row${share.guestId === identifiedGuestId ? " is-you" : ""}`}>
+              <div>
+                <span className="guest-split-avatar">{getGuestInitials(share.guestId === identifiedGuestId ? "You" : share.payerLabel)}</span>
+                <span>
+                  <strong>{share.guestId === identifiedGuestId ? "You" : share.payerLabel}</strong>
+                  <small>{share.paidAt ? `Paid ${formatDateTime(share.paidAt)}` : formatPaymentStatus(share.status)}</small>
+                </span>
+              </div>
+              <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(share.status)}`}>
+                {formatPaymentStatus(share.status)}
+              </span>
+            </article>
+          ))}
+        </div>
       </section>
     );
   }
@@ -1149,9 +1284,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           </div>
           <div className="guest-checkout-header-actions">
             {paymentSession ? (
-              <span className={`guest-checkout-pill ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
-                {formatPaymentStatus(paymentSession.status)}
-              </span>
+              <>
+                <span className="guest-checkout-pill is-muted">Remaining {formatTryCurrency(paymentSession.remainingAmount)}</span>
+                <span className={`guest-checkout-pill ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
+                  {formatPaymentStatus(paymentSession.status)}
+                </span>
+              </>
             ) : null}
             {backHref ? (
               <Link href={backHref} className="guest-checkout-link">
@@ -1170,8 +1308,8 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
               key={step.id}
               type="button"
               className={`${checkoutStep === step.id ? "is-active" : ""}${currentStepIndex > index ? " is-complete" : ""}`}
-              onClick={() => (paymentSession ? setCheckoutStep(step.id) : undefined)}
-              disabled={!paymentSession}
+              onClick={() => (paymentSession && !isCheckoutClosed ? setCheckoutStep(step.id) : undefined)}
+              disabled={!paymentSession || isCheckoutClosed}
             >
               <span>{index + 1}</span>
               <small>{step.label}</small>
@@ -1186,12 +1324,16 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
         </div>
 
         {state?.session && paymentSession ? (
-          <>
-            {checkoutStep === "bill" ? renderBillStep() : null}
-            {checkoutStep === "split" ? renderSplitStep() : null}
-            {checkoutStep === "tip" ? renderTipStep() : null}
-            {checkoutStep === "payment" ? renderPaymentStep() : null}
-          </>
+          isCheckoutClosed ? (
+            renderSuccessScreen()
+          ) : (
+            <>
+              {checkoutStep === "bill" ? renderBillStep() : null}
+              {checkoutStep === "split" ? renderSplitStep() : null}
+              {checkoutStep === "tip" ? renderTipStep() : null}
+              {checkoutStep === "payment" ? renderPaymentStep() : null}
+            </>
+          )
         ) : (
           <section className="guest-checkout-screen">
             <div className="guest-checkout-title">

@@ -29,6 +29,7 @@ export type JsonObject = {
 };
 
 export type PaymentShareDraft = {
+  userId?: string | null;
   guestId: string | null;
   payerLabel: string;
   amount: string;
@@ -60,9 +61,11 @@ export type PaymentSessionRecord = {
 export type PaymentShareRecord = {
   id: string;
   paymentSessionId: string;
+  userId: string | null;
   guestId: string | null;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   provider: string | null;
   providerPaymentId: string | null;

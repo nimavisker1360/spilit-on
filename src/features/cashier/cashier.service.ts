@@ -48,9 +48,13 @@ export async function listSessionsForCashier(branchId?: string) {
 
       return {
         id: session.id,
+        status: session.status,
         tableName: table.name,
         branchName: branch.name,
         openedAt: session.openedAt,
+        totalAmount: session.totalAmount,
+        paidAmount: session.paidAmount,
+        remainingAmount: session.remainingAmount,
         guestCount: guests.length,
         total: Number(centsToDecimalString(totalCents))
       };

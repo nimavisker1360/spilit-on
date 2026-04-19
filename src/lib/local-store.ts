@@ -80,6 +80,9 @@ type TableSessionRecord = {
   branchId: string;
   tableId: string;
   status: SessionStatus;
+  totalAmount: string;
+  paidAmount: string;
+  remainingAmount: string;
   openedAt: string;
   closedAt: string | null;
   readyToCloseAt: string | null;
@@ -175,9 +178,11 @@ type PaymentSessionRecord = {
 type PaymentShareRecord = {
   id: string;
   paymentSessionId: string;
+  userId: string | null;
   guestId: string | null;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   provider: string | null;
   providerPaymentId: string | null;
@@ -368,6 +373,9 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
     sessions: Array.isArray(store.sessions)
       ? store.sessions.map((session) => ({
           ...session,
+          totalAmount: normalizeMoneyStorage(session.totalAmount, "0.00"),
+          paidAmount: normalizeMoneyStorage(session.paidAmount, "0.00"),
+          remainingAmount: normalizeMoneyStorage(session.remainingAmount, normalizeMoneyStorage(session.totalAmount, "0.00")),
           readyToCloseAt: typeof session.readyToCloseAt === "string" ? session.readyToCloseAt : null
         }))
       : [],
@@ -421,7 +429,9 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
     paymentShares: Array.isArray(store.paymentShares)
       ? store.paymentShares.map((paymentShare) => ({
           ...paymentShare,
-          amount: normalizeMoneyStorage(paymentShare.amount)
+          userId: typeof paymentShare.userId === "string" ? paymentShare.userId : paymentShare.guestId ?? null,
+          amount: normalizeMoneyStorage(paymentShare.amount),
+          tip: normalizeMoneyStorage(paymentShare.tip, "0.00")
         }))
       : [],
     paymentAttempts: Array.isArray(store.paymentAttempts) ? store.paymentAttempts : []

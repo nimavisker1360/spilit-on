@@ -1,9 +1,11 @@
-import { PaymentSessionStatus, PaymentShareStatus, SplitMode } from "@prisma/client";
+import { PaymentSessionStatus, PaymentShareStatus, PaymentStatus, SessionStatus, SplitMode, TableStatus } from "@prisma/client";
 
 import { centsToDecimalString, toCents } from "@/lib/currency";
 import { getPublicAppBaseUrl } from "@/lib/public-url";
 import { cloneValue, currentTimestamp, getSessionGuests, makeId, readStore, type LocalStoreData, updateStore } from "@/lib/local-store";
+import { createMockPaymentCharge, MOCK_GUEST_PAYMENT_PROVIDER } from "@/features/payment/mock-payment.service";
 import {
+  applyGuestPaymentSharePaymentSchema,
   applyCashierPaymentShareActionSchema,
   createPaymentSessionFromInvoiceSchema,
   generatePaymentSessionFromInvoiceSchema,
@@ -33,7 +35,12 @@ type PaymentSessionDetail = StoredPaymentSessionRecord & {
   shares: PaymentShareDetail[];
   session: {
     id: string;
+    status: SessionStatus;
+    closedAt: string | null;
     readyToCloseAt: string | null;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
     table: Pick<TableRecord, "id" | "name" | "code"> | null;
   } | null;
 };
@@ -45,6 +52,12 @@ type GeneratedPaymentSessionResult = {
 
 type ApplyCashierPaymentShareActionResult = {
   action: CashierPaymentShareAction;
+  message: string;
+  paymentSession: PaymentSessionDetail;
+  paymentShare: PaymentShareDetail;
+};
+
+type ApplyGuestPaymentSharePaymentResult = {
   message: string;
   paymentSession: PaymentSessionDetail;
   paymentShare: PaymentShareDetail;
@@ -71,12 +84,15 @@ type SettlementState = {
 
 type GuestPaymentEntryShare = {
   id: string;
+  userId: string | null;
   guestId: string | null;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   paymentUrl: string | null;
   provider: string | null;
+  paidAt: string | null;
 };
 
 type GuestPaymentEntryLine = {
@@ -148,7 +164,12 @@ export type GuestPaymentEntryDetail = {
   };
   session: {
     id: string;
+    status: SessionStatus;
     openedAt: string;
+    closedAt: string | null;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
     guests: Array<{
       id: string;
       displayName: string;
@@ -265,7 +286,25 @@ function synchronizeSettlementState(
   const tableSession = store.sessions.find((entry) => entry.id === paymentSession.sessionId);
 
   if (tableSession) {
-    tableSession.readyToCloseAt = settlementState.status === PaymentSessionStatus.PAID ? tableSession.readyToCloseAt ?? now : null;
+    tableSession.totalAmount = paymentSession.totalAmount;
+    tableSession.paidAmount = settlementState.paidAmount;
+    tableSession.remainingAmount = settlementState.remainingAmount;
+
+    if (settlementState.status === PaymentSessionStatus.PAID) {
+      tableSession.readyToCloseAt = tableSession.readyToCloseAt ?? now;
+      tableSession.status = SessionStatus.CLOSED;
+      tableSession.closedAt = tableSession.closedAt ?? now;
+
+      const table = store.tables.find((entry) => entry.id === tableSession.tableId);
+
+      if (table) {
+        table.status = TableStatus.AVAILABLE;
+        table.updatedAt = now;
+      }
+    } else if (tableSession.status === SessionStatus.OPEN) {
+      tableSession.readyToCloseAt = null;
+      tableSession.closedAt = null;
+    }
   }
 
   return paymentSession;
@@ -289,7 +328,12 @@ function hydratePaymentSessionDetail(
     session: session
       ? {
           id: session.id,
+          status: session.status,
+          closedAt: session.closedAt,
           readyToCloseAt: session.readyToCloseAt,
+          totalAmount: session.totalAmount,
+          paidAmount: session.paidAmount,
+          remainingAmount: session.remainingAmount,
           table: table
             ? {
                 id: table.id,
@@ -309,12 +353,15 @@ function sortByCreatedAtDesc<T extends { createdAt: string }>(items: T[]): T[] {
 function toGuestPaymentEntryShare(share: PaymentShareDetail): GuestPaymentEntryShare {
   return {
     id: share.id,
+    userId: share.userId,
     guestId: share.guestId,
     payerLabel: share.payerLabel,
     amount: share.amount,
+    tip: share.tip,
     status: share.status,
     paymentUrl: share.paymentUrl,
-    provider: share.provider
+    provider: share.provider,
+    paidAt: share.paidAt
   };
 }
 
@@ -556,6 +603,7 @@ function buildPaymentShareDrafts(
 
     return [
       {
+        userId: fullPaymentAssignment?.guestId ?? null,
         guestId: fullPaymentAssignment?.guestId ?? null,
         payerLabel: fullPaymentAssignment
           ? resolveGuestLabel(fullPaymentAssignment, guestMap)
@@ -571,6 +619,7 @@ function buildPaymentShareDrafts(
 
   if (invoice.splitMode === SplitMode.EQUAL || invoice.splitMode === SplitMode.BY_GUEST_ITEMS) {
     return assignments.map((assignment) => ({
+      userId: assignment.guestId,
       guestId: assignment.guestId,
       payerLabel: resolveGuestLabel(assignment, guestMap),
       amount: assignment.amount
@@ -605,6 +654,32 @@ function appendPaymentAttempt(
   });
 }
 
+function appendCompletedPayment(
+  store: LocalStoreData,
+  input: {
+    paymentSession: StoredPaymentSessionRecord;
+    share: StoredPaymentShareRecord;
+    amount: string;
+    method: string;
+    reference: string;
+    timestamp: string;
+  }
+) {
+  store.payments.push({
+    id: makeId("payment"),
+    invoiceId: input.paymentSession.invoiceId,
+    guestId: input.share.guestId,
+    amount: input.amount,
+    currency: input.paymentSession.currency,
+    method: input.method,
+    status: PaymentStatus.COMPLETED,
+    reference: input.reference,
+    paidAt: input.timestamp,
+    createdAt: input.timestamp,
+    updatedAt: input.timestamp
+  });
+}
+
 function buildMockPaymentUrl(paymentShareId: string, token: string) {
   return `${getPublicAppBaseUrl()}/pay/${encodeURIComponent(paymentShareId)}?token=${encodeURIComponent(token)}`;
 }
@@ -617,6 +692,10 @@ function initiatePendingShare(
 ): string {
   if (share.status === PaymentShareStatus.PAID) {
     throw new Error("Bu odeme payi zaten tahsil edilmis.");
+  }
+
+  if (share.status === PaymentShareStatus.PENDING) {
+    throw new Error("Bu odeme payi icin odeme zaten baslatilmis.");
   }
 
   const provider = action === "PAY_BY_CASH" ? CASH_PROVIDER : action === "PAY_BY_CARD" ? CARD_PROVIDER : ONLINE_PROVIDER;
@@ -669,14 +748,41 @@ function initiatePendingShare(
   return "Online odeme linki hazir.";
 }
 
-function completePendingShare(store: LocalStoreData, share: StoredPaymentShareRecord, now: string): string {
+function completePendingShare(
+  store: LocalStoreData,
+  paymentSession: StoredPaymentSessionRecord,
+  share: StoredPaymentShareRecord,
+  now: string,
+  tip = "0.00"
+): string {
   if (share.status !== PaymentShareStatus.PENDING) {
     throw new Error("Yalnizca bekleyen odeme paylari tamamlanabilir.");
   }
 
+  const charge = createMockPaymentCharge({
+    paymentShareId: share.id,
+    userId: share.userId ?? share.guestId,
+    amount: share.amount,
+    tip,
+    currency: paymentSession.currency
+  });
+
   share.status = PaymentShareStatus.PAID;
+  share.userId = share.userId ?? share.guestId;
+  share.tip = charge.tip;
+  share.providerPaymentId = share.providerPaymentId ?? charge.providerPaymentId;
+  share.providerConversationId = share.providerConversationId ?? charge.providerConversationId;
   share.paidAt = share.paidAt ?? now;
   share.updatedAt = now;
+
+  appendCompletedPayment(store, {
+    paymentSession,
+    share,
+    amount: charge.totalCharged,
+    method: share.provider ?? MOCK_SETTLEMENT_PROVIDER,
+    reference: share.providerPaymentId ?? charge.providerPaymentId,
+    timestamp: now
+  });
 
   appendPaymentAttempt(store, {
     paymentShareId: share.id,
@@ -684,10 +790,14 @@ function completePendingShare(store: LocalStoreData, share: StoredPaymentShareRe
     status: "SUCCEEDED",
     requestPayload: {
       action: "COMPLETE_PENDING_PAYMENT",
-      paymentShareStatus: "PENDING"
+      paymentShareStatus: "PENDING",
+      amount: share.amount,
+      tip: charge.tip,
+      totalCharged: charge.totalCharged
     },
     callbackPayload: {
       paymentShareStatus: share.status,
+      providerPaymentId: share.providerPaymentId,
       paidAt: share.paidAt
     },
     timestamp: now
@@ -708,6 +818,7 @@ function markShareFailed(store: LocalStoreData, share: StoredPaymentShareRecord,
   const previousStatus = share.status;
 
   share.status = PaymentShareStatus.FAILED;
+  share.tip = "0.00";
   share.paidAt = null;
   share.updatedAt = now;
 
@@ -741,7 +852,8 @@ function applyPaymentShareActionInStore(
   store: LocalStoreData,
   paymentShareId: string,
   action: CashierPaymentShareAction,
-  now: string
+  now: string,
+  options: { tip?: string } = {}
 ): ApplyCashierPaymentShareActionResult {
   const { share, paymentSession } = getPaymentShareContext(store, paymentShareId);
 
@@ -749,7 +861,7 @@ function applyPaymentShareActionInStore(
     action === "PAY_BY_CASH" || action === "PAY_BY_CARD" || action === "SEND_ONLINE_LINK"
       ? initiatePendingShare(store, share, action, now)
       : action === "COMPLETE_PENDING_PAYMENT"
-        ? completePendingShare(store, share, now)
+        ? completePendingShare(store, paymentSession, share, now, options.tip ?? "0.00")
         : action === "MARK_PAYMENT_FAILED"
           ? markShareFailed(store, share, now)
           : (() => {
@@ -818,9 +930,11 @@ export function buildPaymentBundleForInvoice(input: CreatePaymentSessionFromInvo
     paymentShareRecordSchema.parse({
       id: makeId("payment_share"),
       paymentSessionId: paymentSession.id,
+      userId: share.userId ?? share.guestId,
       guestId: share.guestId,
       payerLabel: share.payerLabel,
       amount: share.amount,
+      tip: "0.00",
       status: PaymentShareStatus.UNPAID,
       provider: null,
       providerPaymentId: null,
@@ -871,10 +985,11 @@ export async function createPaymentSessionFromInvoice(invoiceId: string): Promis
 
     store.paymentSessions.push(paymentSession);
     store.paymentShares.push(...paymentShares);
+    const synchronizedPaymentSession = synchronizeSettlementState(store, paymentSession, currentTimestamp());
 
     return {
       created: true,
-      paymentSession: hydratePaymentSessionDetail(store, paymentSession)
+      paymentSession: hydratePaymentSessionDetail(store, synchronizedPaymentSession)
     };
   });
 }
@@ -886,6 +1001,101 @@ export async function applyCashierPaymentShareAction(
   const parsed = applyCashierPaymentShareActionSchema.parse({ paymentShareId, action });
 
   return updateStore((store) => applyPaymentShareActionInStore(store, parsed.paymentShareId, parsed.action, currentTimestamp()));
+}
+
+export async function applyGuestPaymentSharePayment(input: {
+  paymentShareId: string;
+  userId?: string | null;
+  guestId?: string | null;
+  tip?: string;
+}): Promise<ApplyGuestPaymentSharePaymentResult> {
+  const parsed = applyGuestPaymentSharePaymentSchema.parse(input);
+
+  return updateStore((store) => {
+    const now = currentTimestamp();
+    const { share, paymentSession, tableSession } = getPaymentShareContext(store, parsed.paymentShareId);
+    const resolvedUserId = parsed.userId ?? parsed.guestId ?? share.userId ?? share.guestId ?? null;
+
+    if (paymentSession.status === PaymentSessionStatus.PAID || tableSession?.status === SessionStatus.CLOSED) {
+      throw new Error("This payment session is already closed.");
+    }
+
+    if (share.status === PaymentShareStatus.PAID) {
+      throw new Error("This share has already been paid.");
+    }
+
+    if (share.status !== PaymentShareStatus.UNPAID && share.status !== PaymentShareStatus.FAILED) {
+      throw new Error("A payment is already in progress for this share.");
+    }
+
+    if (share.guestId && parsed.guestId && share.guestId !== parsed.guestId) {
+      throw new Error("This payment share belongs to another guest.");
+    }
+
+    const charge = createMockPaymentCharge({
+      paymentShareId: share.id,
+      userId: resolvedUserId,
+      amount: share.amount,
+      tip: parsed.tip,
+      currency: paymentSession.currency
+    });
+
+    share.userId = resolvedUserId;
+    share.status = PaymentShareStatus.PAID;
+    share.tip = charge.tip;
+    share.provider = MOCK_GUEST_PAYMENT_PROVIDER;
+    share.providerPaymentId = charge.providerPaymentId;
+    share.providerConversationId = charge.providerConversationId;
+    share.paymentUrl = null;
+    share.qrPayload = null;
+    share.paidAt = now;
+    share.updatedAt = now;
+
+    appendCompletedPayment(store, {
+      paymentSession,
+      share,
+      amount: charge.totalCharged,
+      method: MOCK_GUEST_PAYMENT_PROVIDER,
+      reference: charge.providerPaymentId,
+      timestamp: now
+    });
+
+    appendPaymentAttempt(store, {
+      paymentShareId: share.id,
+      provider: MOCK_GUEST_PAYMENT_PROVIDER,
+      status: "SUCCEEDED",
+      requestPayload: {
+        action: "MOCK_GUEST_PAYMENT",
+        userId: resolvedUserId,
+        amount: charge.amount,
+        tip: charge.tip,
+        totalCharged: charge.totalCharged
+      },
+      callbackPayload: {
+        paymentShareStatus: PaymentShareStatus.PAID,
+        providerPaymentId: charge.providerPaymentId,
+        paidAt: now
+      },
+      timestamp: now
+    });
+
+    const synchronizedSession = synchronizeSettlementState(store, paymentSession, now);
+    const hydratedPaymentSession = hydratePaymentSessionDetail(store, synchronizedSession);
+    const hydratedShare = hydratedPaymentSession.shares.find((entry) => entry.id === share.id);
+
+    if (!hydratedShare) {
+      throw new Error("Updated payment share not found");
+    }
+
+    return {
+      message:
+        hydratedPaymentSession.status === PaymentSessionStatus.PAID
+          ? "Payment completed. The table session is now closed."
+          : "Payment completed.",
+      paymentSession: hydratedPaymentSession,
+      paymentShare: cloneValue(hydratedShare)
+    };
+  });
 }
 
 export async function getGuestPaymentEntry(
@@ -910,9 +1120,22 @@ export async function getGuestPaymentEntry(
     throw new Error("Table not found");
   }
 
-  const activeSession = store.sessions.find((entry) => entry.tableId === table.id && entry.status === "OPEN") ?? null;
+  const activeSession = store.sessions.find((entry) => entry.tableId === table.id && entry.status === SessionStatus.OPEN) ?? null;
+  const closedSettledSession =
+    !activeSession && normalizedLookup.sessionId
+      ? store.sessions.find(
+          (entry) =>
+            entry.id === normalizedLookup.sessionId &&
+            entry.tableId === table.id &&
+            entry.status === SessionStatus.CLOSED &&
+            store.paymentSessions.some(
+              (paymentSession) => paymentSession.sessionId === entry.id && paymentSession.status === PaymentSessionStatus.PAID
+            )
+        ) ?? null
+      : null;
+  const visibleSession = activeSession ?? closedSettledSession;
 
-  if (!activeSession) {
+  if (!visibleSession) {
     const debug =
       process.env.NODE_ENV !== "production"
         ? {
@@ -950,15 +1173,15 @@ export async function getGuestPaymentEntry(
     });
   }
 
-  const joinedGuests = getSessionGuests(store, activeSession.id).map((guest) => ({
+  const joinedGuests = getSessionGuests(store, visibleSession.id).map((guest) => ({
     id: guest.id,
     displayName: guest.displayName
   }));
   const joinedGuestMap = new Map(joinedGuests.map((guest) => [guest.id, guest]));
-  const guestMatch = resolveGuestMatch(joinedGuests, normalizedLookup, activeSession.id);
+  const guestMatch = resolveGuestMatch(joinedGuests, normalizedLookup, visibleSession.id);
   const identifiedGuest = guestMatch.guest ? cloneValue(guestMatch.guest) : null;
   const latestPaymentSession =
-    sortByCreatedAtDesc(store.paymentSessions.filter((paymentSession) => paymentSession.sessionId === activeSession.id))[0] ?? null;
+    sortByCreatedAtDesc(store.paymentSessions.filter((paymentSession) => paymentSession.sessionId === visibleSession.id))[0] ?? null;
 
   const baseGuestCandidates = joinedGuests.map((guest) => ({
     id: guest.id,
@@ -1002,8 +1225,13 @@ export async function getGuestPaymentEntry(
         code: table.code
       },
       session: {
-        id: activeSession.id,
-        openedAt: activeSession.openedAt,
+        id: visibleSession.id,
+        status: visibleSession.status,
+        openedAt: visibleSession.openedAt,
+        closedAt: visibleSession.closedAt,
+        totalAmount: visibleSession.totalAmount,
+        paidAmount: visibleSession.paidAmount,
+        remainingAmount: visibleSession.remainingAmount,
         guests: joinedGuests
       },
       identifiedGuest,
@@ -1065,6 +1293,9 @@ export async function getGuestPaymentEntry(
   } else if (myShare.status === PaymentShareStatus.PAID) {
     mappingMessage = `Payment appears completed for ${identifiedGuest.displayName}.`;
     payMyShareDisabledReason = "This share was already paid.";
+  } else if (visibleSession.status === SessionStatus.CLOSED) {
+    mappingMessage = "This bill is already closed.";
+    payMyShareDisabledReason = "This bill is already closed.";
   } else {
     mappingMessage = `Your live share for ${identifiedGuest.displayName} is ready.`;
   }
@@ -1096,8 +1327,13 @@ export async function getGuestPaymentEntry(
       code: table.code
     },
     session: {
-      id: activeSession.id,
-      openedAt: activeSession.openedAt,
+      id: visibleSession.id,
+      status: visibleSession.status,
+      openedAt: visibleSession.openedAt,
+      closedAt: visibleSession.closedAt,
+      totalAmount: visibleSession.totalAmount,
+      paidAmount: visibleSession.paidAmount,
+      remainingAmount: visibleSession.remainingAmount,
       guests: joinedGuests
     },
     identifiedGuest,
@@ -1134,7 +1370,8 @@ export async function getMockPaymentLinkDetail(paymentShareId: string, token: st
 export async function applyMockPaymentLinkAction(
   paymentShareId: string,
   token: string,
-  action: MockPaymentLinkAction
+  action: MockPaymentLinkAction,
+  tip = "0.00"
 ): Promise<MockPaymentLinkDetail> {
   return updateStore((store) => {
     const linkDetail = getValidatedMockPaymentLinkDetail(store, paymentShareId, token);
@@ -1144,7 +1381,7 @@ export async function applyMockPaymentLinkAction(
         throw new Error("Only pending payment links can be completed.");
       }
 
-      const result = applyPaymentShareActionInStore(store, paymentShareId, "COMPLETE_PENDING_PAYMENT", currentTimestamp());
+      const result = applyPaymentShareActionInStore(store, paymentShareId, "COMPLETE_PENDING_PAYMENT", currentTimestamp(), { tip });
       return {
         paymentSession: result.paymentSession,
         paymentShare: result.paymentShare

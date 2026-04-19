@@ -64,6 +64,7 @@ type PaymentShare = {
   id: string;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   provider: string | null;
   paymentUrl: string | null;
@@ -82,7 +83,12 @@ type PaymentSession = {
   shares: PaymentShare[];
   session: {
     id: string;
+    status: "OPEN" | "CLOSED";
+    closedAt: string | null;
     readyToCloseAt: string | null;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
     table: {
       id: string;
       name: string;
@@ -341,6 +347,32 @@ export default function CashierDashboardPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!invoice || !paymentSession) {
+      return;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/cashier/invoices/${encodeURIComponent(invoice.id)}/payment-session`, {
+          method: "POST",
+          cache: "no-store"
+        });
+        const json = (await response.json()) as PaymentSessionResponse;
+
+        if (response.ok && json.data) {
+          setPaymentSession(json.data.paymentSession);
+          void loadData({ silent: true });
+        }
+      } catch {
+        // Keep the currently visible payment state if a polling request fails.
+      }
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice?.id, paymentSession?.id]);
 
   useRealtimeEvents({
     role: "cashier",
@@ -781,6 +813,7 @@ export default function CashierDashboardPage() {
                           {formatStatusLabel(share.status)}
                         </span>
                         {share.provider ? <span className="badge badge-outline">{paymentProviderLabel(share.provider)}</span> : null}
+                        {Number(share.tip) > 0 ? <span className="badge badge-neutral">Tip {formatTryCurrency(share.tip)}</span> : null}
                         {share.paidAt ? <span className="badge badge-neutral">Paid {formatShortTime(share.paidAt)}</span> : null}
                       </div>
 

@@ -24,6 +24,7 @@ export const supportedPaymentSplitModeSchema = z
 
 export const paymentShareDraftSchema = z
   .object({
+    userId: z.string().min(1).nullable().optional(),
     guestId: z.string().min(1).nullable(),
     payerLabel: z.string().trim().min(1).max(120),
     amount: decimalStringSchema
@@ -68,6 +69,15 @@ export const applyCashierPaymentShareActionSchema = z
   })
   .strict();
 
+export const applyGuestPaymentSharePaymentSchema = z
+  .object({
+    paymentShareId: z.string().min(1),
+    userId: z.string().trim().min(1).nullable().optional(),
+    guestId: z.string().trim().min(1).nullable().optional(),
+    tip: decimalStringSchema.default("0.00")
+  })
+  .strict();
+
 export const paymentSessionRecordSchema = z
   .object({
     id: z.string().min(1),
@@ -88,9 +98,11 @@ export const paymentShareRecordSchema = z
   .object({
     id: z.string().min(1),
     paymentSessionId: z.string().min(1),
+    userId: z.string().min(1).nullable(),
     guestId: z.string().min(1).nullable(),
     payerLabel: z.string().trim().min(1).max(120),
     amount: decimalStringSchema,
+    tip: decimalStringSchema,
     status: z.nativeEnum(PaymentShareStatus),
     provider: z.string().trim().min(1).max(64).nullable(),
     providerPaymentId: z.string().trim().min(1).max(128).nullable(),

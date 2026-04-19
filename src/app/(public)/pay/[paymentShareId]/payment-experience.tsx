@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
 
@@ -9,8 +9,11 @@ type PaymentShareStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "CANCELLED"
 
 type PaymentShare = {
   id: string;
+  userId: string | null;
+  guestId: string | null;
   payerLabel: string;
   amount: string;
+  tip: string;
   status: PaymentShareStatus;
   provider: string | null;
   paymentUrl: string | null;
@@ -25,7 +28,12 @@ type PaymentSession = {
   remainingAmount: string;
   session: {
     id: string;
+    status: "OPEN" | "CLOSED";
+    closedAt: string | null;
     readyToCloseAt: string | null;
+    totalAmount: string;
+    paidAmount: string;
+    remainingAmount: string;
     table: {
       id: string;
       name: string;
@@ -128,14 +136,16 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
   const [message, setMessage] = useState("");
   const normalizedTipAmount = useMemo(() => normalizeTipAmount(tipAmount), [tipAmount]);
 
-  async function load() {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) {
       setError("Missing payment link.");
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -152,14 +162,20 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load payment link.");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
-  }
+  }, [paymentShareId, token]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentShareId, token]);
+    const intervalId = window.setInterval(() => {
+      void load({ silent: true });
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [load]);
 
   async function handleAction(action: "COMPLETE" | "FAIL") {
     if (!token) {
@@ -178,7 +194,7 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ action })
+          body: JSON.stringify({ action, tip: normalizedTipAmount ?? "0.00" })
         }
       );
       const json = (await response.json()) as PaymentLinkResponse;
@@ -204,8 +220,8 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
 
   const paymentShare = state?.paymentShare ?? null;
   const paymentSession = state?.paymentSession ?? null;
-  const totalChargeAmount =
-    paymentShare && normalizedTipAmount ? centsToDecimalString(toCents(paymentShare.amount) + toCents(normalizedTipAmount)) : null;
+  const activeTipAmount = paymentShare ? normalizedTipAmount ?? paymentShare.tip : "0.00";
+  const totalChargeAmount = paymentShare ? centsToDecimalString(toCents(paymentShare.amount) + toCents(activeTipAmount)) : null;
 
   return (
     <div className="stack-md">
@@ -257,7 +273,7 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
             <div className="detail-card">
               <span className="detail-label">Selected tip</span>
               <span className="detail-value">
-                {normalizedTipAmount && toCents(normalizedTipAmount) > 0 ? formatTryCurrency(normalizedTipAmount) : "No tip"}
+                {toCents(activeTipAmount) > 0 ? formatTryCurrency(activeTipAmount) : "No tip"}
               </span>
             </div>
             <div className="detail-card">

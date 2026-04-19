@@ -131,6 +131,9 @@ export async function openSession(input: OpenSessionInput) {
       branchId: table.branchId,
       tableId: table.id,
       status: "OPEN" as const,
+      totalAmount: "0.00",
+      paidAmount: "0.00",
+      remainingAmount: "0.00",
       openedAt: now,
       closedAt: null,
       readyToCloseAt: null
