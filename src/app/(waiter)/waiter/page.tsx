@@ -65,7 +65,29 @@ type OpenSession = {
 type SessionKitchenStatus = OpenSession["orders"][number]["items"][number]["status"];
 type OrderSource = OpenSession["orders"][number]["source"];
 type OrderStatus = OpenSession["orders"][number]["status"];
-type OrderPreview = OpenSession["orders"][number];
+type MenuCategory = BranchSnapshot["menuCategories"][number];
+type MenuItem = MenuCategory["items"][number];
+type GuestOrderItem = {
+  id: string;
+  itemName: string;
+  quantity: number;
+  status: SessionKitchenStatus;
+  guest: Guest | null;
+  source: OrderSource;
+  orderStatus: OrderStatus;
+  createdAt: string;
+};
+type GuestOrderGroup = {
+  key: string;
+  label: string;
+  guest: Guest | null;
+  items: GuestOrderItem[];
+  totalQuantity: number;
+  activeQuantity: number;
+};
+
+const ALL_GUESTS_KEY = "__all_guests__";
+const UNASSIGNED_GUEST_KEY = "__unassigned_guest__";
 
 function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenStatus, number> {
   const counts: Record<SessionKitchenStatus, number> = {
@@ -83,20 +105,16 @@ function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenSta
   return counts;
 }
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString();
-}
-
 function formatShortTime(value: string): string {
   return new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function formatSessionLabel(session: OpenSession): string {
-  return `${session.branch.name} • ${session.table.name} • Active Session`;
+  return `${session.branch.name} - ${session.table.name} - Active session`;
 }
 
 function formatSessionSummary(session: OpenSession): string {
-  return `Table ${session.table.code} • Opened ${formatShortTime(session.openedAt)}`;
+  return `Table ${session.table.name} - Opened ${formatShortTime(session.openedAt)}`;
 }
 
 function kitchenCountBadgeClass(status: SessionKitchenStatus): string {
@@ -179,29 +197,63 @@ function orderStatusLabel(status: OrderStatus): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
-function formatSessionTableSummary(session: OpenSession): string {
-  return formatSessionSummary(session).replace(session.table.code, session.table.name);
-}
+function getSessionGuestOrderGroups(session: OpenSession): GuestOrderGroup[] {
+  const groups: GuestOrderGroup[] = session.guests.map((guest) => ({
+    key: guest.id,
+    label: guest.displayName,
+    guest,
+    items: [],
+    totalQuantity: 0,
+    activeQuantity: 0
+  }));
+  const groupMap = new Map(groups.map((group) => [group.key, group]));
 
-function getOrderGuestNames(order: OrderPreview): string[] {
-  const names = order.items
-    .map((item) => item.guest?.displayName?.trim() ?? "")
-    .filter((name) => name.length > 0);
+  for (const order of [...session.orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())) {
+    for (const item of order.items) {
+      const guest = item.guest ?? order.placedByGuest ?? null;
+      const groupKey = guest?.id ?? UNASSIGNED_GUEST_KEY;
 
-  if (names.length > 0) {
-    return [...new Set(names)];
+      let group = groupMap.get(groupKey);
+      if (!group) {
+        group = {
+          key: groupKey,
+          label: guest?.displayName ?? "Unassigned items",
+          guest,
+          items: [],
+          totalQuantity: 0,
+          activeQuantity: 0
+        };
+        groupMap.set(groupKey, group);
+        groups.push(group);
+      }
+
+      group.items.push({
+        id: item.id,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        status: item.status,
+        guest,
+        source: order.source,
+        orderStatus: order.status,
+        createdAt: order.createdAt
+      });
+      group.totalQuantity += item.quantity;
+
+      if (item.status === "PENDING" || item.status === "IN_PROGRESS" || item.status === "READY") {
+        group.activeQuantity += item.quantity;
+      }
+    }
   }
 
-  return order.placedByGuest?.displayName ? [order.placedByGuest.displayName] : [];
+  return groups;
 }
 
-function formatOrderItemSummary(order: OrderPreview): string {
-  return order.items
-    .map((item) => {
-      const guestName = item.guest?.displayName?.trim() || order.placedByGuest?.displayName || "Guest";
-      return `${guestName} | ${item.itemName} x${item.quantity} | ${kitchenStatusLabel(item.status)}`;
-    })
-    .join("\n");
+function formatGuestOrderMeta(group: GuestOrderGroup): string {
+  if (group.items.length === 0) {
+    return "No items yet";
+  }
+
+  return `${group.items.length} line item(s) - ${group.totalQuantity} qty`;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -239,6 +291,8 @@ export default function WaiterDashboardPage() {
   const [message, setMessage] = useState("");
 
   const [openForm, setOpenForm] = useState({ tableCode: "" });
+  const [activeMenuCategoryId, setActiveMenuCategoryId] = useState("");
+  const [sessionGuestFocus, setSessionGuestFocus] = useState<Record<string, string>>({});
 
   const [orderForm, setOrderForm] = useState({
     sessionId: "",
@@ -251,13 +305,13 @@ export default function WaiterDashboardPage() {
   const allTables = useMemo(() => branches.flatMap((branch) => branch.tables), [branches]);
 
   const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === orderForm.sessionId),
+    () => sessions.find((session) => session.id === orderForm.sessionId) ?? null,
     [sessions, orderForm.sessionId]
   );
 
-  const menuItemsForSelectedSession = useMemo(() => {
+  const menuCategoriesForSelectedSession = useMemo(() => {
     if (!selectedSession) {
-      return [] as Array<{ id: string; name: string; price: string }>;
+      return [] as MenuCategory[];
     }
 
     const branch = branches.find((entry) => entry.id === selectedSession.branch.id);
@@ -266,8 +320,30 @@ export default function WaiterDashboardPage() {
       return [];
     }
 
-    return branch.menuCategories.flatMap((category) => category.items);
+    return branch.menuCategories.filter((category) => category.items.length > 0);
   }, [branches, selectedSession]);
+
+  const activeMenuCategory = useMemo(
+    () => menuCategoriesForSelectedSession.find((category) => category.id === activeMenuCategoryId) ?? menuCategoriesForSelectedSession[0] ?? null,
+    [activeMenuCategoryId, menuCategoriesForSelectedSession]
+  );
+
+  const menuItemsForActiveCategory = useMemo(() => activeMenuCategory?.items ?? [], [activeMenuCategory]);
+
+  const selectedMenuItem = useMemo(() => {
+    const allMenuItems = menuCategoriesForSelectedSession.flatMap((category) => category.items);
+    return allMenuItems.find((item) => item.id === orderForm.menuItemId) ?? null;
+  }, [menuCategoriesForSelectedSession, orderForm.menuItemId]);
+
+  const selectedSessionGuestGroups = useMemo(
+    () => (selectedSession ? getSessionGuestOrderGroups(selectedSession) : []),
+    [selectedSession]
+  );
+
+  const selectedOrderGuest = useMemo(
+    () => selectedSession?.guests.find((guest) => guest.id === orderForm.guestId) ?? null,
+    [orderForm.guestId, selectedSession]
+  );
 
   async function loadData(options?: { silent?: boolean }) {
     if (!options?.silent) {
@@ -305,13 +381,13 @@ export default function WaiterDashboardPage() {
   }
 
   useEffect(() => {
-    loadData();
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      loadData({ silent: true });
+      void loadData({ silent: true });
     }, 8000);
 
     return () => window.clearInterval(timer);
@@ -326,15 +402,46 @@ export default function WaiterDashboardPage() {
   });
 
   useEffect(() => {
-    if (!selectedSession) {
+    if (sessions.length === 0) {
+      if (orderForm.sessionId || orderForm.menuItemId || orderForm.guestId) {
+        setOrderForm({ sessionId: "", menuItemId: "", quantity: "1", guestId: "" });
+      }
       return;
     }
 
-    const firstMenuItem = menuItemsForSelectedSession[0];
-    if (firstMenuItem && !orderForm.menuItemId) {
-      setOrderForm((prev) => ({ ...prev, menuItemId: firstMenuItem.id }));
+    const hasSelectedSession = sessions.some((session) => session.id === orderForm.sessionId);
+    if (!hasSelectedSession) {
+      setOrderForm((prev) => ({ ...prev, sessionId: sessions[0].id, menuItemId: "", guestId: "" }));
     }
-  }, [menuItemsForSelectedSession, orderForm.menuItemId, selectedSession]);
+  }, [orderForm.guestId, orderForm.menuItemId, orderForm.sessionId, sessions]);
+
+  useEffect(() => {
+    if (menuCategoriesForSelectedSession.length === 0) {
+      if (activeMenuCategoryId) {
+        setActiveMenuCategoryId("");
+      }
+      if (orderForm.menuItemId) {
+        setOrderForm((prev) => ({ ...prev, menuItemId: "" }));
+      }
+      return;
+    }
+
+    const hasActiveCategory = menuCategoriesForSelectedSession.some((category) => category.id === activeMenuCategoryId);
+    if (!hasActiveCategory) {
+      setActiveMenuCategoryId(menuCategoriesForSelectedSession[0].id);
+    }
+  }, [activeMenuCategoryId, menuCategoriesForSelectedSession, orderForm.menuItemId]);
+
+  useEffect(() => {
+    if (!activeMenuCategory) {
+      return;
+    }
+
+    const hasSelectedItem = activeMenuCategory.items.some((item) => item.id === orderForm.menuItemId);
+    if (!hasSelectedItem) {
+      setOrderForm((prev) => ({ ...prev, menuItemId: activeMenuCategory.items[0]?.id ?? "" }));
+    }
+  }, [activeMenuCategory, orderForm.menuItemId]);
 
   useEffect(() => {
     if (!selectedSession) {
@@ -344,10 +451,21 @@ export default function WaiterDashboardPage() {
     const hasSelectedGuest = selectedSession.guests.some((guest) => guest.id === orderForm.guestId);
     const firstGuest = selectedSession.guests[0];
 
+    if (selectedSession.guests.length === 0 && orderForm.guestId) {
+      setOrderForm((prev) => ({ ...prev, guestId: "" }));
+      return;
+    }
+
     if (!hasSelectedGuest && firstGuest) {
       setOrderForm((prev) => ({ ...prev, guestId: firstGuest.id }));
     }
   }, [orderForm.guestId, selectedSession]);
+
+  function stepOrderQuantity(delta: number) {
+    const currentQuantity = Number(orderForm.quantity) || 1;
+    const nextQuantity = Math.max(1, currentQuantity + delta);
+    setOrderForm((prev) => ({ ...prev, quantity: String(nextQuantity) }));
+  }
 
   async function handleOpenSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -373,19 +491,25 @@ export default function WaiterDashboardPage() {
         throw new Error("Select a guest for this order item");
       }
 
+      if (!orderForm.menuItemId) {
+        throw new Error("Select a menu item");
+      }
+
+      const quantity = Math.max(1, Number(orderForm.quantity) || 1);
+
       await postJson("/api/orders/waiter", {
         sessionId: orderForm.sessionId,
         items: [
           {
             menuItemId: orderForm.menuItemId,
-            quantity: Number(orderForm.quantity),
+            quantity,
             guestId: orderForm.guestId
           }
         ]
       });
 
       setMessage("Order sent to kitchen queue.");
-      setOrderForm((prev) => ({ ...prev, quantity: "1", guestId: "" }));
+      setOrderForm((prev) => ({ ...prev, quantity: "1" }));
       await loadData();
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : "Order failed");
@@ -407,13 +531,13 @@ export default function WaiterDashboardPage() {
             <p className="section-kicker">Floor control</p>
             <h2>Waiter dashboard</h2>
             <p className="panel-subtitle">
-              Open tables, confirm guest joins, and place waiter-assisted orders with clear floor visibility.
+              Open tables, confirm guest joins, and place waiter-assisted orders with clearer guest ownership.
             </p>
           </div>
           <button
             type="button"
             onClick={() => {
-              loadData();
+              void loadData();
             }}
           >
             Refresh
@@ -454,126 +578,225 @@ export default function WaiterDashboardPage() {
         <div className="section-copy">
           <p className="section-kicker">Actions</p>
           <h3>Session and order tools</h3>
-          <p className="panel-subtitle">
-            The waiter workflow is unchanged. This view focuses on faster reading and fewer input mistakes.
-          </p>
+          <p className="panel-subtitle">The workflow stays the same, but the menu and guest selection are much easier to read.</p>
         </div>
 
         <div className="grid-2">
-        <form className="form-card stack-md" onSubmit={handleOpenSession}>
-          <div className="section-copy">
-            <h3>Open session</h3>
-            <p className="helper-text">Use this when guests arrive and the table has not been opened yet.</p>
-          </div>
-          <label>
-            Table
-            <select
-              value={openForm.tableCode}
-              onChange={(event) => setOpenForm({ tableCode: event.target.value })}
-              required
-            >
-              <option value="">Select table</option>
-              {allTables.map((table) => (
-                <option key={table.id} value={table.code}>
-                  {table.name} ({table.code})
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="helper-text">Opening here keeps QR join, ordering, and routing behavior exactly the same.</p>
-          <button type="submit">Open table</button>
-        </form>
-
-        <form className="form-card stack-md" onSubmit={handlePlaceOrder}>
-          <div className="section-copy">
-            <h3>Waiter order</h3>
-            <p className="helper-text">Assign each item to a guest so split billing and kitchen tracking stay accurate.</p>
-          </div>
-          <label>
-            Session
-            <select
-              value={orderForm.sessionId}
-              onChange={(event) =>
-                setOrderForm({ sessionId: event.target.value, menuItemId: "", quantity: "1", guestId: "" })
-              }
-              required
-            >
-              <option value="">Select open session</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {formatSessionLabel(session)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedSession ? (
-            <div className="selection-summary stack-md">
-                              <div className="badge-row">
-                <span className="badge badge-outline">{selectedSession.branch.name}</span>
-                <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
-                <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
-              </div>
-              <p className="helper-text">{formatSessionTableSummary(selectedSession)}</p>
+          <form className="form-card stack-md" onSubmit={handleOpenSession}>
+            <div className="section-copy">
+              <h3>Open session</h3>
+              <p className="helper-text">Use this when guests arrive and the table has not been opened yet.</p>
             </div>
-          ) : (
-            <p className="helper-text">Select an open session to load guests and branch menu items.</p>
-          )}
+            <label>
+              Table
+              <select
+                value={openForm.tableCode}
+                onChange={(event) => setOpenForm({ tableCode: event.target.value })}
+                required
+              >
+                <option value="">Select table</option>
+                {allTables.map((table) => (
+                  <option key={table.id} value={table.code}>
+                    {table.name} ({table.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="helper-text">Opening here keeps QR join, ordering, and routing behavior exactly the same.</p>
+            <button type="submit">Open table</button>
+          </form>
 
-          <label>
-            Menu item
-            <select
-              value={orderForm.menuItemId}
-              onChange={(event) => setOrderForm((prev) => ({ ...prev, menuItemId: event.target.value }))}
-              required
+          <form className="form-card stack-md" onSubmit={handlePlaceOrder}>
+            <div className="section-copy">
+              <h3>Waiter order</h3>
+              <p className="helper-text">Pick the guest first, then browse the branch menu by category.</p>
+            </div>
+            <label>
+              Session
+              <select
+                value={orderForm.sessionId}
+                onChange={(event) =>
+                  setOrderForm({ sessionId: event.target.value, menuItemId: "", quantity: "1", guestId: "" })
+                }
+                required
+              >
+                <option value="">Select open session</option>
+                {sessions.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {formatSessionLabel(session)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {selectedSession ? (
+              <div className="selection-summary stack-md">
+                <div className="badge-row">
+                  <span className="badge badge-outline">{selectedSession.branch.name}</span>
+                  <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
+                  <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+                </div>
+                <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+              </div>
+            ) : (
+              <p className="helper-text">Select an open session to load guests and branch menu items.</p>
+            )}
+
+            {selectedSession && selectedSession.guests.length > 0 ? (
+              <div className="stack-md">
+                <div className="section-copy">
+                  <h4>Guest</h4>
+                  <p className="helper-text">These bright cards make it clear which guest owns the next item.</p>
+                </div>
+                <div className="waiter-guest-picker">
+                  {selectedSession.guests.map((guest) => {
+                    const guestGroup = selectedSessionGuestGroups.find((group) => group.key === guest.id);
+                    const isActive = guest.id === orderForm.guestId;
+
+                    return (
+                      <button
+                        key={guest.id}
+                        type="button"
+                        className={`waiter-guest-card${isActive ? " is-active" : ""}`}
+                        onClick={() => setOrderForm((prev) => ({ ...prev, guestId: guest.id }))}
+                        aria-pressed={isActive}
+                      >
+                        <span className="waiter-guest-card-name">{guest.displayName}</span>
+                        <span className="waiter-guest-card-meta">
+                          {guestGroup ? formatGuestOrderMeta(guestGroup) : "No items yet"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="waiter-menu-block">
+              <div className="section-copy">
+                <h4>Menu</h4>
+                <p className="helper-text">Pizza, drinks, dessert, and other categories stay grouped instead of mixed in one select box.</p>
+              </div>
+
+              {selectedSession && menuCategoriesForSelectedSession.length > 0 ? (
+                <>
+                  <div className="menu-category-scroller" role="tablist" aria-label="Waiter menu categories">
+                    {menuCategoriesForSelectedSession.map((category) => {
+                      const isActive = category.id === activeMenuCategory?.id;
+
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          className={`menu-category-chip${isActive ? " is-active" : ""}`}
+                          onClick={() => setActiveMenuCategoryId(category.id)}
+                          aria-pressed={isActive}
+                        >
+                          <span>{category.name}</span>
+                          <span className="menu-category-count">{category.items.length}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="waiter-menu-item-grid">
+                    {menuItemsForActiveCategory.map((item) => {
+                      const isSelected = item.id === orderForm.menuItemId;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`menu-item-card waiter-menu-item-card${isSelected ? " is-selected" : ""}`}
+                          onClick={() => setOrderForm((prev) => ({ ...prev, menuItemId: item.id }))}
+                          aria-pressed={isSelected}
+                        >
+                          <div className="menu-item-head">
+                            <h4>{item.name}</h4>
+                            <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
+                          </div>
+                          <p className="menu-item-description">
+                            {selectedOrderGuest ? `Assign to ${selectedOrderGuest.displayName}` : "Choose a guest and tap to select."}
+                          </p>
+                          <div className="badge-row menu-item-meta">
+                            {activeMenuCategory ? <span className="badge badge-outline">{activeMenuCategory.name}</span> : null}
+                            {isSelected ? <span className="badge badge-status-open">Selected</span> : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {selectedSession && menuCategoriesForSelectedSession.length === 0 ? (
+              <p className="helper-text">No menu items were found for this branch yet.</p>
+            ) : null}
+
+            <div className="quantity-row">
+              <label htmlFor="waiter-order-quantity">Quantity</label>
+              <div className="quantity-stepper waiter-quantity-stepper">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => stepOrderQuantity(-1)}
+                  disabled={!selectedMenuItem || Number(orderForm.quantity) <= 1}
+                  aria-label="Decrease quantity"
+                >
+                  -
+                </button>
+                <input
+                  id="waiter-order-quantity"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={orderForm.quantity}
+                  onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))}
+                  onBlur={() =>
+                    setOrderForm((prev) => ({ ...prev, quantity: String(Math.max(1, Number(prev.quantity) || 1)) }))
+                  }
+                  required
+                />
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => stepOrderQuantity(1)}
+                  disabled={!selectedMenuItem}
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {(selectedMenuItem || selectedOrderGuest) && (
+              <div className="waiter-order-summary-card">
+                <div className="section-copy">
+                  <p className="section-kicker">Ready to send</p>
+                  <h4>{selectedMenuItem?.name ?? "Select an item"}</h4>
+                  <p className="helper-text">
+                    {selectedOrderGuest ? `Guest: ${selectedOrderGuest.displayName}` : "Choose the guest who owns this item."}
+                  </p>
+                </div>
+                <div className="badge-row">
+                  {selectedMenuItem ? <span className="badge badge-outline">{formatTryCurrency(selectedMenuItem.price)}</span> : null}
+                  <span className="badge badge-neutral">Qty {Math.max(1, Number(orderForm.quantity) || 1)}</span>
+                  {activeMenuCategory ? <span className="badge badge-status-progress">{activeMenuCategory.name}</span> : null}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!selectedSession || selectedSession.guests.length === 0 || !selectedMenuItem || !orderForm.guestId}
             >
-              <option value="">Select item</option>
-              {menuItemsForSelectedSession.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} - {formatTryCurrency(item.price)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedSession && menuItemsForSelectedSession.length === 0 ? (
-            <p className="helper-text">No menu items were found for this branch yet.</p>
-          ) : null}
-
-          <label>
-            Quantity
-            <input
-              type="number"
-              min={1}
-              value={orderForm.quantity}
-              onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))}
-              required
-            />
-          </label>
-
-          <label>
-            Assign to guest
-            <select
-              value={orderForm.guestId}
-              onChange={(event) => setOrderForm((prev) => ({ ...prev, guestId: event.target.value }))}
-              required
-            >
-              <option value="">Select guest</option>
-              {selectedSession?.guests.map((guest) => (
-                <option key={guest.id} value={guest.id}>
-                  {guest.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button type="submit" disabled={!selectedSession || selectedSession.guests.length === 0}>
-            Send order
-          </button>
-          {selectedSession && selectedSession.guests.length === 0 ? (
-            <p className="meta">No guests in this session yet. Ask guests to join before ordering.</p>
-          ) : null}
-        </form>
+              Send order
+            </button>
+            {selectedSession && selectedSession.guests.length === 0 ? (
+              <p className="meta">No guests in this session yet. Ask guests to join before ordering.</p>
+            ) : null}
+          </form>
         </div>
       </section>
 
@@ -582,7 +805,7 @@ export default function WaiterDashboardPage() {
           <div className="section-copy">
             <p className="section-kicker">Live floor</p>
             <h3>Open sessions</h3>
-            <p className="panel-subtitle">Track guest joins, kitchen load, and the most recent tickets at a glance.</p>
+            <p className="panel-subtitle">Every guest now has a clearer button and a full item list instead of a cramped order summary.</p>
           </div>
         </div>
         {sessions.length === 0 ? <p className="empty empty-state">No open sessions. Open a table to start guest ordering.</p> : null}
@@ -590,15 +813,21 @@ export default function WaiterDashboardPage() {
           {sessions.map((session) => {
             const kitchenCounts = getSessionKitchenCounts(session);
             const activeKitchenItems = kitchenCounts.PENDING + kitchenCounts.IN_PROGRESS + kitchenCounts.READY;
+            const guestOrderGroups = getSessionGuestOrderGroups(session);
+            const focusedGuestKey = sessionGuestFocus[session.id];
+            const hasFocusedGuest = guestOrderGroups.some((group) => group.key === focusedGuestKey);
+            const activeGuestKey = hasFocusedGuest ? focusedGuestKey : ALL_GUESTS_KEY;
+            const visibleGuestGroups =
+              activeGuestKey === ALL_GUESTS_KEY
+                ? guestOrderGroups
+                : guestOrderGroups.filter((group) => group.key === activeGuestKey);
 
             return (
               <article key={session.id} className="list-item entity-card stack-md">
                 <div className="entity-top">
                   <div className="entity-title">
-                    <h4>
-                      {formatSessionLabel(session)}
-                    </h4>
-                    <p className="entity-summary">{formatSessionTableSummary(session)}</p>
+                    <h4>{formatSessionLabel(session)}</h4>
+                    <p className="entity-summary">{formatSessionSummary(session)}</p>
                     <div className="badge-row">
                       <span className="badge badge-outline">{session.guests.length} guests</span>
                       <span className="badge badge-neutral">{session.orders.length} orders</span>
@@ -636,12 +865,32 @@ export default function WaiterDashboardPage() {
                     <p className="helper-text">No guests joined yet. Ask customers to scan the table QR and enter their name.</p>
                   </div>
                 ) : (
-                  <div className="guest-strip">
-                    {session.guests.map((guest) => (
-                      <span key={guest.id} className="guest-chip">
-                        {guest.displayName}
-                      </span>
-                    ))}
+                  <div className="waiter-session-guest-bar">
+                    <button
+                      type="button"
+                      className={`waiter-session-guest-btn${activeGuestKey === ALL_GUESTS_KEY ? " is-active" : ""}`}
+                      onClick={() => setSessionGuestFocus((prev) => ({ ...prev, [session.id]: ALL_GUESTS_KEY }))}
+                      aria-pressed={activeGuestKey === ALL_GUESTS_KEY}
+                    >
+                      <span className="waiter-session-guest-name">All guests</span>
+                      <span className="waiter-session-guest-meta">{session.orders.length} order ticket(s)</span>
+                    </button>
+                    {guestOrderGroups.map((group) => {
+                      const isActive = group.key === activeGuestKey;
+
+                      return (
+                        <button
+                          key={group.key}
+                          type="button"
+                          className={`waiter-session-guest-btn${isActive ? " is-active" : ""}${group.items.length === 0 ? " is-muted" : ""}`}
+                          onClick={() => setSessionGuestFocus((prev) => ({ ...prev, [session.id]: group.key }))}
+                          aria-pressed={isActive}
+                        >
+                          <span className="waiter-session-guest-name">{group.label}</span>
+                          <span className="waiter-session-guest-meta">{formatGuestOrderMeta(group)}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -653,39 +902,55 @@ export default function WaiterDashboardPage() {
                 </div>
 
                 {session.orders.length > 0 ? (
-                  <div className="order-preview-list">
-                    {[...session.orders]
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                      .slice(0, 3)
-                      .map((order) => {
-                        const guestNames = getOrderGuestNames(order);
-
-                        return (
-                          <div key={order.id} className="order-preview-card stack-md">
-                            <div className="order-preview-head">
-                            <div className="badge-row">
-                              <span className={sourceBadgeClass(order.source)}>{orderSourceLabel(order.source)}</span>
-                              <span className={orderStatusBadgeClass(order.status)}>{orderStatusLabel(order.status)}</span>
-                              {guestNames.map((guestName) => (
-                                <span key={`${order.id}-${guestName}`} className="badge badge-neutral">
-                                  {guestName}
-                                </span>
-                              ))}
-                            </div>
-                            <span className="meta">{formatShortTime(order.createdAt)}</span>
-                          </div>
-                          {false ? (
-                            <p className="meta">
-                              {order.items
-                              .map((item) => `${item.itemName} x${item.quantity} • ${kitchenStatusLabel(item.status)}`)
-                              .join("\n")}
+                  <div className="waiter-guest-order-grid">
+                    {visibleGuestGroups.map((group) => (
+                      <section
+                        key={`${session.id}-${group.key}`}
+                        className={`waiter-guest-order-card${activeGuestKey === group.key ? " is-spotlight" : ""}`}
+                      >
+                        <div className="waiter-guest-order-head">
+                          <div className="section-copy">
+                            <h4>{group.label}</h4>
+                            <p className="helper-text">
+                              {group.guest ? "Every assigned item is shown here in full." : "These items should be checked and assigned to a guest."}
                             </p>
-                          ) : (
-                            <p className="meta">{formatOrderItemSummary(order)}</p>
-                          )}
+                          </div>
+                          <div className="badge-row">
+                            <span className="badge badge-outline">{group.items.length} line item(s)</span>
+                            <span className="badge badge-neutral">{group.totalQuantity} qty</span>
+                            <span className="badge badge-status-progress">{group.activeQuantity} active</span>
+                          </div>
                         </div>
-                        );
-                      })}
+
+                        {group.items.length > 0 ? (
+                          <div className="waiter-guest-order-list">
+                            {group.items.map((item) => (
+                              <article key={item.id} className="waiter-guest-order-item">
+                                <div className="waiter-guest-order-item-main">
+                                  <div className="waiter-guest-order-item-copy">
+                                    <h5>{item.itemName}</h5>
+                                    <p>{group.guest ? `For ${group.label}` : "Guest not assigned yet"}</p>
+                                  </div>
+                                  <div className="waiter-guest-order-item-side">
+                                    <span className="waiter-guest-order-qty">x{item.quantity}</span>
+                                    <span className="meta">{formatShortTime(item.createdAt)}</span>
+                                  </div>
+                                </div>
+                                <div className="badge-row">
+                                  <span className={sourceBadgeClass(item.source)}>{orderSourceLabel(item.source)}</span>
+                                  <span className={orderStatusBadgeClass(item.orderStatus)}>{orderStatusLabel(item.orderStatus)}</span>
+                                  <span className={kitchenCountBadgeClass(item.status)}>{kitchenStatusLabel(item.status)}</span>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="waiter-empty-order-card">
+                            <p className="helper-text">No items have been assigned to this guest yet.</p>
+                          </div>
+                        )}
+                      </section>
+                    ))}
                   </div>
                 ) : (
                   <p className="helper-text">No orders have been placed for this session yet.</p>

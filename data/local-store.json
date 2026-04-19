@@ -5,275 +5,1195 @@
       "name": "Main Restaurant",
       "slug": "main-restaurant",
       "createdAt": "2026-04-15T09:00:00.000Z",
-      "updatedAt": "2026-04-18T10:33:50.258Z"
+      "updatedAt": "2026-04-18T12:39:40.105Z"
     }
   ],
   "branches": [
     {
-      "id": "branch_2f5388a16eaf414abca333475af6f6b2",
+      "id": "branch_095447a6dbb2476a8a422864b42e8c46",
       "restaurantId": "restaurant_main",
-      "name": "big sheef",
-      "slug": "big-sheef",
+      "name": "BigSheef",
+      "slug": "bigsheef",
       "location": null,
       "logoUrl": null,
       "coverImageUrl": null,
       "primaryColor": "#f28c28",
       "accentColor": "#ffd6b5",
       "fontFamily": "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
-      "createdAt": "2026-04-18T10:33:50.258Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:39:40.105Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     }
   ],
   "tables": [
     {
-      "id": "table_f2e031743afc4e3e83d606f98c1b929a",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "name": "T1",
+      "id": "table_add6e7a0c48c44819a3e3886f2bfae83",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "name": "table1",
       "capacity": 4,
-      "code": "BIG-SHEEF-T1-9XWV",
-      "publicToken": "FfXKJevg57eudZ6eB0Ur9cKf",
+      "code": "BIGSHEEF-TABLE1-IYXT",
+      "publicToken": "noWaXu83cWw3ADrFFJ39w9eu",
       "status": "OCCUPIED",
-      "createdAt": "2026-04-18T10:34:03.280Z",
-      "updatedAt": "2026-04-18T10:35:46.163Z"
+      "createdAt": "2026-04-18T12:40:01.842Z",
+      "updatedAt": "2026-04-18T12:40:33.423Z"
     }
   ],
   "menuCategories": [
     {
-      "id": "category_f40e0d3359a24fb291d3742a5a195f31",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
+      "id": "category_b2d2327f9a134d05ac15e179cfb373b7",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
       "name": "Turkish Dishes",
       "sortOrder": 1,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "category_2d3b4b41c0ea485e8d6e89ad69927831",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
+      "id": "category_a8d06030c7944810a57ddc6b5161a6e1",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
       "name": "Pizza",
       "sortOrder": 2,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "category_15806e736b934927ac96e25c8236c0a1",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
+      "id": "category_265dc3251be348b1a4324ab1a4c73f30",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
       "name": "Soft Drinks",
       "sortOrder": 3,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "category_db31889b0e1b47248509a593521393d5",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
+      "id": "category_ad0a797cdbca476b98c38646d727412f",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
       "name": "Water",
       "sortOrder": 4,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     }
   ],
   "menuItems": [
     {
-      "id": "menu_item_4cb019c8aae74edb8f1207ec67e9cd8d",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_f40e0d3359a24fb291d3742a5a195f31",
+      "id": "menu_item_f65df92fadf74912836ccee9814381d4",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_b2d2327f9a134d05ac15e179cfb373b7",
       "name": "Adana Kebab",
       "description": "Spicy minced meat kebab served with lavash and grilled vegetables",
       "imageUrl": null,
       "price": "320.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_b1a5459831764cc99bfbbffe5fb561e6",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_f40e0d3359a24fb291d3742a5a195f31",
+      "id": "menu_item_fe60e4633276403c87a2e21db261f97f",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_b2d2327f9a134d05ac15e179cfb373b7",
       "name": "Iskender Kebab",
       "description": "Doner slices over pita with tomato sauce, yogurt, and butter",
       "imageUrl": null,
       "price": "360.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_3e0c51beb4cf45f9a9e1c8f960583f7e",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_f40e0d3359a24fb291d3742a5a195f31",
+      "id": "menu_item_5cdce632d7fc4d1ea0f1db3a61b91331",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_b2d2327f9a134d05ac15e179cfb373b7",
       "name": "Lahmacun",
       "description": "Thin crispy flatbread topped with minced meat and herbs",
       "imageUrl": null,
       "price": "95.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_921b5e516bf3455ea18cb667ffba4de8",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_f40e0d3359a24fb291d3742a5a195f31",
+      "id": "menu_item_eaf6ae34c7c7413ca2dbc75811a7dbe2",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_b2d2327f9a134d05ac15e179cfb373b7",
       "name": "Pide with Cheese",
       "description": "Traditional Turkish pide with melted cheese",
       "imageUrl": null,
       "price": "180.00",
       "sortOrder": 4,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_798af3ecb0a1499eb08ff0949aa00ad5",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_f40e0d3359a24fb291d3742a5a195f31",
+      "id": "menu_item_1e9db42ec5fc42dfa613f6c94ff0dcea",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_b2d2327f9a134d05ac15e179cfb373b7",
       "name": "Mercimek Corbasi",
       "description": "Classic Turkish red lentil soup",
       "imageUrl": null,
       "price": "85.00",
       "sortOrder": 5,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_0d73f9434a824458ab021eb8ace23cb4",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_2d3b4b41c0ea485e8d6e89ad69927831",
+      "id": "menu_item_d8ce23aca3c94b7b8b69d8fe41ecd11b",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_a8d06030c7944810a57ddc6b5161a6e1",
       "name": "Margherita Pizza",
       "description": "Tomato sauce, mozzarella, and basil",
       "imageUrl": null,
       "price": "240.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_a9f390a7426842e4ada0d9eb596c5474",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_2d3b4b41c0ea485e8d6e89ad69927831",
+      "id": "menu_item_9e49e202c4cf421b8995a339843ba57e",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_a8d06030c7944810a57ddc6b5161a6e1",
       "name": "Pepperoni Pizza",
       "description": "Mozzarella, pepperoni, and tomato sauce",
       "imageUrl": null,
       "price": "290.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_eae9df3257ef4e83b60d420b110d4c3f",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_2d3b4b41c0ea485e8d6e89ad69927831",
+      "id": "menu_item_22d9afb756c54ed895e6fe1b0bb522a8",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_a8d06030c7944810a57ddc6b5161a6e1",
       "name": "Mixed Pizza",
       "description": "Mozzarella, sucuk, mushroom, pepper, and olives",
       "imageUrl": null,
       "price": "315.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_374d6b5ee1b6426ab72dd86b2c7f48b3",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_2d3b4b41c0ea485e8d6e89ad69927831",
+      "id": "menu_item_59303677d0a94d58bc8ef692efa3e758",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_a8d06030c7944810a57ddc6b5161a6e1",
       "name": "Vegetarian Pizza",
       "description": "Mozzarella, mushroom, corn, olives, and peppers",
       "imageUrl": null,
       "price": "275.00",
       "sortOrder": 4,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_82b69aa9496746949a7fbdab327538e7",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_15806e736b934927ac96e25c8236c0a1",
+      "id": "menu_item_6bf3f68dd7af4de4868dbc457d407afb",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_265dc3251be348b1a4324ab1a4c73f30",
       "name": "Coca-Cola 330ml",
       "description": "Chilled canned Coca-Cola",
       "imageUrl": null,
       "price": "55.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_a42dcfe5f6474279ad59714b432a415c",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_15806e736b934927ac96e25c8236c0a1",
+      "id": "menu_item_7da2b97df3504088811e7bdff0c7ce4b",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_265dc3251be348b1a4324ab1a4c73f30",
       "name": "Fanta 330ml",
       "description": "Chilled canned orange soda",
       "imageUrl": null,
       "price": "55.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_572180de3b184be3a000b09d96bb56a6",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_15806e736b934927ac96e25c8236c0a1",
+      "id": "menu_item_63b3e6f208814e469b00e27eebb2fc88",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_265dc3251be348b1a4324ab1a4c73f30",
       "name": "Sprite 330ml",
       "description": "Chilled canned lemon-lime soda",
       "imageUrl": null,
       "price": "55.00",
       "sortOrder": 3,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_d2a9d7e73f83446bbd88b00263ac1a9d",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_db31889b0e1b47248509a593521393d5",
+      "id": "menu_item_6cacbea5dc894088bb14d235dad683ae",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_ad0a797cdbca476b98c38646d727412f",
       "name": "Still Water 500ml",
       "description": "Bottled still water",
       "imageUrl": null,
       "price": "20.00",
       "sortOrder": 1,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     },
     {
-      "id": "menu_item_51ffe997163f44cd9f07c2fda2e29123",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "categoryId": "category_db31889b0e1b47248509a593521393d5",
+      "id": "menu_item_4c2822bb2e0e437696ac7bc151852358",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "categoryId": "category_ad0a797cdbca476b98c38646d727412f",
       "name": "Sparkling Water 250ml",
       "description": "Mineral sparkling water bottle",
       "imageUrl": null,
       "price": "28.00",
       "sortOrder": 2,
       "isAvailable": true,
-      "createdAt": "2026-04-18T10:34:11.999Z",
-      "updatedAt": "2026-04-18T10:34:11.999Z"
+      "createdAt": "2026-04-18T12:42:41.637Z",
+      "updatedAt": "2026-04-18T12:42:41.637Z"
     }
   ],
   "sessions": [
     {
-      "id": "session_f89bc8c9ebce4e9aa8126ef72480d610",
-      "branchId": "branch_2f5388a16eaf414abca333475af6f6b2",
-      "tableId": "table_f2e031743afc4e3e83d606f98c1b929a",
+      "id": "session_06e36595ee39432584f08ca24eead06e",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "tableId": "table_add6e7a0c48c44819a3e3886f2bfae83",
       "status": "OPEN",
-      "openedAt": "2026-04-18T10:35:46.163Z",
+      "openedAt": "2026-04-18T12:40:33.423Z",
       "closedAt": null,
       "readyToCloseAt": null
     }
   ],
-  "guests": [],
-  "orders": [],
-  "orderItems": [],
-  "invoices": [],
-  "invoiceLines": [],
-  "invoiceAssignments": [],
+  "guests": [
+    {
+      "id": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "displayName": "Ali",
+      "joinedAt": "2026-04-18T12:40:50.236Z"
+    },
+    {
+      "id": "guest_15942621139a49ad854133d281c4deec",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "displayName": "Farid",
+      "joinedAt": "2026-04-18T12:40:56.923Z"
+    },
+    {
+      "id": "guest_2fecfc0022a24e168ea349f39b588337",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "displayName": "Saeed",
+      "joinedAt": "2026-04-18T12:41:04.492Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "order_bc58a3fb849242578c1e81a6e7f1fad3",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:42:53.733Z"
+    },
+    {
+      "id": "order_32bb3bb156914665a9c2978e9d7d5e08",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:43:01.725Z"
+    },
+    {
+      "id": "order_4c7e7ad369e842ef8b626a8c81bcc2e2",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:43:19.958Z"
+    },
+    {
+      "id": "order_91ed96b273ef44eb9a08c8cf147704d5",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:43:39.686Z"
+    },
+    {
+      "id": "order_ac732b6dec67425cb54406ededc0b317",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:44:05.474Z"
+    },
+    {
+      "id": "order_ae360c4ad4e64e828967143e1df7b1dc",
+      "branchId": "branch_095447a6dbb2476a8a422864b42e8c46",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "source": "WAITER",
+      "status": "READY",
+      "placedByGuestId": null,
+      "note": null,
+      "createdAt": "2026-04-18T12:44:29.978Z"
+    }
+  ],
+  "orderItems": [
+    {
+      "id": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "orderId": "order_bc58a3fb849242578c1e81a6e7f1fad3",
+      "menuItemId": "menu_item_f65df92fadf74912836ccee9814381d4",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "note": null,
+      "unitPrice": "320.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:42:53.733Z"
+    },
+    {
+      "id": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "orderId": "order_32bb3bb156914665a9c2978e9d7d5e08",
+      "menuItemId": "menu_item_6bf3f68dd7af4de4868dbc457d407afb",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "note": null,
+      "unitPrice": "55.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:43:01.725Z"
+    },
+    {
+      "id": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "orderId": "order_4c7e7ad369e842ef8b626a8c81bcc2e2",
+      "menuItemId": "menu_item_4c2822bb2e0e437696ac7bc151852358",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "note": null,
+      "unitPrice": "28.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:43:19.958Z"
+    },
+    {
+      "id": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "orderId": "order_91ed96b273ef44eb9a08c8cf147704d5",
+      "menuItemId": "menu_item_22d9afb756c54ed895e6fe1b0bb522a8",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "note": null,
+      "unitPrice": "315.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:43:39.686Z"
+    },
+    {
+      "id": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "orderId": "order_ac732b6dec67425cb54406ededc0b317",
+      "menuItemId": "menu_item_22d9afb756c54ed895e6fe1b0bb522a8",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "note": null,
+      "unitPrice": "315.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:44:05.474Z"
+    },
+    {
+      "id": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "orderId": "order_ae360c4ad4e64e828967143e1df7b1dc",
+      "menuItemId": "menu_item_9e49e202c4cf421b8995a339843ba57e",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "note": null,
+      "unitPrice": "290.00",
+      "status": "READY",
+      "createdAt": "2026-04-18T12:44:29.978Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-18T12:45:06.021Z"
+    },
+    {
+      "id": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T06:46:44.511Z"
+    },
+    {
+      "id": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T08:30:58.918Z"
+    },
+    {
+      "id": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T08:31:42.601Z"
+    },
+    {
+      "id": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "FULL_BY_ONE",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T08:32:41.549Z"
+    },
+    {
+      "id": "invoice_7d3253518b714fbf91da444429db18da",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T08:34:38.541Z"
+    }
+  ],
+  "invoiceLines": [
+    {
+      "id": "invoice_line_f9b859ad57184657b4657074170499bf",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_61ee035732d848dcb107052edfa3b77f",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_71afe5a16ce04167afb82ccc370cc53c",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_c88db547a08442e9b33e2a59bd124c40",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_3bd2bd4fd8d04fb3984358fa7efcd697",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_ca47ac42d15d44459e1206bf01b7fca6",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_48ded8489e3a4af2b22221db0f53fec8",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_e2973916f80e43e8838835b022b76a6b",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_ace6533a97284fbab9e7215724df9c3c",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_0b944a196cbf439f921894065f924094",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_b10a844cc79e4e86a4dc71e7be90a3e8",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_ffbbbdea71f840b28757ebf2c78c33c0",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_22754e0daca9456e99b9bb94403714c2",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_4cb11440cb244ff086c27ea139d2c753",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_d8e3750466d14f8d9d185c6bfb9a9941",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_7ad0926b6baa4005b9a521227ee1d746",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_27c3fc2092544bd19e12ab1a424c19f5",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_86a994fac8b24998aaabb73bb51d9809",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_9d82a04fe8ba4c5d9d3c8bc1b86de101",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_bda2336c0caa42268fd81f040d65f4e5",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_c83747fbc0a1491baaf04310f74ec843",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_34b46c93b5d54befb3d54f924cc0b831",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_e1c47fefac4f4a3983019929533e4ba4",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_32787cc971114fedabfac092860848c0",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_210b6f047548498797de1959e5a2c766",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_8d45335a32944f0fa569a35642e9dfa4",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_06320e5315954097b581a4e506df90af",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_6b1f4bb304844a33ab1dfe62b44d74f5",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_2bcabf4c229149f4857c491b6daa65af",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_751a560b1b234b5c8ee23262ec756d92",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_eb2c317013ce432b9fd25fb917db51be",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_42bce0bb5aff4e958f28d89c7e65e154",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_7a50430cb1434d20987fd172776b1747",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_232eb8e0fc85471691cbc91757ea09c9",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_c26e2be802ba4c63a0eda062b03546cc",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_2200044195bf44bea7715b32ed61a3c9",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
+    }
+  ],
+  "invoiceAssignments": [
+    {
+      "id": "invoice_split_e574c2c148b242359733ea423cd0b9a0",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_67e3001a813a4f8fbbbaaa76de628df1",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_940129ea3bdb4f818a85b7b1f7952f76",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
+    },
+    {
+      "id": "invoice_split_9b4009f8fff049f9ace76e08a3891b53",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_457fb0ea03434c43b3c0800a65ff061c",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_1da2f51a6ad2400a9a53060886bf651c",
+      "invoiceId": "invoice_0c12244bfae3414293e048cb4d2482db",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
+    },
+    {
+      "id": "invoice_split_fafbf1b9af994cc48bc4bcf55004530a",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_34f13ade17ab4e60b4b94a286e922043",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_24b31af1c4cc49debaa9d95f319c5732",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
+    },
+    {
+      "id": "invoice_split_c2c242b206a446a78d189ed8f6046d1d",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_1b6913044bff4098bcc567843864cac8",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_35af81f73b8b4b87bf4dead080a6d5aa",
+      "invoiceId": "invoice_22e6530d13dd4189a39a25f7ec3c975f",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
+    },
+    {
+      "id": "invoice_split_eea72d5d61754b19b852093c35c7ac56",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "1323.00"
+    },
+    {
+      "id": "invoice_split_6632b377456a44ec9ce70a22affeabf9",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_3423475bdfa349c88b863b85b76038a8",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_fd24187ecbb642b487d9280e4750aec5",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
+    }
+  ],
   "payments": [],
-  "paymentSessions": [],
-  "paymentShares": [],
+  "paymentSessions": [
+    {
+      "id": "payment_session_6d4f8359aa934a61944701d67a4721e8",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "invoiceId": "invoice_9529beb3b74640139b3729f8b8e65f9d",
+      "splitMode": "BY_GUEST_ITEMS",
+      "totalAmount": "1323.00",
+      "paidAmount": "0.00",
+      "remainingAmount": "1323.00",
+      "currency": "TRY",
+      "status": "OPEN",
+      "createdAt": "2026-04-18T12:45:12.878Z",
+      "updatedAt": "2026-04-18T12:45:12.878Z"
+    },
+    {
+      "id": "payment_session_3996d85933d94c58acc4d816f71371c4",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "invoiceId": "invoice_4ff0e72424e843dc8b56fa30e8c12c18",
+      "splitMode": "BY_GUEST_ITEMS",
+      "totalAmount": "1323.00",
+      "paidAmount": "0.00",
+      "remainingAmount": "1323.00",
+      "currency": "TRY",
+      "status": "OPEN",
+      "createdAt": "2026-04-19T08:31:05.066Z",
+      "updatedAt": "2026-04-19T08:31:05.066Z"
+    },
+    {
+      "id": "payment_session_b7904dff2b4541dbac8fe027f273513f",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "invoiceId": "invoice_894886d4cc734b91a44b14aff301cf39",
+      "splitMode": "FULL_BY_ONE",
+      "totalAmount": "1323.00",
+      "paidAmount": "0.00",
+      "remainingAmount": "1323.00",
+      "currency": "TRY",
+      "status": "OPEN",
+      "createdAt": "2026-04-19T08:34:01.464Z",
+      "updatedAt": "2026-04-19T08:34:01.464Z"
+    },
+    {
+      "id": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "splitMode": "BY_GUEST_ITEMS",
+      "totalAmount": "1323.00",
+      "paidAmount": "0.00",
+      "remainingAmount": "1323.00",
+      "currency": "TRY",
+      "status": "OPEN",
+      "createdAt": "2026-04-19T08:34:40.522Z",
+      "updatedAt": "2026-04-19T08:34:40.522Z"
+    }
+  ],
+  "paymentShares": [
+    {
+      "id": "payment_share_8fda79df621549a5a7e041e453a4ebfe",
+      "paymentSessionId": "payment_session_6d4f8359aa934a61944701d67a4721e8",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-18T12:45:12.878Z",
+      "updatedAt": "2026-04-18T12:45:12.878Z"
+    },
+    {
+      "id": "payment_share_e4d2ae28c694437c8216cda4e0f2aeb2",
+      "paymentSessionId": "payment_session_6d4f8359aa934a61944701d67a4721e8",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-18T12:45:12.878Z",
+      "updatedAt": "2026-04-18T12:45:12.878Z"
+    },
+    {
+      "id": "payment_share_aa4ccb4ee1ab45668270198477dec551",
+      "paymentSessionId": "payment_session_6d4f8359aa934a61944701d67a4721e8",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-18T12:45:12.878Z",
+      "updatedAt": "2026-04-18T12:45:12.878Z"
+    },
+    {
+      "id": "payment_share_4aa164006581482c86da9a7499f9571d",
+      "paymentSessionId": "payment_session_3996d85933d94c58acc4d816f71371c4",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:31:05.066Z",
+      "updatedAt": "2026-04-19T08:31:05.066Z"
+    },
+    {
+      "id": "payment_share_68b20c839b4748e2923bde8fa5bbbaae",
+      "paymentSessionId": "payment_session_3996d85933d94c58acc4d816f71371c4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:31:05.066Z",
+      "updatedAt": "2026-04-19T08:31:05.066Z"
+    },
+    {
+      "id": "payment_share_faf3b93d2bc5490db8cba3f9235625a5",
+      "paymentSessionId": "payment_session_3996d85933d94c58acc4d816f71371c4",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:31:05.066Z",
+      "updatedAt": "2026-04-19T08:31:05.066Z"
+    },
+    {
+      "id": "payment_share_d8c0938df5864318a5129d9ecb60337d",
+      "paymentSessionId": "payment_session_b7904dff2b4541dbac8fe027f273513f",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "1323.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:34:01.464Z",
+      "updatedAt": "2026-04-19T08:34:01.464Z"
+    },
+    {
+      "id": "payment_share_1b8a6773d6f74a3b9d0700c98a0716c6",
+      "paymentSessionId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:34:40.522Z",
+      "updatedAt": "2026-04-19T08:34:40.522Z"
+    },
+    {
+      "id": "payment_share_3df084b5e99641688ff86c156a148e62",
+      "paymentSessionId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:34:40.522Z",
+      "updatedAt": "2026-04-19T08:34:40.522Z"
+    },
+    {
+      "id": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+      "paymentSessionId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00",
+      "status": "UNPAID",
+      "provider": null,
+      "providerPaymentId": null,
+      "providerConversationId": null,
+      "paymentUrl": null,
+      "qrPayload": null,
+      "paidAt": null,
+      "createdAt": "2026-04-19T08:34:40.522Z",
+      "updatedAt": "2026-04-19T08:34:40.522Z"
+    }
+  ],
   "paymentAttempts": []
 }

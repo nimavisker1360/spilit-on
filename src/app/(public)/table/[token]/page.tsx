@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { GuestExperience } from "@/components/guest-experience";
+import { GuestPaymentEntry } from "@/components/guest-payment-entry";
 import { resolveTableByPublicToken } from "@/features/table/table.service";
 
 export const dynamic = "force-dynamic";
@@ -24,5 +24,5 @@ export default async function TableTokenPage({ params }: Props) {
     notFound();
   }
 
-  return <GuestExperience tableCode={table.code} />;
+  return <GuestPaymentEntry tableCode={table.code} />;
 }

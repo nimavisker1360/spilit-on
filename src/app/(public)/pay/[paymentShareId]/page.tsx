@@ -8,13 +8,14 @@ type Props = {
   };
   searchParams: {
     token?: string;
+    tip?: string;
   };
 };
 
 export default function MockPaymentPage({ params, searchParams }: Props) {
   return (
     <GuestShell>
-      <MockPaymentExperience paymentShareId={params.paymentShareId} token={searchParams.token ?? ""} />
+      <MockPaymentExperience paymentShareId={params.paymentShareId} token={searchParams.token ?? ""} tipAmount={searchParams.tip ?? ""} />
     </GuestShell>
   );
 }

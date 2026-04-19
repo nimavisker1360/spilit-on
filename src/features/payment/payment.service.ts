@@ -941,8 +941,8 @@ export async function getGuestPaymentEntry(
       mapping: {
         matchSource: null,
         requiresSelection: false,
-        message: "This table currently has no open session. Ask staff to open the table.",
-        payMyShareDisabledReason: "No open table session, so your own share cannot be selected.",
+        message: "This table has no live bill yet. Ask staff to open the table and send the bill from the POS.",
+        payMyShareDisabledReason: "No live bill is available for this table yet.",
         candidates: []
       },
       paymentSession: null,
@@ -971,10 +971,10 @@ export async function getGuestPaymentEntry(
   if (!latestPaymentSession) {
     const requiresSelection = !identifiedGuest && joinedGuests.length > 0;
     const mappingMessage = identifiedGuest
-      ? `You are matched as ${identifiedGuest.displayName}. Your share will appear here when the check is prepared.`
+      ? `You are matched as ${identifiedGuest.displayName}. Your share will appear here as soon as the bill is sent from the POS.`
       : joinedGuests.length > 0
-        ? "Select your name to view your own share. The mapping will be kept when the check is prepared."
-        : "Join the table with your name first. You can view your share when the check is prepared.";
+        ? "Select your name to keep this phone linked to the bill before the live check arrives."
+        : "Join the table with your name first. You can pay as soon as the bill is sent from the POS.";
     const debug =
       process.env.NODE_ENV !== "production"
         ? {
@@ -1011,7 +1011,7 @@ export async function getGuestPaymentEntry(
         matchSource: guestMatch.matchSource,
         requiresSelection,
         message: mappingMessage,
-        payMyShareDisabledReason: "Payment shares are not ready in cashier yet.",
+        payMyShareDisabledReason: "The restaurant has not sent the live bill from the POS yet.",
         candidates: baseGuestCandidates
       },
       paymentSession: null,
@@ -1060,13 +1060,13 @@ export async function getGuestPaymentEntry(
         ? "Select your name first to pay your own share."
         : "Join the table with your name first to pay your own share.";
   } else if (!myShare) {
-    mappingMessage = `No active payment share found for ${identifiedGuest.displayName}. Ask cashier to verify.`;
+    mappingMessage = `No active payment share found for ${identifiedGuest.displayName}. Ask staff to verify the split from the POS.`;
     payMyShareDisabledReason = "No payable share was found for the selected guest.";
   } else if (myShare.status === PaymentShareStatus.PAID) {
     mappingMessage = `Payment appears completed for ${identifiedGuest.displayName}.`;
     payMyShareDisabledReason = "This share was already paid.";
   } else {
-    mappingMessage = `Your share for ${identifiedGuest.displayName} is ready.`;
+    mappingMessage = `Your live share for ${identifiedGuest.displayName} is ready.`;
   }
 
   const debug =

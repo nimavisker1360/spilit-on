@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { formatTryCurrency } from "@/lib/currency";
+import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
 
 type PaymentSessionStatus = "OPEN" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "EXPIRED";
 type PaymentShareStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "CANCELLED";
@@ -47,10 +47,25 @@ type PaymentLinkResponse = {
 type Props = {
   paymentShareId: string;
   token: string;
+  tipAmount?: string;
 };
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("en-US");
+}
+
+function normalizeTipAmount(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return centsToDecimalString(toCents(trimmed));
+  } catch {
+    return null;
+  }
 }
 
 function formatStatusLabel(value: string) {
@@ -105,12 +120,13 @@ function statusBadgeClass(status: PaymentShareStatus) {
   return "badge-status-unpaid";
 }
 
-export function MockPaymentExperience({ paymentShareId, token }: Props) {
+export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }: Props) {
   const [state, setState] = useState<PaymentLinkState | null>(null);
   const [loading, setLoading] = useState(true);
   const [runningAction, setRunningAction] = useState<"COMPLETE" | "FAIL" | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const normalizedTipAmount = useMemo(() => normalizeTipAmount(tipAmount), [tipAmount]);
 
   async function load() {
     if (!token) {
@@ -172,7 +188,13 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
       }
 
       setState(json.data);
-      setMessage(action === "COMPLETE" ? "Payment completed." : "Payment marked as failed.");
+      setMessage(
+        action === "COMPLETE"
+          ? normalizedTipAmount && toCents(normalizedTipAmount) > 0
+            ? "Payment completed with tip."
+            : "Payment completed."
+          : "Payment marked as failed."
+      );
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Mock payment action failed.");
     } finally {
@@ -182,17 +204,28 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
 
   const paymentShare = state?.paymentShare ?? null;
   const paymentSession = state?.paymentSession ?? null;
+  const totalChargeAmount =
+    paymentShare && normalizedTipAmount ? centsToDecimalString(toCents(paymentShare.amount) + toCents(normalizedTipAmount)) : null;
 
   return (
     <div className="stack-md">
       <section className="panel dashboard-hero stack-md">
         <div className="section-head">
           <div className="dashboard-hero-copy">
-            <p className="section-kicker">Payment link</p>
+            <p className="section-kicker">Secure payment step</p>
             <h2>{paymentSession?.session?.table ? `Table ${paymentSession.session.table.name}` : "Payment request"}</h2>
             <p className="panel-subtitle">
-              This page simulates the TRY payment completion step before a real payment provider is connected.
+              This demo simulates the final Turkey payment handoff before a real iyzico / PayTR / card provider is
+              connected.
             </p>
+            <div className="badge-row">
+              <span className="badge badge-outline">iyzico</span>
+              <span className="badge badge-outline">PayTR</span>
+              <span className="badge badge-outline">Bank card</span>
+              {normalizedTipAmount && toCents(normalizedTipAmount) > 0 ? (
+                <span className="badge badge-neutral">Tip {formatTryCurrency(normalizedTipAmount)}</span>
+              ) : null}
+            </div>
           </div>
           <button type="button" onClick={() => void load()}>
             Refresh
@@ -218,15 +251,21 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
 
           <div className="detail-grid">
             <div className="detail-card">
-              <span className="detail-label">Your share</span>
+              <span className="detail-label">Base share</span>
               <span className="detail-value">{formatTryCurrency(paymentShare.amount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Paid amount</span>
-              <span className="detail-value">{formatTryCurrency(paymentSession.paidAmount)}</span>
+              <span className="detail-label">Selected tip</span>
+              <span className="detail-value">
+                {normalizedTipAmount && toCents(normalizedTipAmount) > 0 ? formatTryCurrency(normalizedTipAmount) : "No tip"}
+              </span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Remaining amount</span>
+              <span className="detail-label">Total charge</span>
+              <span className="detail-value">{formatTryCurrency(totalChargeAmount ?? paymentShare.amount)}</span>
+            </div>
+            <div className="detail-card">
+              <span className="detail-label">Bill remaining</span>
               <span className="detail-value">{formatTryCurrency(paymentSession.remainingAmount)}</span>
             </div>
             <div className="detail-card">
@@ -254,7 +293,8 @@ export function MockPaymentExperience({ paymentShareId, token }: Props) {
                 <strong>Payment received.</strong>
               </p>
               <p className="helper-text">
-                Cashier payment tracking has been updated. Once all shares are paid, the table becomes ready to close.
+                Payment tracking has been updated. Once all bill shares are paid, the POS-side flow can close the table
+                automatically.
               </p>
             </div>
           ) : null}

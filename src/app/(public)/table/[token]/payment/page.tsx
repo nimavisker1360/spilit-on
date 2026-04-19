@@ -31,7 +31,6 @@ export default async function TableTokenPaymentEntryPage({ params, searchParams 
     <GuestPaymentEntry
       tableCode={table.code}
       initialGuestId={searchParams.guestId ?? ""}
-      backHref={`/table/${encodeURIComponent(token)}`}
     />
   );
 }
