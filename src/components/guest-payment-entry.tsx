@@ -141,6 +141,7 @@ type JoinSessionResponse = {
 type GuestPaymentActionResponse = {
   data?: {
     message: string;
+    paymentPageUrl?: string;
   };
   error?: string;
 };
@@ -154,7 +155,7 @@ type Props = {
 type GuestIdentityState = Pick<GuestIdentityRecord, "guestId" | "guestName" | "sessionId">;
 type CheckoutStep = "bill" | "split" | "tip" | "payment";
 type SplitChoice = "equal" | "items" | "custom";
-type PaymentMethod = "pay" | "card";
+type PaymentMethod = "card";
 type BillGroup = {
   key: string;
   guestId: string | null;
@@ -175,10 +176,10 @@ type SplitPreviewRow = {
 const isDevelopment = process.env.NODE_ENV !== "production";
 const TIP_PRESET_RATES = [0, 0.07, 0.1, 0.15] as const;
 const CHECKOUT_STEPS: Array<{ id: CheckoutStep; label: string }> = [
-  { id: "bill", label: "Bill" },
-  { id: "split", label: "Split" },
-  { id: "tip", label: "Tip" },
-  { id: "payment", label: "Payment" }
+  { id: "bill", label: "Hesap" },
+  { id: "split", label: "Bol" },
+  { id: "tip", label: "Bahsis" },
+  { id: "payment", label: "Odeme" }
 ];
 const SPLIT_CHOICES: Array<{ id: SplitChoice; label: string; helper: string }> = [
   { id: "equal", label: "Equal", helper: "Everyone pays the same amount." },
@@ -186,8 +187,7 @@ const SPLIT_CHOICES: Array<{ id: SplitChoice; label: string; helper: string }> =
   { id: "custom", label: "Custom", helper: "Use the prepared custom shares." }
 ];
 const PAYMENT_METHODS: Array<{ id: PaymentMethod; label: string; helper: string }> = [
-  { id: "pay", label: "Pay", helper: "Mock wallet approval" },
-  { id: "card", label: "Card", helper: "Mock card approval" }
+  { id: "card", label: "Kart ile ode", helper: "iyzico guvenli odeme sayfasi" }
 ];
 
 function formatCents(value: number): string {
@@ -239,15 +239,15 @@ function formatPaymentStatus(value: string): string {
   }
 
   if (value === "PARTIALLY_PAID") {
-    return "Partially paid";
+    return "Kismi odendi";
   }
 
   if (value === "PAID") {
-    return "Paid";
+    return "Odeme basarili";
   }
 
   if (value === "FAILED") {
-    return "Failed";
+    return "Odeme basarisiz";
   }
 
   if (value === "EXPIRED") {
@@ -255,15 +255,15 @@ function formatPaymentStatus(value: string): string {
   }
 
   if (value === "UNPAID") {
-    return "Unpaid";
+    return "Odenmedi";
   }
 
   if (value === "PENDING") {
-    return "Pending";
+    return "Odeme isleniyor";
   }
 
   if (value === "CANCELLED") {
-    return "Cancelled";
+    return "Iptal edildi";
   }
 
   return value;
@@ -323,6 +323,26 @@ function paymentSessionStatusBadgeClass(status: PaymentSessionStatus): string {
 
 function isSharePayable(status: PaymentShareStatus): boolean {
   return status === "UNPAID" || status === "FAILED";
+}
+
+function hasPendingPaymentLink(share: GuestPaymentEntryShare | null): share is GuestPaymentEntryShare & { paymentUrl: string } {
+  return Boolean(share?.status === "PENDING" && share.paymentUrl);
+}
+
+function canOpenPaymentShare(share: GuestPaymentEntryShare | null): boolean {
+  return Boolean(share && (isSharePayable(share.status) || hasPendingPaymentLink(share)));
+}
+
+function paymentMethodLabel(share: GuestPaymentEntryShare | null, payingShareId: string | null): string {
+  if (payingShareId === share?.id) {
+    return "Odeme isleniyor";
+  }
+
+  if (hasPendingPaymentLink(share)) {
+    return "Odemeye devam et";
+  }
+
+  return "Kart ile ode";
 }
 
 function resolveLineQuantity(line: GuestPaymentEntryLine): number {
@@ -437,7 +457,7 @@ async function payPaymentShare(shareId: string, input: { userId?: string | null;
   const json = (await response.json()) as GuestPaymentActionResponse;
 
   if (!response.ok || !json.data) {
-    throw new Error(json.error || "Payment failed.");
+    throw new Error(json.error || "Odeme basarisiz.");
   }
 
   return json.data;
@@ -732,12 +752,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     }
 
     if (isCheckoutClosed || share.status === "PAID") {
-      setMessage("This payment is already completed.");
+      setMessage("Odeme basarili.");
       return;
     }
 
-    if (!isSharePayable(share.status)) {
-      setMessage("A payment is already in progress for this share.");
+    if (!isSharePayable(share.status) && !hasPendingPaymentLink(share)) {
+      setMessage("Odeme isleniyor.");
       return;
     }
 
@@ -751,10 +771,15 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
         tip: resolveTipAmount(share.amount, selectedTipRate)
       });
 
-      setMessage(result.message);
+      if (result.paymentPageUrl) {
+        window.location.assign(result.paymentPageUrl);
+        return;
+      }
+
+      setMessage(result.message || "Odeme isleniyor.");
       await load({ silent: true });
     } catch (payError) {
-      setError(payError instanceof Error ? payError.message : "Payment failed.");
+      setError(payError instanceof Error ? payError.message : "Odeme basarisiz.");
     } finally {
       setPayingShareId(null);
     }
@@ -764,7 +789,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     setMessage("");
 
     if (!paymentSession) {
-      setMessage("The restaurant has not sent this bill to payment yet.");
+      setMessage("Restoran henuz bu hesabi odemeye acmadi.");
       return;
     }
 
@@ -773,11 +798,11 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
 
   function handlePaymentMethod(method: PaymentMethod) {
     setSelectedPaymentMethod(method);
-    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Your payment share is not ready yet.");
+    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Odeme payiniz henuz hazir degil.");
   }
 
   function handlePayFullBill() {
-    void handlePayShare(fullBillShare, "Pay full bill option is not available for this check.");
+    void handlePayShare(fullBillShare, "Tum hesabi odeme secenegi bu hesap icin kullanilamaz.");
   }
 
   function handleSelectGuest(candidate: GuestPaymentEntryGuestCandidate) {
@@ -1009,7 +1034,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           </div>
           {paymentSession ? (
             <div>
-              <span>Remaining</span>
+              <span>Kalan tutar</span>
               <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
             </div>
           ) : null}
@@ -1152,7 +1177,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
             Back
           </button>
           <button type="button" className="guest-checkout-primary-action" onClick={() => handleContinue("payment")} disabled={!paymentShare}>
-            Continue to Payment
+            Odemeye devam et
           </button>
         </div>
       </section>
@@ -1163,7 +1188,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Payment</span>
+          <span>Odeme</span>
           <h1>{formatCents(paymentTotalCents)}</h1>
           <p>{paymentShare ? paymentShare.payerLabel : "Connect your name before payment."}</p>
         </div>
@@ -1179,7 +1204,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           </div>
           <div>
             <span>Status</span>
-            <strong>{paymentShare ? formatPaymentStatus(paymentShare.status) : "Not ready"}</strong>
+            <strong>{paymentShare ? formatPaymentStatus(paymentShare.status) : "Hazir degil"}</strong>
           </div>
         </div>
 
@@ -1194,9 +1219,9 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
               type="button"
               className={selectedPaymentMethod === method.id ? "is-active" : ""}
               onClick={() => handlePaymentMethod(method.id)}
-              disabled={!paymentShare || !isSharePayable(paymentShare.status) || isCheckoutClosed || Boolean(payingShareId)}
+              disabled={!canOpenPaymentShare(paymentShare) || isCheckoutClosed || Boolean(payingShareId)}
             >
-              <span>{payingShareId === paymentShare?.id && selectedPaymentMethod === method.id ? "Processing..." : method.label}</span>
+              <span>{selectedPaymentMethod === method.id ? paymentMethodLabel(paymentShare, payingShareId) : method.label}</span>
               <small>{method.helper}</small>
             </button>
           ))}
@@ -1207,9 +1232,9 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
             type="button"
             className="guest-checkout-secondary-action"
             onClick={handlePayFullBill}
-            disabled={!isSharePayable(fullBillShare.status) || isCheckoutClosed || Boolean(payingShareId)}
+            disabled={!canOpenPaymentShare(fullBillShare) || isCheckoutClosed || Boolean(payingShareId)}
           >
-            {payingShareId === fullBillShare.id ? "Processing..." : "Pay full bill instead"}
+            {payingShareId === fullBillShare.id ? "Odeme isleniyor" : hasPendingPaymentLink(fullBillShare) ? "Tum hesap odemesine devam et" : "Tum hesabi ode"}
           </button>
         ) : null}
 
@@ -1228,9 +1253,9 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Payment complete</span>
-          <h1>All set</h1>
-          <p>{state?.session?.closedAt ? `Closed ${formatDateTime(state.session.closedAt)}` : "Every payment share is settled."}</p>
+          <span>Odeme basarili</span>
+          <h1>{state?.session?.closedAt ? "Hesap kapandi" : "Odeme alindi"}</h1>
+          <p>{state?.session?.closedAt ? `Kapandi ${formatDateTime(state.session.closedAt)}` : "Odeme paylari guncellendi."}</p>
         </div>
 
         <div className="guest-checkout-total-card">
@@ -1243,7 +1268,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
             <strong>{formatTryCurrency(paymentSession.paidAmount)}</strong>
           </div>
           <div className="is-total">
-            <span>Remaining</span>
+            <span>Kalan tutar</span>
             <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
           </div>
         </div>
@@ -1256,7 +1281,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
                 <span className="guest-split-avatar">{getGuestInitials(share.guestId === identifiedGuestId ? "You" : share.payerLabel)}</span>
                 <span>
                   <strong>{share.guestId === identifiedGuestId ? "You" : share.payerLabel}</strong>
-                  <small>{share.paidAt ? `Paid ${formatDateTime(share.paidAt)}` : formatPaymentStatus(share.status)}</small>
+                  <small>{share.paidAt ? `Odendi ${formatDateTime(share.paidAt)}` : formatPaymentStatus(share.status)}</small>
                 </span>
               </div>
               <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(share.status)}`}>
@@ -1285,7 +1310,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref }: 
           <div className="guest-checkout-header-actions">
             {paymentSession ? (
               <>
-                <span className="guest-checkout-pill is-muted">Remaining {formatTryCurrency(paymentSession.remainingAmount)}</span>
+                <span className="guest-checkout-pill is-muted">Kalan tutar {formatTryCurrency(paymentSession.remainingAmount)}</span>
                 <span className={`guest-checkout-pill ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
                   {formatPaymentStatus(paymentSession.status)}
                 </span>

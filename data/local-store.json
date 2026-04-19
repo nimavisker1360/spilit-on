@@ -263,7 +263,10 @@
       "status": "OPEN",
       "openedAt": "2026-04-18T12:40:33.423Z",
       "closedAt": null,
-      "readyToCloseAt": null
+      "readyToCloseAt": null,
+      "totalAmount": "1323.00",
+      "paidAmount": "290.00",
+      "remainingAmount": "1033.00"
     }
   ],
   "guests": [
@@ -284,6 +287,12 @@
       "sessionId": "session_06e36595ee39432584f08ca24eead06e",
       "displayName": "Saeed",
       "joinedAt": "2026-04-18T12:41:04.492Z"
+    },
+    {
+      "id": "guest_935aaf9fb49d47d5ba89b548b2596f6a",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "displayName": "Saaed",
+      "joinedAt": "2026-04-19T11:51:25.147Z"
     }
   ],
   "orders": [
@@ -464,6 +473,13 @@
       "splitMode": "BY_GUEST_ITEMS",
       "total": "1323.00",
       "createdAt": "2026-04-19T08:34:38.541Z"
+    },
+    {
+      "id": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "sessionId": "session_06e36595ee39432584f08ca24eead06e",
+      "splitMode": "BY_GUEST_ITEMS",
+      "total": "1323.00",
+      "createdAt": "2026-04-19T10:01:53.627Z"
     }
   ],
   "invoiceLines": [
@@ -862,6 +878,72 @@
       "itemName": "Pepperoni Pizza",
       "quantity": 1,
       "unitPrice": "290.00"
+    },
+    {
+      "id": "invoice_line_b472942b3a1e4cd391577b5ac34d10ac",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_70e5d4ba067b429780c39286f38cfbef",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "320.00",
+      "label": "Adana Kebab x1",
+      "itemName": "Adana Kebab",
+      "quantity": 1,
+      "unitPrice": "320.00"
+    },
+    {
+      "id": "invoice_line_8d6d013555534566b46094b4cc141411",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_4e37e8fc28c84cd7976d9c40762ae547",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "55.00",
+      "label": "Coca-Cola 330ml x1",
+      "itemName": "Coca-Cola 330ml",
+      "quantity": 1,
+      "unitPrice": "55.00"
+    },
+    {
+      "id": "invoice_line_23b17a9abf18497ca3506239a32ffd98",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_fe14ae3f7cb8440483dcfc7f846527bb",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "28.00",
+      "label": "Sparkling Water 250ml x1",
+      "itemName": "Sparkling Water 250ml",
+      "quantity": 1,
+      "unitPrice": "28.00"
+    },
+    {
+      "id": "invoice_line_ae5006eaedc3417780c839540c136000",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_c16671f4054a402faefb74d08649e6bf",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_03b9fba87aae45cb8adc8c2a5f0ca7fc",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_79ae58b108bd42949b987ef9b301a3f4",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "amount": "315.00",
+      "label": "Mixed Pizza x1",
+      "itemName": "Mixed Pizza",
+      "quantity": 1,
+      "unitPrice": "315.00"
+    },
+    {
+      "id": "invoice_line_715e06e550b644cf978ece5997b46414",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "orderItemId": "order_item_7be9cfbc8ee847058665d18a1299e015",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "label": "Pepperoni Pizza x1",
+      "itemName": "Pepperoni Pizza",
+      "quantity": 1,
+      "unitPrice": "290.00"
     }
   ],
   "invoiceAssignments": [
@@ -976,9 +1058,44 @@
       "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
       "payerLabel": "Saeed",
       "amount": "290.00"
+    },
+    {
+      "id": "invoice_split_d73b3d3ac2c94399ab06159686bc36bd",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "guestId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "payerLabel": "Ali",
+      "amount": "690.00"
+    },
+    {
+      "id": "invoice_split_010e1b70afff43f0a54c7e79d32c7af7",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "guestId": "guest_15942621139a49ad854133d281c4deec",
+      "payerLabel": "Farid",
+      "amount": "343.00"
+    },
+    {
+      "id": "invoice_split_126ab6fbbdd34af88d347e109247e781",
+      "invoiceId": "invoice_d3728f68fd2e453a8fab91e61b1b9f47",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "payerLabel": "Saeed",
+      "amount": "290.00"
     }
   ],
-  "payments": [],
+  "payments": [
+    {
+      "id": "payment_356c4fe2aa5747cba1bcd739bc581dfd",
+      "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
+      "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "amount": "290.00",
+      "currency": "TRY",
+      "method": "iyzico",
+      "status": "COMPLETED",
+      "reference": "30472399",
+      "paidAt": "2026-04-19T11:48:55.380Z",
+      "createdAt": "2026-04-19T11:48:55.380Z",
+      "updatedAt": "2026-04-19T11:48:55.380Z"
+    }
+  ],
   "paymentSessions": [
     {
       "id": "payment_session_6d4f8359aa934a61944701d67a4721e8",
@@ -1025,12 +1142,12 @@
       "invoiceId": "invoice_7d3253518b714fbf91da444429db18da",
       "splitMode": "BY_GUEST_ITEMS",
       "totalAmount": "1323.00",
-      "paidAmount": "0.00",
-      "remainingAmount": "1323.00",
+      "paidAmount": "290.00",
+      "remainingAmount": "1033.00",
       "currency": "TRY",
-      "status": "OPEN",
+      "status": "PARTIALLY_PAID",
       "createdAt": "2026-04-19T08:34:40.522Z",
-      "updatedAt": "2026-04-19T08:34:40.522Z"
+      "updatedAt": "2026-04-19T11:48:55.380Z"
     }
   ],
   "paymentShares": [
@@ -1048,7 +1165,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-18T12:45:12.878Z",
-      "updatedAt": "2026-04-18T12:45:12.878Z"
+      "updatedAt": "2026-04-18T12:45:12.878Z",
+      "userId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_e4d2ae28c694437c8216cda4e0f2aeb2",
@@ -1064,7 +1183,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-18T12:45:12.878Z",
-      "updatedAt": "2026-04-18T12:45:12.878Z"
+      "updatedAt": "2026-04-18T12:45:12.878Z",
+      "userId": "guest_15942621139a49ad854133d281c4deec",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_aa4ccb4ee1ab45668270198477dec551",
@@ -1080,7 +1201,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-18T12:45:12.878Z",
-      "updatedAt": "2026-04-18T12:45:12.878Z"
+      "updatedAt": "2026-04-18T12:45:12.878Z",
+      "userId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_4aa164006581482c86da9a7499f9571d",
@@ -1096,7 +1219,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:31:05.066Z",
-      "updatedAt": "2026-04-19T08:31:05.066Z"
+      "updatedAt": "2026-04-19T08:31:05.066Z",
+      "userId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_68b20c839b4748e2923bde8fa5bbbaae",
@@ -1112,7 +1237,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:31:05.066Z",
-      "updatedAt": "2026-04-19T08:31:05.066Z"
+      "updatedAt": "2026-04-19T08:31:05.066Z",
+      "userId": "guest_15942621139a49ad854133d281c4deec",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_faf3b93d2bc5490db8cba3f9235625a5",
@@ -1128,7 +1255,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:31:05.066Z",
-      "updatedAt": "2026-04-19T08:31:05.066Z"
+      "updatedAt": "2026-04-19T08:31:05.066Z",
+      "userId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_d8c0938df5864318a5129d9ecb60337d",
@@ -1144,7 +1273,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:34:01.464Z",
-      "updatedAt": "2026-04-19T08:34:01.464Z"
+      "updatedAt": "2026-04-19T08:34:01.464Z",
+      "userId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_1b8a6773d6f74a3b9d0700c98a0716c6",
@@ -1160,7 +1291,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:34:40.522Z",
-      "updatedAt": "2026-04-19T08:34:40.522Z"
+      "updatedAt": "2026-04-19T08:34:40.522Z",
+      "userId": "guest_a1a06741dd9843e38b6f69fc23da91e2",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_3df084b5e99641688ff86c156a148e62",
@@ -1176,7 +1309,9 @@
       "qrPayload": null,
       "paidAt": null,
       "createdAt": "2026-04-19T08:34:40.522Z",
-      "updatedAt": "2026-04-19T08:34:40.522Z"
+      "updatedAt": "2026-04-19T08:34:40.522Z",
+      "userId": "guest_15942621139a49ad854133d281c4deec",
+      "tip": "0.00"
     },
     {
       "id": "payment_share_a6ef39d48aac4a56930d898e709cf925",
@@ -1184,16 +1319,228 @@
       "guestId": "guest_2fecfc0022a24e168ea349f39b588337",
       "payerLabel": "Saeed",
       "amount": "290.00",
-      "status": "UNPAID",
-      "provider": null,
-      "providerPaymentId": null,
-      "providerConversationId": null,
-      "paymentUrl": null,
-      "qrPayload": null,
-      "paidAt": null,
+      "status": "PAID",
+      "provider": "iyzico",
+      "providerPaymentId": "30472399",
+      "providerConversationId": "iyzico_conv_dd57fce018c34fa9807a6241c7ea5516",
+      "paymentUrl": "https://sandbox-cpp.iyzipay.com?token=eadc6024-0750-4489-b38f-b8e6817227f9&lang=tr",
+      "qrPayload": "https://sandbox-cpp.iyzipay.com?token=eadc6024-0750-4489-b38f-b8e6817227f9&lang=tr",
+      "paidAt": "2026-04-19T11:48:55.380Z",
       "createdAt": "2026-04-19T08:34:40.522Z",
-      "updatedAt": "2026-04-19T08:34:40.522Z"
+      "updatedAt": "2026-04-19T11:48:55.380Z",
+      "userId": "guest_2fecfc0022a24e168ea349f39b588337",
+      "tip": "0.00"
     }
   ],
-  "paymentAttempts": []
+  "paymentAttempts": [
+    {
+      "id": "payment_attempt_017c6642999341c1a18453b1c7f39074",
+      "paymentShareId": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+      "provider": "iyzico",
+      "requestPayload": {
+        "action": "IYZICO_CHECKOUT_FORM_INITIALIZE",
+        "provider": "iyzico",
+        "request": {
+          "locale": "tr",
+          "conversationId": "iyzico_conv_e38e2063bef546e0b84f115f6c000a2f",
+          "price": "290.00",
+          "paidPrice": "290.00",
+          "currency": "TRY",
+          "basketId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+          "paymentGroup": "PRODUCT",
+          "callbackUrl": "https://your-public-domain.com/api/payments/iyzico/callback",
+          "buyer": {
+            "id": "guest_2fecfc0022a24e168ea349f39b588337",
+            "name": "Saeed",
+            "surname": "Customer",
+            "ipPresent": true
+          },
+          "basketItems": [
+            {
+              "id": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+              "price": "290.00",
+              "name": "Restaurant share - Saeed",
+              "category1": "Restaurant",
+              "category2": "Split payment",
+              "itemType": "VIRTUAL"
+            }
+          ]
+        }
+      },
+      "callbackPayload": {
+        "initializeResponse": {
+          "status": "success",
+          "conversationId": "iyzico_conv_e38e2063bef546e0b84f115f6c000a2f",
+          "token": "b0d0bfe1-4707-4099-9bcb-bc9c05ef45a0",
+          "paymentPageUrlPresent": true,
+          "signatureValid": true
+        }
+      },
+      "status": "PENDING",
+      "failureReason": null,
+      "createdAt": "2026-04-19T10:01:30.563Z",
+      "updatedAt": "2026-04-19T10:01:31.065Z"
+    },
+    {
+      "id": "payment_attempt_b23d788773644ee39710042f8fe152ba",
+      "paymentShareId": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+      "provider": "iyzico",
+      "requestPayload": {
+        "action": "IYZICO_CHECKOUT_FORM_REINITIALIZE",
+        "provider": "iyzico",
+        "previousTokenReplaced": true,
+        "request": {
+          "locale": "tr",
+          "conversationId": "iyzico_conv_62634409b5bd4aff82e13738cc331911",
+          "price": "290.00",
+          "paidPrice": "290.00",
+          "currency": "TRY",
+          "basketId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+          "paymentGroup": "PRODUCT",
+          "callbackUrl": "https://9782-176-88-79-50.ngrok-free.app/api/payments/iyzico/callback",
+          "buyer": {
+            "id": "guest_2fecfc0022a24e168ea349f39b588337",
+            "name": "Saeed",
+            "surname": "Customer",
+            "ipPresent": true
+          },
+          "basketItems": [
+            {
+              "id": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+              "price": "290.00",
+              "name": "Restaurant share - Saeed",
+              "category1": "Restaurant",
+              "category2": "Split payment",
+              "itemType": "VIRTUAL"
+            }
+          ]
+        }
+      },
+      "callbackPayload": {
+        "initializeResponse": {
+          "status": "success",
+          "conversationId": "iyzico_conv_62634409b5bd4aff82e13738cc331911",
+          "token": "88f90c57-629d-4a34-a551-d1461ff96e68",
+          "paymentPageUrlPresent": true,
+          "signatureValid": true
+        }
+      },
+      "status": "PENDING",
+      "failureReason": null,
+      "createdAt": "2026-04-19T10:38:33.071Z",
+      "updatedAt": "2026-04-19T10:38:33.766Z"
+    },
+    {
+      "id": "payment_attempt_186f7fda39244f2d9be568c44fc00799",
+      "paymentShareId": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+      "provider": "iyzico",
+      "requestPayload": {
+        "action": "IYZICO_CHECKOUT_FORM_REINITIALIZE",
+        "provider": "iyzico",
+        "previousTokenReplaced": true,
+        "request": {
+          "locale": "tr",
+          "conversationId": "iyzico_conv_dd57fce018c34fa9807a6241c7ea5516",
+          "price": "290.00",
+          "paidPrice": "290.00",
+          "currency": "TRY",
+          "basketId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+          "paymentGroup": "PRODUCT",
+          "callbackUrl": "https://9782-176-88-79-50.ngrok-free.app/api/payments/iyzico/callback",
+          "buyer": {
+            "id": "guest_2fecfc0022a24e168ea349f39b588337",
+            "name": "Saeed",
+            "surname": "Customer",
+            "ipPresent": true
+          },
+          "basketItems": [
+            {
+              "id": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+              "price": "290.00",
+              "name": "Restaurant share - Saeed",
+              "category1": "Restaurant",
+              "category2": "Split payment",
+              "itemType": "VIRTUAL"
+            }
+          ]
+        }
+      },
+      "callbackPayload": {
+        "callback": {
+          "token": "eadc6024-0750-4489-b38f-b8e6817227f9"
+        },
+        "retrieveRequest": {
+          "locale": "tr",
+          "conversationId": "iyzico_conv_dd57fce018c34fa9807a6241c7ea5516",
+          "token": "eadc6024-0750-4489-b38f-b8e6817227f9"
+        },
+        "retrieveResponse": {
+          "status": "success",
+          "locale": "tr",
+          "systemTime": 1776599334955,
+          "conversationId": "iyzico_conv_dd57fce018c34fa9807a6241c7ea5516",
+          "price": 290,
+          "paidPrice": 290,
+          "installment": 1,
+          "paymentId": "30472399",
+          "fraudStatus": 1,
+          "merchantCommissionRate": 0,
+          "merchantCommissionRateAmount": 0,
+          "iyziCommissionRateAmount": 10.121,
+          "iyziCommissionFee": 0.25,
+          "cardType": "CREDIT_CARD",
+          "cardAssociation": "MASTER_CARD",
+          "cardFamily": "Axess",
+          "basketId": "payment_session_109086f37b9e4077b23b596b95dd90f4",
+          "currency": "TRY",
+          "itemTransactions": [
+            {
+              "itemId": "payment_share_a6ef39d48aac4a56930d898e709cf925",
+              "paymentTransactionId": "32409293",
+              "transactionStatus": 2,
+              "price": 290,
+              "paidPrice": 290,
+              "merchantCommissionRate": 0,
+              "merchantCommissionRateAmount": 0,
+              "iyziCommissionRateAmount": 10.121,
+              "iyziCommissionFee": 0.25,
+              "blockageRate": 0,
+              "blockageRateAmountMerchant": 0,
+              "blockageRateAmountSubMerchant": 0,
+              "blockageResolvedDate": "2026-04-27 00:00:00",
+              "subMerchantPrice": 0,
+              "subMerchantPayoutRate": 0,
+              "subMerchantPayoutAmount": 0,
+              "merchantPayoutAmount": 279.629,
+              "convertedPayout": {
+                "paidPrice": 290,
+                "iyziCommissionRateAmount": 10.121,
+                "iyziCommissionFee": 0.25,
+                "blockageRateAmountMerchant": 0,
+                "blockageRateAmountSubMerchant": 0,
+                "subMerchantPayoutAmount": 0,
+                "merchantPayoutAmount": 279.629,
+                "iyziConversionRate": 0,
+                "iyziConversionRateAmount": 0,
+                "currency": "TRY"
+              }
+            }
+          ],
+          "authCode": "334049",
+          "phase": "AUTH",
+          "hostReference": "mock00007iyzihostrfn",
+          "signature": "1df477584c41a9953553602a27cbb303056a58e00c512559fb4633ca04ae3a54",
+          "token": "eadc6024-0750-4489-b38f-b8e6817227f9",
+          "callbackUrl": "https://9782-176-88-79-50.ngrok-free.app/api/payments/iyzico/callback",
+          "paymentStatus": "SUCCESS",
+          "maturityChargeAmount": 0
+        },
+        "signatureValid": true
+      },
+      "status": "SUCCEEDED",
+      "failureReason": null,
+      "createdAt": "2026-04-19T11:46:36.871Z",
+      "updatedAt": "2026-04-19T11:48:55.380Z"
+    }
+  ]
 }
