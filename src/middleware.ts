@@ -22,7 +22,7 @@ const PUBLIC_PATHS = [
   "/favicon",
 ];
 
-const PUBLIC_FILE_PATTERN = /\.(?:avif|gif|ico|jpg|jpeg|png|svg|webp)$/i;
+const PUBLIC_FILE_PATTERN = /\.(?:avif|gif|ico|jpg|jpeg|mp4|png|svg|webm|webp)$/i;
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_FILE_PATTERN.test(pathname) || PUBLIC_PATHS.some((p) => pathname.startsWith(p));

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { ReactNode } from "react";
 
 type AuthShellProps = {
@@ -11,14 +10,9 @@ export function AuthShell({ children }: AuthShellProps) {
       <div className="auth-shell-layout">
         <div className="auth-form-pane">{children}</div>
         <aside className="auth-banner-panel" aria-hidden="true">
-          <Image
-            src="/banner.png"
-            alt=""
-            fill
-            priority
-            sizes="(min-width: 900px) 460px, 100vw"
-            className="auth-banner-image"
-          />
+          <video className="auth-banner-video" autoPlay muted loop playsInline preload="auto">
+            <source src="/promp.mp4" type="video/mp4" />
+          </video>
         </aside>
       </div>
     </main>

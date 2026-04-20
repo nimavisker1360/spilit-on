@@ -5,26 +5,7 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
-
-function SunburstIcon() {
-  return (
-    <svg width="38" height="38" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg, i) => (
-        <line
-          key={i}
-          x1="20" y1="20"
-          x2={20 + 16 * Math.cos((deg * Math.PI) / 180)}
-          y2={20 + 16 * Math.sin((deg * Math.PI) / 180)}
-          stroke="#f97316"
-          strokeWidth={i % 2 === 0 ? "2.2" : "1.2"}
-          strokeLinecap="round"
-          opacity={i % 2 === 0 ? "1" : "0.55"}
-        />
-      ))}
-      <circle cx="20" cy="20" r="3.2" fill="#f97316" />
-    </svg>
-  );
-}
+import { AuthStarIcon } from "@/components/auth/auth-star-icon";
 
 function GoogleIcon() {
   return (
@@ -100,7 +81,7 @@ export default function SignupPage() {
               <h1 style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#fff" }}>Hesap Oluşturun</h1>
               <p style={{ margin: "6px 0 0", fontSize: "13px", color: "#94a3b8" }}>SplitTable ile devam edin</p>
             </div>
-            <SunburstIcon />
+            <AuthStarIcon />
           </div>
 
           {/* Form */}
