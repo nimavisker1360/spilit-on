@@ -4,7 +4,7 @@ Production-oriented restaurant management MVP as a **web PWA** (not native), wit
 
 ## Core decisions
 
-- RBAC/auth foundation exists for internal APIs, but there is no login UI/Auth.js session flow yet
+- RBAC/auth foundation uses Auth.js sessions for internal APIs and dashboard access
 - Customer entry via QR table URL: `/table/[token]`
 - Internal dashboards remain simple for MVP: `/admin`, `/waiter`, `/kitchen`, `/cashier`
 - Business logic is in service modules (`src/features/*`), not page components
@@ -74,6 +74,23 @@ or call `POST /api/seed` once from the app to restore the default local dataset.
 
 ```bash
 npm run dev
+```
+
+## Google OAuth
+
+Set these values in `.env` to enable the Google buttons on `/login` and `/signup`:
+
+```bash
+AUTH_URL=http://localhost:3000
+AUTH_SECRET=...
+AUTH_GOOGLE_ID=...
+AUTH_GOOGLE_SECRET=...
+```
+
+In Google Cloud Console, add this Authorized redirect URI for local development:
+
+```text
+http://localhost:3000/api/auth/callback/google
 ```
 
 ## Important endpoints

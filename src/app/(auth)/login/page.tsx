@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { Suspense, useEffect, useState } from "react";
+import { getProviders, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -39,9 +39,32 @@ function postLoginPath(callbackUrl: string | null): string {
   return callbackUrl;
 }
 
+function authErrorMessage(error: string | null): string {
+  switch (error) {
+    case "OAuthAccountNotLinked":
+      return "Bu e-posta zaten başka bir giriş yöntemiyle kayıtlı.";
+    case "AccessDenied":
+      return "Google hesabı doğrulanmış bir e-posta içermiyor.";
+    case "Configuration":
+    case "InvalidProvider":
+      return "Google girişi için AUTH_GOOGLE_ID ve AUTH_GOOGLE_SECRET ayarlanmalı.";
+    default:
+      return "";
+  }
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const authError = searchParams?.get("error") ?? null;
   const callbackUrl = postLoginPath(searchParams?.get("callbackUrl") ?? null);
 
   const [email, setEmail] = useState("");
@@ -49,8 +72,30 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState<boolean | null>(null);
   const [emailFocus, setEmailFocus] = useState(false);
   const [passFocus, setPassFocus] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getProviders()
+      .then((providers) => {
+        if (isMounted) setGoogleAvailable(Boolean(providers?.google));
+      })
+      .catch(() => {
+        if (isMounted) setGoogleAvailable(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const message = authErrorMessage(authError);
+    if (message) setError(message);
+  }, [authError]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,9 +113,22 @@ export default function LoginPage() {
   }
 
   async function handleGoogle() {
+    if (googleAvailable !== true) {
+      setError("Google girişi için AUTH_GOOGLE_ID ve AUTH_GOOGLE_SECRET ayarlanmalı.");
+      return;
+    }
+
+    setError("");
     setGoogleLoading(true);
     await signIn("google", { callbackUrl });
   }
+
+  const googleDisabled = googleLoading || googleAvailable !== true;
+  const googleLabel = googleLoading
+    ? "Yönlendiriliyor..."
+    : googleAvailable === false
+      ? "Google ayarları eksik"
+      : "Google ile Giriş Yap";
 
   return (
     <AuthShell>
@@ -161,13 +219,13 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleGoogle}
-            disabled={googleLoading}
-            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", backgroundColor: "#0d1018", border: "1px solid #252b38", borderRadius: "10px", padding: "11px 16px", fontSize: "13px", fontWeight: 500, color: "#e2e8f0", cursor: googleLoading ? "not-allowed" : "pointer", opacity: googleLoading ? 0.6 : 1, minHeight: "unset", transition: "border-color 150ms ease" }}
-            onMouseEnter={(e) => { if (!googleLoading) { e.currentTarget.style.borderColor = "#3e4a5c"; e.currentTarget.style.backgroundColor = "#141824"; }}}
+            disabled={googleDisabled}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", backgroundColor: "#0d1018", border: "1px solid #252b38", borderRadius: "10px", padding: "11px 16px", fontSize: "13px", fontWeight: 500, color: "#e2e8f0", cursor: googleDisabled ? "not-allowed" : "pointer", opacity: googleDisabled ? 0.6 : 1, minHeight: "unset", transition: "border-color 150ms ease" }}
+            onMouseEnter={(e) => { if (!googleDisabled) { e.currentTarget.style.borderColor = "#3e4a5c"; e.currentTarget.style.backgroundColor = "#141824"; }}}
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#252b38"; e.currentTarget.style.backgroundColor = "#0d1018"; }}
           >
             <GoogleIcon />
-            {googleLoading ? "Yönlendiriliyor..." : "Google ile Giriş Yap"}
+            {googleLabel}
           </button>
 
         </div>
