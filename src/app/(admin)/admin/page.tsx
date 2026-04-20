@@ -1357,49 +1357,7 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Logo URL">
-              <input
-                type="url"
-                value={branchForm.logoUrl}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
-                placeholder="https://..."
-              />
-            </AdminField>
-
-            <AdminField label="Cover image URL">
-              <input
-                type="url"
-                value={branchForm.coverImageUrl}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))}
-                placeholder="https://..."
-              />
-            </AdminField>
-
-            <AdminField label="Primary color">
-              <input
-                value={branchForm.primaryColor}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, primaryColor: event.target.value }))}
-                placeholder="#f28c28"
-              />
-            </AdminField>
-
-            <AdminField label="Accent color">
-              <input
-                value={branchForm.accentColor}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, accentColor: event.target.value }))}
-                placeholder="#ffd6b5"
-              />
-            </AdminField>
-
-            <AdminField label="Font family">
-              <input
-                value={branchForm.fontFamily}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, fontFamily: event.target.value }))}
-                placeholder={'"Trebuchet MS", "Segoe UI", sans-serif'}
-              />
-            </AdminField>
-
-            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically. Brand fields control the customer menu look per branch.</p>
+            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically.</p>
 
             <AdminActions>
               <button type="submit">Create branch</button>
@@ -1547,42 +1505,6 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Image URL">
-              <input
-                type="url"
-                value={itemForm.imageUrl}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
-                placeholder="https://..."
-              />
-            </AdminField>
-
-            <AdminField label="Fiyat (TL)">
-              <div className="currency-input">
-                <span className="currency-input-symbol">₺</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Orn. 46,00"
-                  value={itemForm.price}
-                  onChange={(event) => setItemForm((prev) => ({ ...prev, price: sanitizePriceInput(event.target.value) }))}
-                  onBlur={() => setItemForm((prev) => ({ ...prev, price: formatPriceFieldValue(prev.price) }))}
-                  required
-                />
-              </div>
-            </AdminField>
-
-            <p className="helper-text">
-              Fiyati TL olarak girin.
-              {createItemPricePreview ? ` Onizleme: ${createItemPricePreview}` : " Orn. 46,00 veya 11,50."}
-            </p>
-
-            <AdminField label="Sort order">
-              <input
-                type="number"
-                value={itemForm.sortOrder}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-              />
-            </AdminField>
 
             <AdminField label="Availability">
               <select
@@ -1792,23 +1714,6 @@ export default function AdminDashboardPage() {
                   <span className="detail-label">Menu items</span>
                   <span className="detail-value">{branch.menuItems.length}</span>
                 </div>
-                <div className="detail-card">
-                  <span className="detail-label">Brand theme</span>
-                  <span className="detail-value">{branch.primaryColor ?? "#f28c28"}</span>
-                </div>
-              </div>
-
-              <div className="branch-brand-preview">
-                <span
-                  className="branch-brand-swatch"
-                  style={{
-                    background: `linear-gradient(135deg, ${branch.primaryColor ?? "#f28c28"}, ${branch.accentColor ?? "#ffd6b5"})`
-                  }}
-                />
-                <p className="helper-text">
-                  {branch.logoUrl ? "Logo set" : "No logo"} | {branch.coverImageUrl ? "Cover set" : "No cover"} |{" "}
-                  {branch.fontFamily ? `Font: ${branch.fontFamily}` : "Default font"}
-                </p>
               </div>
 
               <p className="helper-text">
@@ -1836,43 +1741,6 @@ export default function AdminDashboardPage() {
                     <input
                       value={branchEditForm.location}
                       onChange={(event) => setBranchEditForm((prev) => ({ ...prev, location: event.target.value }))}
-                    />
-                  </AdminField>
-                  <AdminField label="Logo URL">
-                    <input
-                      type="url"
-                      value={branchEditForm.logoUrl}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, logoUrl: event.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </AdminField>
-                  <AdminField label="Cover image URL">
-                    <input
-                      type="url"
-                      value={branchEditForm.coverImageUrl}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </AdminField>
-                  <AdminField label="Primary color">
-                    <input
-                      value={branchEditForm.primaryColor}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, primaryColor: event.target.value }))}
-                      placeholder="#f28c28"
-                    />
-                  </AdminField>
-                  <AdminField label="Accent color">
-                    <input
-                      value={branchEditForm.accentColor}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, accentColor: event.target.value }))}
-                      placeholder="#ffd6b5"
-                    />
-                  </AdminField>
-                  <AdminField label="Font family">
-                    <input
-                      value={branchEditForm.fontFamily}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, fontFamily: event.target.value }))}
-                      placeholder={'"Trebuchet MS", "Segoe UI", sans-serif'}
                     />
                   </AdminField>
                   <p className="helper-text">Updating a branch does not change QR routes. It updates branding and metadata only.</p>
@@ -2169,37 +2037,6 @@ export default function AdminDashboardPage() {
                       onChange={(event) => setItemEditForm((prev) => ({ ...prev, description: event.target.value }))}
                     />
                   </AdminField>
-                  <AdminField label="Image URL">
-                    <input
-                      type="url"
-                      value={itemEditForm.imageUrl}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </AdminField>
-                  <AdminField label="Fiyat (TL)">
-                    <div className="currency-input">
-                      <span className="currency-input-symbol">₺</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="Orn. 46,00"
-                        value={itemEditForm.price}
-                        onChange={(event) =>
-                          setItemEditForm((prev) => ({ ...prev, price: sanitizePriceInput(event.target.value) }))
-                        }
-                        onBlur={() => setItemEditForm((prev) => ({ ...prev, price: formatPriceFieldValue(prev.price) }))}
-                        required
-                      />
-                    </div>
-                  </AdminField>
-                  <AdminField label="Sort order">
-                    <input
-                      type="number"
-                      value={itemEditForm.sortOrder}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-                    />
-                  </AdminField>
                   <AdminField label="Availability">
                     <select
                       value={itemEditForm.isAvailable}
@@ -2209,10 +2046,6 @@ export default function AdminDashboardPage() {
                       <option value="false">Unavailable</option>
                     </select>
                   </AdminField>
-                  <p className="helper-text">
-                    Fiyati TL olarak girin.
-                    {editItemPricePreview ? ` Onizleme: ${editItemPricePreview}` : " Sembol kaydedilmez, yalnizca gosterimde kullanilir."}
-                  </p>
                   <p className="helper-text">Changing availability keeps the item record but blocks new orders when off.</p>
                   <AdminActions>
                     <button type="submit">Save item</button>
