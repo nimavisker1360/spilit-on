@@ -49,5 +49,5 @@ export type AccessContext = {
   role: StaffRole;
   restaurantId: string;
   branchIds: string[] | null;
-  source: "dev-bootstrap" | "header";
+  source: "session" | "dev-bootstrap" | "header";
 };

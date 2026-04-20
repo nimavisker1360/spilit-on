@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermission } from "@/features/auth/auth-context";
 import { createMenuCategory, createMenuItem } from "@/features/menu/menu.service";
-import { createBranch, ensureDefaultRestaurant, getAdminSnapshot } from "@/features/restaurant/restaurant.service";
+import { createBranch, getAdminSnapshot } from "@/features/restaurant/restaurant.service";
 import { createTable } from "@/features/table/table.service";
 import { RouteAccessError, routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 
@@ -14,20 +14,20 @@ export async function POST(request: Request) {
       throw new RouteAccessError("Seed endpoint is disabled in production.", 403);
     }
 
-    await requirePermission(request, "tenant.update");
-    const restaurant = await ensureDefaultRestaurant();
+    const context = await requirePermission(request, "tenant.update");
+    const snapshot = await getAdminSnapshot({ restaurantId: context.restaurantId });
 
-    if (restaurant.branches.length === 0) {
+    if (snapshot[0]?.branches.length === 0) {
       await createBranch({
-        restaurantId: restaurant.id,
+        restaurantId: context.restaurantId,
         name: "Main Branch",
         slug: "main-branch",
         location: "Center"
       });
     }
 
-    const snapshot = await getAdminSnapshot();
-    const branch = snapshot[0]?.branches[0];
+    const freshSnapshot = await getAdminSnapshot({ restaurantId: context.restaurantId });
+    const branch = freshSnapshot[0]?.branches[0];
 
     if (!branch) {
       throw new Error("Failed to load branch for seeding");

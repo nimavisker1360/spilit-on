@@ -25,7 +25,7 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const json = await request.json();
     const parsed = bodySchema.parse(json);
-    const branchId = resolveEntityBranchId("paymentShare", context.params.paymentShareId);
+    const branchId = await resolveEntityBranchId("paymentShare", context.params.paymentShareId);
     const accessContext = await requireEntityPermission(
       request,
       "cashier.payment.manage",

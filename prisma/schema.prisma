@@ -156,6 +156,7 @@ model Restaurant {
   subscriptions   TenantSubscription[]
   usageCounters   UsageCounter[]
   auditLogs       AuditLog[]
+  onboarding      OnboardingProgress?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 }
@@ -167,6 +168,11 @@ model Branch {
   name           String
   slug           String
   location       String?
+  logoUrl        String?
+  coverImageUrl  String?
+  primaryColor   String                   @default("#f28c28")
+  accentColor    String                   @default("#ffd6b5")
+  fontFamily     String                   @default("\"Trebuchet MS\", \"Segoe UI\", sans-serif")
   currency       String                   @default("TRY") @db.VarChar(3)
   localeDefault  LocaleCode               @default(TR)
   openingHours   Json?
@@ -208,16 +214,67 @@ model BranchSettings {
 model User {
   id              String       @id @default(cuid())
   email           String       @unique
+  emailVerified   DateTime?
   phone           String?
   name            String
+  image           String?
   passwordHash    String?
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
   lastLoginAt     DateTime?
   memberships     Membership[]
   auditLogs       AuditLog[]   @relation("AuditActorUser")
+  accounts        Account[]
+  sessions        AuthSession[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model AuthSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model OnboardingProgress {
+  id           String     @id @default(cuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  currentStep  Int        @default(0)
+  completedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
 model Membership {
@@ -304,6 +361,7 @@ model MenuItem {
   category    MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   name        String
   description String?
+  imageUrl    String?
   price       Decimal       @db.Decimal(10, 2)
   isAvailable Boolean       @default(true)
   sortOrder   Int           @default(0)

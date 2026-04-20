@@ -1,5 +1,9 @@
+import { randomBytes } from "node:crypto";
 import { centsToDecimalString, toCents } from "@/lib/currency";
-import { makeId } from "@/lib/local-store";
+
+function makeId(prefix: string): string {
+  return `${prefix}_${randomBytes(8).toString("hex")}`;
+}
 
 export const MOCK_GUEST_PAYMENT_PROVIDER = "MOCK_QR_PAYMENT";
 

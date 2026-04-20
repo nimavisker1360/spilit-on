@@ -1,259 +1,147 @@
-import {
-  cloneValue,
-  currentTimestamp,
-  getOrderItems,
-  getSessionGuests,
-  getSessionOrders,
-  makeId,
-  readStore,
-  sortByOpenedAtAsc,
-  updateStore
-} from "@/lib/local-store";
+import { prisma } from "@/lib/prisma";
 import {
   closeSessionSchema,
   joinSessionSchema,
   openSessionSchema,
   type CloseSessionInput,
   type JoinSessionInput,
-  type OpenSessionInput
+  type OpenSessionInput,
 } from "@/features/session/session.schemas";
 
-function buildSessionWithTableAndGuests(store: ReturnType<typeof readStore>, sessionId: string) {
-  const session = store.sessions.find((entry) => entry.id === sessionId);
-
-  if (!session) {
-    return null;
-  }
-
-  const table = store.tables.find((entry) => entry.id === session.tableId);
-
-  if (!table) {
-    return null;
-  }
-
-  return {
-    ...session,
-    table: cloneValue(table),
-    guests: cloneValue(getSessionGuests(store, session.id))
-  };
-}
-
-function buildSessionDetail(store: ReturnType<typeof readStore>, sessionId: string) {
-  const session = store.sessions.find((entry) => entry.id === sessionId);
-
-  if (!session) {
-    return null;
-  }
-
-  const table = store.tables.find((entry) => entry.id === session.tableId);
-  const branch = store.branches.find((entry) => entry.id === session.branchId);
-
-  if (!table || !branch) {
-    return null;
-  }
-
-  return {
-    ...session,
-    table: cloneValue(table),
-    branch: {
-      id: branch.id,
-      name: branch.name,
-      slug: branch.slug
-    },
-    guests: cloneValue(getSessionGuests(store, session.id))
-  };
-}
-
-function buildOpenSessionFeed(store: ReturnType<typeof readStore>, sessionId: string) {
-  const session = buildSessionDetail(store, sessionId);
-
-  if (!session) {
-    return null;
-  }
-
-  const guestMap = new Map(session.guests.map((guest) => [guest.id, guest]));
-
-  return {
-    ...session,
-    orders: getSessionOrders(store, session.id).map((order) => ({
-      ...order,
-      placedByGuest: order.placedByGuestId
-        ? cloneValue(guestMap.get(order.placedByGuestId) ?? null)
-        : null,
-      items: getOrderItems(store, order.id).map((item) => ({
-        ...item,
-        guest: cloneValue(guestMap.get(item.guestId) ?? null)
-      }))
-    }))
-  };
-}
-
-function normalizeGuestDisplayName(value: string): string {
+function normalizeGuestName(value: string): string {
   return value.normalize("NFKC").replace(/\s+/g, " ").trim();
 }
 
-function foldGuestDisplayName(value: string): string {
-  return normalizeGuestDisplayName(value).toLocaleLowerCase("tr-TR");
+function foldName(value: string): string {
+  return normalizeGuestName(value).toLocaleLowerCase("tr-TR");
 }
+
+const SESSION_WITH_TABLE_AND_GUESTS = {
+  table: true,
+  guests: true,
+} as const;
+
+const SESSION_DETAIL = {
+  table: true,
+  branch: { select: { id: true, name: true, slug: true } },
+  guests: true,
+} as const;
 
 export async function openSession(input: OpenSessionInput) {
   const parsed = openSessionSchema.parse(input);
 
-  return updateStore((store) => {
-    const table = store.tables.find((entry) => entry.code === parsed.tableCode);
+  const table = await prisma.table.findUnique({ where: { code: parsed.tableCode } });
+  if (!table || table.status === "OUT_OF_SERVICE") throw new Error("Table is unavailable");
 
-    if (!table || table.status === "OUT_OF_SERVICE") {
-      throw new Error("Table is unavailable");
-    }
-
-    const existing = store.sessions.find(
-      (session) => session.tableId === table.id && session.status === "OPEN"
-    );
-
-    if (existing) {
-      if (table.status !== "OCCUPIED") {
-        table.status = "OCCUPIED";
-        table.updatedAt = currentTimestamp();
-      }
-
-      return {
-        created: false,
-        session: cloneValue(buildSessionWithTableAndGuests(store, existing.id))
-      };
-    }
-
-    const now = currentTimestamp();
-    table.status = "OCCUPIED";
-    table.updatedAt = now;
-
-    const session = {
-      id: makeId("session"),
-      branchId: table.branchId,
-      tableId: table.id,
-      status: "OPEN" as const,
-      totalAmount: "0.00",
-      paidAmount: "0.00",
-      remainingAmount: "0.00",
-      openedAt: now,
-      closedAt: null,
-      readyToCloseAt: null
-    };
-
-    store.sessions.push(session);
-
-    return {
-      created: true,
-      session: cloneValue(buildSessionWithTableAndGuests(store, session.id))
-    };
+  const existing = await prisma.tableSession.findFirst({
+    where: { tableId: table.id, status: "OPEN" },
+    include: SESSION_WITH_TABLE_AND_GUESTS,
   });
+
+  if (existing) {
+    if (table.status !== "OCCUPIED") {
+      await prisma.table.update({ where: { id: table.id }, data: { status: "OCCUPIED" } });
+    }
+    return { created: false, session: existing };
+  }
+
+  const [session] = await prisma.$transaction([
+    prisma.tableSession.create({
+      data: {
+        branchId: table.branchId,
+        tableId: table.id,
+        status: "OPEN",
+        totalAmount: 0,
+        paidAmount: 0,
+        remainingAmount: 0,
+      },
+      include: SESSION_WITH_TABLE_AND_GUESTS,
+    }),
+    prisma.table.update({ where: { id: table.id }, data: { status: "OCCUPIED" } }),
+  ]);
+
+  return { created: true, session };
 }
 
 export async function joinSession(input: JoinSessionInput) {
   const parsed = joinSessionSchema.parse(input);
 
-  return updateStore((store) => {
-    const table = store.tables.find((entry) => entry.code === parsed.tableCode);
+  const table = await prisma.table.findUnique({ where: { code: parsed.tableCode } });
+  if (!table) throw new Error("Table not found");
 
-    if (!table) {
-      throw new Error("Table not found");
-    }
-
-    const activeSession = store.sessions.find(
-      (session) => session.tableId === table.id && session.status === "OPEN"
-    );
-
-    if (!activeSession) {
-      throw new Error("No active table session. Ask waiter to open the table.");
-    }
-
-    const currentGuests = getSessionGuests(store, activeSession.id);
-    const requestedDisplayName = normalizeGuestDisplayName(parsed.displayName);
-    const requestedFoldedName = foldGuestDisplayName(requestedDisplayName);
-    const reusableGuest = parsed.reuseGuestId
-      ? currentGuests.find((guest) => guest.id === parsed.reuseGuestId) ?? null
-      : null;
-
-    if (reusableGuest && foldGuestDisplayName(reusableGuest.displayName) === requestedFoldedName) {
-      return {
-        session: cloneValue(buildSessionDetail(store, activeSession.id)),
-        guest: cloneValue(reusableGuest),
-        created: false
-      };
-    }
-
-    const guest = {
-      id: makeId("guest"),
-      sessionId: activeSession.id,
-      displayName: requestedDisplayName,
-      joinedAt: currentTimestamp()
-    };
-
-    store.guests.push(guest);
-
-    return {
-      session: cloneValue(buildSessionDetail(store, activeSession.id)),
-      guest: cloneValue(guest),
-      created: true
-    };
+  const activeSession = await prisma.tableSession.findFirst({
+    where: { tableId: table.id, status: "OPEN" },
+    include: SESSION_DETAIL,
   });
+
+  if (!activeSession) throw new Error("No active table session. Ask waiter to open the table.");
+
+  const requestedName = normalizeGuestName(parsed.displayName);
+  const requestedFolded = foldName(requestedName);
+
+  if (parsed.reuseGuestId) {
+    const existing = await prisma.guest.findFirst({
+      where: { id: parsed.reuseGuestId, sessionId: activeSession.id },
+    });
+    if (existing && foldName(existing.displayName) === requestedFolded) {
+      return { session: activeSession, guest: existing, created: false };
+    }
+  }
+
+  const guest = await prisma.guest.create({
+    data: { sessionId: activeSession.id, displayName: requestedName },
+  });
+
+  return { session: activeSession, guest, created: true };
 }
 
 export async function closeSession(input: CloseSessionInput) {
   const parsed = closeSessionSchema.parse(input);
 
-  return updateStore((store) => {
-    const session = store.sessions.find((entry) => entry.id === parsed.sessionId);
+  const session = await prisma.tableSession.findUnique({ where: { id: parsed.sessionId } });
+  if (!session) throw new Error("Session not found");
 
-    if (!session) {
-      throw new Error("Session not found");
-    }
+  const [updated] = await prisma.$transaction([
+    prisma.tableSession.update({
+      where: { id: parsed.sessionId },
+      data: { status: "CLOSED", closedAt: new Date() },
+    }),
+    prisma.table.update({
+      where: { id: session.tableId },
+      data: { status: "AVAILABLE" },
+    }),
+  ]);
 
-    session.status = "CLOSED";
-    session.closedAt = currentTimestamp();
-
-    const table = store.tables.find((entry) => entry.id === session.tableId);
-
-    if (table) {
-      table.status = "AVAILABLE";
-      table.updatedAt = currentTimestamp();
-    }
-
-    return cloneValue(session);
-  });
+  return updated;
 }
 
 export async function getActiveSessionByTableCode(tableCode: string) {
-  const store = readStore();
-  const table = store.tables.find((entry) => entry.code === tableCode);
+  const table = await prisma.table.findUnique({ where: { code: tableCode } });
+  if (!table) return null;
 
-  if (!table) {
-    return null;
-  }
-
-  const activeSession = store.sessions.find(
-    (session) => session.tableId === table.id && session.status === "OPEN"
-  );
-
-  if (!activeSession) {
-    return null;
-  }
-
-  return cloneValue(buildSessionDetail(store, activeSession.id));
+  return prisma.tableSession.findFirst({
+    where: { tableId: table.id, status: "OPEN" },
+    include: SESSION_DETAIL,
+  });
 }
 
 export async function listOpenSessions(branchId?: string, branchIds?: string[] | null) {
-  const store = readStore();
-  const allowedBranchIds = branchIds ? new Set(branchIds) : null;
-
-  return sortByOpenedAtAsc(
-    store.sessions.filter(
-      (session) =>
-        session.status === "OPEN" &&
-        (!branchId || session.branchId === branchId) &&
-        (!allowedBranchIds || allowedBranchIds.has(session.branchId))
-    )
-  )
-    .map((session) => buildOpenSessionFeed(store, session.id))
-    .filter((session): session is NonNullable<typeof session> => Boolean(session))
-    .map((session) => cloneValue(session));
+  return prisma.tableSession.findMany({
+    where: {
+      status: "OPEN",
+      ...(branchId ? { branchId } : {}),
+      ...(branchIds ? { branchId: { in: branchIds } } : {}),
+    },
+    include: {
+      table: true,
+      branch: { select: { id: true, name: true } },
+      guests: true,
+      orders: {
+        include: {
+          items: { where: { status: { not: "VOID" } } },
+        },
+      },
+    },
+    orderBy: { openedAt: "asc" },
+  });
 }

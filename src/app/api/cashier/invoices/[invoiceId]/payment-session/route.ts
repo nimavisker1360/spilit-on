@@ -15,7 +15,7 @@ type RouteContext = {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const branchId = resolveEntityBranchId("invoice", context.params.invoiceId);
+    const branchId = await resolveEntityBranchId("invoice", context.params.invoiceId);
     const accessContext = await requireEntityPermission(
       request,
       "cashier.payment.manage",
