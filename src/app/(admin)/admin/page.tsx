@@ -1596,119 +1596,15 @@ export default function AdminDashboardPage() {
       <section className="section-block">
         <div className="section-copy">
           <p className="section-kicker">Menu setup</p>
-          <h3>Categories and items</h3>
+          <h3>Menu import</h3>
           <p className="panel-subtitle">
-            Keep menu structure easy to maintain so waiter, kitchen, and QR ordering stay consistent.
+            Use the Excel or CSV file as the main menu source. Manual forms stay available for quick one-off fixes.
           </p>
         </div>
 
-        <div className="grid-2">
-          <AdminFormCard title="Create menu category" description="Define category ordering per branch.">
-          <form className="stack-md" onSubmit={handleCreateCategory}>
-            <AdminField label="Branch">
-              <select
-                value={categoryForm.branchId}
-                onChange={(event) => setCategoryForm((prev) => ({ ...prev, branchId: event.target.value }))}
-                required
-              >
-                <option value="">Select branch</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-
-            <AdminField label="Category name">
-              <input
-                value={categoryForm.name}
-                onChange={(event) => setCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-            </AdminField>
-
-            <AdminField label="Sort order">
-              <input
-                type="number"
-                value={categoryForm.sortOrder}
-                onChange={(event) => setCategoryForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-                />
-              </AdminField>
-
-            <p className="helper-text">Lower sort values appear earlier in customer and operator views.</p>
-
-            <AdminActions>
-              <button type="submit">Create category</button>
-            </AdminActions>
-          </form>
-          </AdminFormCard>
-
-          <AdminFormCard title="Create menu item" description="Create categorized or uncategorized items in Turkish Lira.">
-          <form className="stack-md" onSubmit={handleCreateItem}>
-            <AdminField label="Branch">
-              <select
-                value={itemForm.branchId}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, branchId: event.target.value, categoryId: "" }))}
-                required
-              >
-                <option value="">Select branch</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-
-            <AdminField label="Category">
-              <select
-                value={itemForm.categoryId}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-              >
-                <option value="">Uncategorized</option>
-                {selectableCategoriesForCreateItem.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-
-            <AdminField label="Name">
-              <input value={itemForm.name} onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))} required />
-            </AdminField>
-
-            <AdminField label="Description">
-              <textarea
-                value={itemForm.description}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
-              />
-            </AdminField>
-
-
-            <AdminField label="Availability">
-              <select
-                value={itemForm.isAvailable}
-                onChange={(event) => setItemForm((prev) => ({ ...prev, isAvailable: event.target.value as AvailabilityValue }))}
-              >
-                <option value="true">Available</option>
-                <option value="false">Unavailable</option>
-              </select>
-            </AdminField>
-
-            <p className="helper-text">Unavailable items stay in the catalog but are blocked from ordering.</p>
-
-            <AdminActions>
-              <button type="submit">Create menu item</button>
-            </AdminActions>
-          </form>
-          </AdminFormCard>
-        </div>
-
         <AdminFormCard
-          title="Import menu items (Excel/CSV)"
-          description="Upload .xlsx, .xls, or .csv files. Prices are interpreted as Turkish Lira (TRY)."
+          title="Import full menu (Excel/CSV)"
+          description="Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY)."
         >
           <form className="stack-md" onSubmit={handleImportMenuItems}>
             <AdminField label="Branch">
@@ -1730,13 +1626,14 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <p className="helper-text">
-              Zorunlu alanlar: urun adi ve fiyat. Dosya yuklendikten sonra hangi kolonun neye ait oldugunu elle degistirebilirsiniz.
-            </p>
-
-            <p className="helper-text">
-              Template basliklari da desteklenir: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.
-            </p>
+            <div className="helper-panel stack-md">
+              <p className="helper-text">
+                Required columns are item name and price. Category names in the file are matched or created for the selected branch.
+              </p>
+              <p className="helper-text">
+                Supported template headers: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.
+              </p>
+            </div>
 
             {importSourceColumns.length > 0 ? (
               <div className="helper-panel stack-md">
@@ -1844,6 +1741,149 @@ export default function AdminDashboardPage() {
             </AdminActions>
           </form>
         </AdminFormCard>
+
+        <div className="section-copy">
+          <p className="section-kicker">Manual fallback</p>
+          <h3>Quick one-off changes</h3>
+          <p className="panel-subtitle">
+            Use these forms only when you need to add a single category or item without uploading the file again.
+          </p>
+        </div>
+
+        <div className="grid-2">
+          <AdminFormCard title="Add category manually" description="For a small category fix after the main menu import.">
+          <form className="stack-md" onSubmit={handleCreateCategory}>
+            <AdminField label="Branch">
+              <select
+                value={categoryForm.branchId}
+                onChange={(event) => setCategoryForm((prev) => ({ ...prev, branchId: event.target.value }))}
+                required
+              >
+                <option value="">Select branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+
+            <AdminField label="Category name">
+              <input
+                value={categoryForm.name}
+                onChange={(event) => setCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
+                required
+              />
+            </AdminField>
+
+            <AdminField label="Sort order">
+              <input
+                type="number"
+                value={categoryForm.sortOrder}
+                onChange={(event) => setCategoryForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
+              />
+            </AdminField>
+
+            <p className="helper-text">Lower sort values appear earlier in customer and operator views.</p>
+
+            <AdminActions>
+              <button type="submit" className="secondary">Add category</button>
+            </AdminActions>
+          </form>
+          </AdminFormCard>
+
+          <AdminFormCard title="Add menu item manually" description="For a one-off item; Excel remains the main path for bulk menu setup.">
+          <form className="stack-md" onSubmit={handleCreateItem}>
+            <AdminField label="Branch">
+              <select
+                value={itemForm.branchId}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, branchId: event.target.value, categoryId: "" }))}
+                required
+              >
+                <option value="">Select branch</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+
+            <AdminField label="Category">
+              <select
+                value={itemForm.categoryId}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+              >
+                <option value="">Uncategorized</option>
+                {selectableCategoriesForCreateItem.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+
+            <AdminField label="Name">
+              <input value={itemForm.name} onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))} required />
+            </AdminField>
+
+            <AdminField label="Description">
+              <textarea
+                value={itemForm.description}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+            </AdminField>
+
+            <AdminField label="Image URL">
+              <input
+                type="url"
+                value={itemForm.imageUrl}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
+                placeholder="https://example.com/item.jpg"
+              />
+            </AdminField>
+
+            <AdminField label="Price (TRY)">
+              <input
+                inputMode="decimal"
+                value={itemForm.price}
+                onBlur={(event) => setItemForm((prev) => ({ ...prev, price: formatPriceFieldValue(event.target.value) }))}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, price: sanitizePriceInput(event.target.value) }))}
+                required
+              />
+              {createItemPricePreview !== null ? (
+                <span className="helper-text">Preview: {formatTryCurrency(createItemPricePreview)}</span>
+              ) : null}
+            </AdminField>
+
+            <AdminField label="Sort order">
+              <input
+                type="number"
+                min={0}
+                max={999}
+                value={itemForm.sortOrder}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
+              />
+            </AdminField>
+
+            <AdminField label="Availability">
+              <select
+                value={itemForm.isAvailable}
+                onChange={(event) => setItemForm((prev) => ({ ...prev, isAvailable: event.target.value as AvailabilityValue }))}
+              >
+                <option value="true">Available</option>
+                <option value="false">Unavailable</option>
+              </select>
+            </AdminField>
+
+            <p className="helper-text">Unavailable items stay in the catalog but are blocked from ordering.</p>
+
+            <AdminActions>
+              <button type="submit" className="secondary">Add menu item</button>
+            </AdminActions>
+          </form>
+          </AdminFormCard>
+        </div>
       </section>
 
       {branches.length > 0 ? (
@@ -2273,6 +2313,49 @@ export default function AdminDashboardPage() {
                                         value={itemEditForm.description}
                                         onChange={(event) =>
                                           setItemEditForm((prev) => ({ ...prev, description: event.target.value }))
+                                        }
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Image URL">
+                                      <input
+                                        type="url"
+                                        value={itemEditForm.imageUrl}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({ ...prev, imageUrl: event.target.value }))
+                                        }
+                                        placeholder="https://example.com/item.jpg"
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Price (TRY)">
+                                      <input
+                                        inputMode="decimal"
+                                        value={itemEditForm.price}
+                                        onBlur={(event) =>
+                                          setItemEditForm((prev) => ({
+                                            ...prev,
+                                            price: formatPriceFieldValue(event.target.value),
+                                          }))
+                                        }
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({
+                                            ...prev,
+                                            price: sanitizePriceInput(event.target.value),
+                                          }))
+                                        }
+                                        required
+                                      />
+                                      {editItemPricePreview !== null ? (
+                                        <span className="helper-text">Preview: {formatTryCurrency(editItemPricePreview)}</span>
+                                      ) : null}
+                                    </AdminField>
+                                    <AdminField label="Sort order">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={999}
+                                        value={itemEditForm.sortOrder}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))
                                         }
                                       />
                                     </AdminField>

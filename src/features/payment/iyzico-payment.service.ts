@@ -927,7 +927,14 @@ export async function verifyAndFinalizePayment(input: {
       include: { guest: true }
     });
     const updatedPs = await tx.paymentSession.findUniqueOrThrow({
-      where: { id: paymentSession.id }
+      where: { id: paymentSession.id },
+      include: {
+        session: {
+          include: {
+            table: true
+          }
+        }
+      }
     });
 
     return { paymentShare: updatedShare, paymentSession: updatedPs };
@@ -966,7 +973,14 @@ export async function getIyzicoPaymentResultForShare(paymentShareId: string) {
   if (!share) throw new Error("Payment share not found.");
 
   const paymentSession = await prisma.paymentSession.findUniqueOrThrow({
-    where: { id: share.paymentSessionId }
+    where: { id: share.paymentSessionId },
+    include: {
+      session: {
+        include: {
+          table: true
+        }
+      }
+    }
   });
 
   return { paymentShare: share, paymentSession };

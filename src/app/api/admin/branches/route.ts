@@ -58,7 +58,7 @@ export async function DELETE(request: Request) {
       action: "branch.delete",
       entityType: "branch",
       entityId: branch.id,
-      branchId: branch.id,
+      branchId: null,
       before: branch
     });
     return NextResponse.json({ data: branch });

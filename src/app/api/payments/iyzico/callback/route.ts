@@ -29,6 +29,16 @@ function resultRedirectUrl(paymentShareId: string, status: string, request: Requ
   return url;
 }
 
+function nextGuestPaymentRedirectUrl(tableCode: string, request: Request): URL {
+  const url = new URL(`/guest/${encodeURIComponent(tableCode)}/payment`, callbackRedirectBaseUrl(request));
+  url.searchParams.set("handoff", "next");
+  return url;
+}
+
+function hasRemainingPaymentAmount(value: unknown): boolean {
+  return Number(value?.toString() ?? "0") > 0;
+}
+
 function isLocalhostUrl(value: string): boolean {
   try {
     const { hostname } = new URL(value);
@@ -171,6 +181,17 @@ async function callbackPayloadFromRequest(request: Request): Promise<ParsedCallb
 async function redirectForCallback(request: Request, payload: JsonObject) {
   try {
     const result = await handleIyzicoCallback(payload);
+    const tableCode = result.paymentSession.session?.table?.code;
+
+    if (
+      result.paymentShare.status === "PAID" &&
+      result.paymentSession.status === "PARTIALLY_PAID" &&
+      tableCode &&
+      hasRemainingPaymentAmount(result.paymentSession.remainingAmount)
+    ) {
+      return NextResponse.redirect(nextGuestPaymentRedirectUrl(tableCode, request), { status: 303 });
+    }
+
     return NextResponse.redirect(resultRedirectUrl(result.paymentShare.id, result.paymentShare.status, request), { status: 303 });
   } catch (error) {
     const token = tokenFromPayload(payload);

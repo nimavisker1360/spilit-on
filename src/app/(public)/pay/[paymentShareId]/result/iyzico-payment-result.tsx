@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
@@ -115,6 +116,7 @@ async function fetchPaymentResult(paymentShareId: string): Promise<PaymentResult
 }
 
 export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initialError = "" }: Props) {
+  const router = useRouter();
   const [state, setState] = useState<PaymentResultState | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
@@ -208,6 +210,15 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
   const hasRemainingGuestPayments = Boolean(
     paymentShare?.status === "PAID" && paymentSession && paymentSession.status === "PARTIALLY_PAID" && toCents(paymentSession.remainingAmount) > 0
   );
+  const nextGuestPaymentHref = tableCode ? `/guest/${encodeURIComponent(tableCode)}/payment?handoff=next` : "";
+
+  useEffect(() => {
+    if (!hasRemainingGuestPayments || !nextGuestPaymentHref) {
+      return;
+    }
+
+    router.replace(nextGuestPaymentHref);
+  }, [hasRemainingGuestPayments, nextGuestPaymentHref, router]);
 
   return (
     <div className="stack-md">

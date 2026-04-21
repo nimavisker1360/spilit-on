@@ -2257,6 +2257,25 @@ button:disabled {
   font-size: 0.72rem;
 }
 
+.guest-checkout-candidate.is-paid,
+.guest-person-bill.is-paid,
+.guest-split-row.is-paid {
+  border-color: #d7dbe5;
+  background: #f7f8fb;
+  box-shadow: none;
+  opacity: 0.62;
+}
+
+.guest-checkout-candidate.is-paid {
+  cursor: not-allowed;
+}
+
+.guest-checkout-candidate.is-paid span,
+.guest-person-bill.is-paid h3,
+.guest-split-row.is-paid strong {
+  color: #6b7280;
+}
+
 .guest-checkout-person-list,
 .guest-split-list {
   display: grid;

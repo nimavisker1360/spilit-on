@@ -248,7 +248,7 @@ function formatPaymentStatus(value: string): string {
   }
 
   if (value === "PAID") {
-    return "Odeme basarili";
+    return "پرداخت کرده";
   }
 
   if (value === "FAILED") {
@@ -332,6 +332,10 @@ function isSharePayable(status: PaymentShareStatus): boolean {
 
 function isCandidatePayable(status: PaymentShareStatus | null): boolean {
   return status === "UNPAID" || status === "FAILED" || status === "PENDING";
+}
+
+function isPaidStatus(status: PaymentShareStatus | null | undefined): boolean {
+  return status === "PAID";
 }
 
 function candidatePaymentPriority(status: PaymentShareStatus | null): number {
@@ -1045,6 +1049,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
     return (
       <div className="guest-checkout-candidates">
         {visibleCandidates.map((candidate) => {
+          const isPaidCandidate = isPaidStatus(candidate.shareStatus);
           const candidateShareMeta = candidate.hasPaymentShare
             ? `${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatus(candidate.shareStatus) : "Ready"}`
             : paymentSession
@@ -1055,7 +1060,8 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
             <button
               key={candidate.id}
               type="button"
-              className="guest-checkout-candidate"
+              className={`guest-checkout-candidate${isPaidCandidate ? " is-paid" : ""}`}
+              disabled={isPaidCandidate}
               onClick={() => handleSelectGuest(candidate, { continueToPayment: options?.continueToPayment })}
             >
               <span>{candidate.displayName}</span>
@@ -1201,9 +1207,10 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
             const visibleLines = showBreakdown ? group.lines : group.lines.slice(0, 2);
             const shareForGroup =
               paymentSession?.shares.find((share) => (group.guestId ? share.guestId === group.guestId : share.payerLabel === group.name)) ?? null;
+            const isPaidGroup = isPaidStatus(shareForGroup?.status);
 
             return (
-              <article key={group.key} className={`guest-person-bill${isYou ? " is-you" : ""}`}>
+              <article key={group.key} className={`guest-person-bill${isYou ? " is-you" : ""}${isPaidGroup ? " is-paid" : ""}`}>
                 <div className="guest-person-bill-head">
                   <span className="guest-person-bill-avatar">{getGuestInitials(group.name)}</span>
                   <div>
@@ -1315,7 +1322,10 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
         <div className="guest-split-list">
           <p className="guest-checkout-label">Each person pays</p>
           {splitPreviewRows.map((row, index) => (
-            <article key={`${row.id}-${index}`} className={`guest-split-row${row.isYou ? " is-you" : ""}`}>
+            <article
+              key={`${row.id}-${index}`}
+              className={`guest-split-row${row.isYou ? " is-you" : ""}${isPaidStatus(row.shareStatus) ? " is-paid" : ""}`}
+            >
               <div>
                 <span className="guest-split-avatar">{getGuestInitials(row.isYou ? "You" : row.label)}</span>
                 <span>
@@ -1502,7 +1512,10 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
         <div className="guest-split-list">
           <p className="guest-checkout-label">Payment shares</p>
           {paymentSession.shares.map((share) => (
-            <article key={share.id} className={`guest-split-row${share.guestId === identifiedGuestId ? " is-you" : ""}`}>
+            <article
+              key={share.id}
+              className={`guest-split-row${share.guestId === identifiedGuestId ? " is-you" : ""}${isPaidStatus(share.status) ? " is-paid" : ""}`}
+            >
               <div>
                 <span className="guest-split-avatar">{getGuestInitials(share.guestId === identifiedGuestId ? "You" : share.payerLabel)}</span>
                 <span>
