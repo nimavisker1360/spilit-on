@@ -3,9 +3,11 @@ import {
   createBranchSchema,
   deleteBranchSchema,
   updateBranchSchema,
+  updateRestaurantSchema,
   type CreateBranchInput,
   type DeleteBranchInput,
   type UpdateBranchInput,
+  type UpdateRestaurantInput,
 } from "@/features/restaurant/restaurant.schemas";
 
 const BRANCH_SELECT = {
@@ -25,6 +27,18 @@ const BRANCH_SELECT = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+export async function updateRestaurant(input: UpdateRestaurantInput) {
+  const parsed = updateRestaurantSchema.parse(input);
+
+  const existing = await prisma.restaurant.findUnique({ where: { id: parsed.id } });
+  if (!existing) throw new Error("Restaurant not found");
+
+  return prisma.restaurant.update({
+    where: { id: parsed.id },
+    data: { name: parsed.name }
+  });
+}
 
 export async function createBranch(input: CreateBranchInput) {
   const parsed = createBranchSchema.parse(input);
@@ -120,7 +134,70 @@ export async function deleteBranch(input: DeleteBranchInput) {
     throw new Error("Close open table sessions before deleting this branch");
   }
 
-  await prisma.branch.delete({ where: { id: parsed.id } });
+  await prisma.$transaction(async (tx) => {
+    const sessions = await tx.tableSession.findMany({
+      where: { branchId: parsed.id },
+      select: { id: true },
+    });
+    const sessionIds = sessions.map((session) => session.id);
+
+    if (sessionIds.length > 0) {
+      const orders = await tx.order.findMany({
+        where: { sessionId: { in: sessionIds } },
+        select: { id: true },
+      });
+      const orderIds = orders.map((order) => order.id);
+
+      const invoices = await tx.invoice.findMany({
+        where: { sessionId: { in: sessionIds } },
+        select: { id: true },
+      });
+      const invoiceIds = invoices.map((invoice) => invoice.id);
+
+      if (invoiceIds.length > 0) {
+        const paymentSessions = await tx.paymentSession.findMany({
+          where: { invoiceId: { in: invoiceIds } },
+          select: { id: true },
+        });
+        const paymentSessionIds = paymentSessions.map((ps) => ps.id);
+
+        if (paymentSessionIds.length > 0) {
+          const paymentShares = await tx.paymentShare.findMany({
+            where: { paymentSessionId: { in: paymentSessionIds } },
+            select: { id: true },
+          });
+          const paymentShareIds = paymentShares.map((share) => share.id);
+
+          if (paymentShareIds.length > 0) {
+            await tx.paymentAttempt.deleteMany({ where: { paymentShareId: { in: paymentShareIds } } });
+            await tx.paymentShare.deleteMany({ where: { id: { in: paymentShareIds } } });
+          }
+
+          await tx.paymentSession.deleteMany({ where: { id: { in: paymentSessionIds } } });
+        }
+
+        await tx.payment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+        await tx.invoiceAssignment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+        await tx.invoiceLine.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+        await tx.invoice.deleteMany({ where: { id: { in: invoiceIds } } });
+      }
+
+      if (orderIds.length > 0) {
+        await tx.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
+        await tx.order.deleteMany({ where: { id: { in: orderIds } } });
+      }
+
+      await tx.guest.deleteMany({ where: { sessionId: { in: sessionIds } } });
+      await tx.tableSession.deleteMany({ where: { id: { in: sessionIds } } });
+    }
+
+    await tx.menuItem.deleteMany({ where: { branchId: parsed.id } });
+    await tx.menuCategory.deleteMany({ where: { branchId: parsed.id } });
+    await tx.table.deleteMany({ where: { branchId: parsed.id } });
+
+    await tx.branch.delete({ where: { id: parsed.id } });
+  });
+
   return existing;
 }
 

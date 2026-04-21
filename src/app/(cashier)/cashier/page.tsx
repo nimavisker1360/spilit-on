@@ -201,6 +201,8 @@ function formatShortTime(value: string): string {
   return new Date(value).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
+const ALL_TABLES_KEY = "__all_tables__";
+
 function formatSessionLabel(session: OpenSession): string {
   return `${session.branch.name} | Table ${session.table.name} | Open check`;
 }
@@ -728,6 +730,53 @@ export default function CashierDashboardPage() {
     splitMode: "BY_GUEST_ITEMS" as InvoiceSplitMode,
     payerGuestId: ""
   });
+  const [receiptTableFilter, setReceiptTableFilter] = useState<string>(ALL_TABLES_KEY);
+
+  const receiptTableGroups = useMemo(() => {
+    const grouped = new Map<string, { tableName: string; branchName: string; count: number }>();
+
+    for (const receipt of receipts) {
+      if (!receipt.table) {
+        continue;
+      }
+
+      const branchName = receipt.branch?.name ?? "";
+      const tableName = receipt.table.name;
+      const key = `${branchName}::${tableName}`;
+      const current = grouped.get(key) ?? { tableName, branchName, count: 0 };
+
+      current.count += 1;
+      grouped.set(key, current);
+    }
+
+    return Array.from(grouped.entries()).map(([key, value]) => ({ key, ...value }));
+  }, [receipts]);
+
+  const filteredReceipts = useMemo(() => {
+    if (receiptTableFilter === ALL_TABLES_KEY) {
+      return receipts;
+    }
+
+    return receipts.filter((receipt) => {
+      if (!receipt.table) {
+        return false;
+      }
+
+      const key = `${receipt.branch?.name ?? ""}::${receipt.table.name}`;
+      return key === receiptTableFilter;
+    });
+  }, [receiptTableFilter, receipts]);
+
+  useEffect(() => {
+    if (receiptTableFilter === ALL_TABLES_KEY) {
+      return;
+    }
+
+    const stillExists = receiptTableGroups.some((group) => group.key === receiptTableFilter);
+    if (!stillExists) {
+      setReceiptTableFilter(ALL_TABLES_KEY);
+    }
+  }, [receiptTableFilter, receiptTableGroups]);
 
   const selectedSession = useMemo(
     () => sessions.find((session) => session.id === form.sessionId),
@@ -1075,6 +1124,28 @@ export default function CashierDashboardPage() {
           <h3>Calculate check</h3>
           <p className="helper-text">Prepare the check summary before creating payment shares.</p>
         </div>
+
+        {sessions.length > 0 ? (
+          <div className="table-filter-bar" role="tablist" aria-label="Quick pick table">
+            {sessions.map((session) => {
+              const isActive = form.sessionId === session.id;
+
+              return (
+                <button
+                  key={session.id}
+                  type="button"
+                  className={`table-filter-chip${isActive ? " is-active" : ""}`}
+                  onClick={() => setForm((prev) => ({ ...prev, sessionId: session.id, payerGuestId: "" }))}
+                  aria-pressed={isActive}
+                  title={formatSessionLabel(session)}
+                >
+                  <span>Table {session.table.name}</span>
+                  <span className="table-filter-chip-count">{session.guests.length}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         <label>
           Open session
@@ -1506,11 +1577,44 @@ export default function CashierDashboardPage() {
           {exportError ? <p className="status-banner is-error">{exportError}</p> : null}
         </div>
 
+        {receiptTableGroups.length > 0 ? (
+          <div className="table-filter-bar" role="tablist" aria-label="Filter receipts by table">
+            <button
+              type="button"
+              className={`table-filter-chip${receiptTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
+              onClick={() => setReceiptTableFilter(ALL_TABLES_KEY)}
+              aria-pressed={receiptTableFilter === ALL_TABLES_KEY}
+            >
+              <span>All tables</span>
+              <span className="table-filter-chip-count">{receipts.length}</span>
+            </button>
+            {receiptTableGroups.map((group) => {
+              const isActive = receiptTableFilter === group.key;
+
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  className={`table-filter-chip${isActive ? " is-active" : ""}`}
+                  onClick={() => setReceiptTableFilter(group.key)}
+                  aria-pressed={isActive}
+                  title={`${group.branchName} - Table ${group.tableName}`}
+                >
+                  <span>Table {group.tableName}</span>
+                  <span className="table-filter-chip-count">{group.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         {receipts.length === 0 ? (
           <p className="empty empty-state">No settled receipts yet. Completed payments will appear here after checkout.</p>
+        ) : filteredReceipts.length === 0 ? (
+          <p className="empty empty-state">No receipts for this table yet.</p>
         ) : (
           <div className="receipt-list">
-            {receipts.map((receipt) => {
+            {filteredReceipts.map((receipt) => {
               const receiptNumber = formatInvoiceNumber(receipt.invoiceId, receipt.createdAt);
               const isExpanded = expandedReceiptId === receipt.id;
               const paidShareCount = receipt.shares.filter((share) => share.status === "PAID").length;

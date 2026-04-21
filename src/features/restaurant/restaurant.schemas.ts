@@ -14,6 +14,11 @@ export const createRestaurantSchema = z.object({
   slug: slugSchema
 });
 
+export const updateRestaurantSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(2).max(120)
+});
+
 export const createBranchSchema = z.object({
   restaurantId: z.string().min(1),
   name: z.string().min(2).max(120),
@@ -44,6 +49,7 @@ export const deleteBranchSchema = z.object({
 });
 
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
+export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
 export type CreateBranchInput = z.infer<typeof createBranchSchema>;
 export type UpdateBranchInput = z.infer<typeof updateBranchSchema>;
 export type DeleteBranchInput = z.infer<typeof deleteBranchSchema>;

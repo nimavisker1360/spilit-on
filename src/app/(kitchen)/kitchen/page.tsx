@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
+
+const ALL_TABLES_KEY = "__all_tables__";
 
 type KitchenStatus = "PENDING" | "IN_PROGRESS" | "READY" | "SERVED" | "VOID";
 type KitchenWorkflowStatus = Exclude<KitchenStatus, "VOID">;
@@ -161,6 +163,51 @@ export default function KitchenDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [activeTableFilter, setActiveTableFilter] = useState<string>(ALL_TABLES_KEY);
+
+  const tableGroups = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { tableName: string; branchName: string; total: number; pending: number }
+    >();
+
+    for (const ticket of tickets) {
+      const tableName = ticket.order.session.table.name;
+      const branchName = ticket.order.session.branch.name;
+      const key = `${branchName}::${tableName}`;
+      const current = grouped.get(key) ?? { tableName, branchName, total: 0, pending: 0 };
+
+      current.total += 1;
+      if (ticket.status === "PENDING") {
+        current.pending += 1;
+      }
+
+      grouped.set(key, current);
+    }
+
+    return Array.from(grouped.entries()).map(([key, value]) => ({ key, ...value }));
+  }, [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    if (activeTableFilter === ALL_TABLES_KEY) {
+      return tickets;
+    }
+
+    return tickets.filter(
+      (ticket) => `${ticket.order.session.branch.name}::${ticket.order.session.table.name}` === activeTableFilter
+    );
+  }, [activeTableFilter, tickets]);
+
+  useEffect(() => {
+    if (activeTableFilter === ALL_TABLES_KEY) {
+      return;
+    }
+
+    const stillExists = tableGroups.some((group) => group.key === activeTableFilter);
+    if (!stillExists) {
+      setActiveTableFilter(ALL_TABLES_KEY);
+    }
+  }, [activeTableFilter, tableGroups]);
 
   async function loadTickets() {
     setError("");
@@ -278,9 +325,40 @@ export default function KitchenDashboardPage() {
         </div>
       </section>
 
+      {tableGroups.length > 0 ? (
+        <div className="table-filter-bar" role="tablist" aria-label="Filter by table">
+          <button
+            type="button"
+            className={`table-filter-chip${activeTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
+            onClick={() => setActiveTableFilter(ALL_TABLES_KEY)}
+            aria-pressed={activeTableFilter === ALL_TABLES_KEY}
+          >
+            <span>All tables</span>
+            <span className="table-filter-chip-count">{tickets.length}</span>
+          </button>
+          {tableGroups.map((group) => {
+            const isActive = activeTableFilter === group.key;
+
+            return (
+              <button
+                key={group.key}
+                type="button"
+                className={`table-filter-chip${isActive ? " is-active" : ""}${group.pending > 0 ? " has-pending" : ""}`}
+                onClick={() => setActiveTableFilter(group.key)}
+                aria-pressed={isActive}
+                title={`${group.branchName} - Table ${group.tableName}`}
+              >
+                <span>Table {group.tableName}</span>
+                <span className="table-filter-chip-count">{group.total}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <section className="ticket-board">
         {lanes.map((lane) => {
-          const laneTickets = tickets.filter((ticket) => ticket.status === lane.status);
+          const laneTickets = filteredTickets.filter((ticket) => ticket.status === lane.status);
 
           return (
             <article key={lane.status} className="panel ticket-lane">

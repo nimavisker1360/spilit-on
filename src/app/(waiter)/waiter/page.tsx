@@ -88,6 +88,7 @@ type GuestOrderGroup = {
 
 const ALL_GUESTS_KEY = "__all_guests__";
 const UNASSIGNED_GUEST_KEY = "__unassigned_guest__";
+const ALL_TABLES_KEY = "__all_tables__";
 
 const GUEST_COLORS = ['#3b82f6', '#10b981', '#a855f7', '#ec4899', '#22c55e', '#ef4444'];
 
@@ -307,6 +308,7 @@ export default function WaiterDashboardPage() {
   const [openForm, setOpenForm] = useState({ tableCode: "" });
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState("");
   const [sessionGuestFocus, setSessionGuestFocus] = useState<Record<string, string>>({});
+  const [activeTableFilter, setActiveTableFilter] = useState<string>(ALL_TABLES_KEY);
 
   const [orderForm, setOrderForm] = useState({
     sessionId: "",
@@ -414,6 +416,17 @@ export default function WaiterDashboardPage() {
       void loadData({ silent: true });
     }
   });
+
+  useEffect(() => {
+    if (activeTableFilter === ALL_TABLES_KEY) {
+      return;
+    }
+
+    const stillExists = sessions.some((session) => session.id === activeTableFilter);
+    if (!stillExists) {
+      setActiveTableFilter(ALL_TABLES_KEY);
+    }
+  }, [activeTableFilter, sessions]);
 
   useEffect(() => {
     if (sessions.length === 0) {
@@ -889,8 +902,46 @@ export default function WaiterDashboardPage() {
           </div>
         </div>
         {sessions.length === 0 ? <p className="empty empty-state">No open sessions. Open a table to start guest ordering.</p> : null}
+
+        {sessions.length > 0 ? (
+          <div className="table-filter-bar" role="tablist" aria-label="Filter by table">
+            <button
+              type="button"
+              className={`table-filter-chip${activeTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
+              onClick={() => setActiveTableFilter(ALL_TABLES_KEY)}
+              aria-pressed={activeTableFilter === ALL_TABLES_KEY}
+            >
+              <span>All tables</span>
+              <span className="table-filter-chip-count">{sessions.length}</span>
+            </button>
+            {sessions.map((session) => {
+              const counts = getSessionKitchenCounts(session);
+              const activeCount = counts.PENDING + counts.IN_PROGRESS + counts.READY;
+              const hasPending = counts.PENDING > 0;
+              const isActive = activeTableFilter === session.id;
+
+              return (
+                <button
+                  key={session.id}
+                  type="button"
+                  className={`table-filter-chip${isActive ? " is-active" : ""}${hasPending ? " has-pending" : ""}`}
+                  onClick={() => setActiveTableFilter(session.id)}
+                  aria-pressed={isActive}
+                  title={formatSessionLabel(session)}
+                >
+                  <span>Table {session.table.name}</span>
+                  <span className="table-filter-chip-count">{activeCount}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div className="list">
-          {sessions.map((session) => {
+          {(activeTableFilter === ALL_TABLES_KEY
+            ? sessions
+            : sessions.filter((session) => session.id === activeTableFilter)
+          ).map((session) => {
             const kitchenCounts = getSessionKitchenCounts(session);
             const activeKitchenItems = kitchenCounts.PENDING + kitchenCounts.IN_PROGRESS + kitchenCounts.READY;
             const guestOrderGroups = getSessionGuestOrderGroups(session);

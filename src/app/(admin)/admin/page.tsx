@@ -133,6 +133,7 @@ type MenuImportColumnMapping = Record<ImportColumnKey, string>;
 
 const TABLE_STATUS_OPTIONS: TableStatus[] = ["AVAILABLE", "OCCUPIED", "OUT_OF_SERVICE"];
 const MAX_IMPORT_ROWS = 2000;
+const ALL_BRANCHES_KEY = "__all_branches__";
 
 const MENU_IMPORT_COLUMN_ALIASES = {
   branchName: ["branch", "branchname", "branch_name", "sube", "subename", "location", "locationname"],
@@ -430,6 +431,11 @@ export default function AdminDashboardPage() {
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
 
+  const [restaurantEdits, setRestaurantEdits] = useState<Record<string, string>>({});
+  const [savingRestaurantId, setSavingRestaurantId] = useState<string | null>(null);
+
+  const [activeBranchFilter, setActiveBranchFilter] = useState<string>(ALL_BRANCHES_KEY);
+
   const [branchForm, setBranchForm] = useState({
     restaurantId: "",
     name: "",
@@ -558,6 +564,20 @@ export default function AdminDashboardPage() {
       }))
     );
   }, [branches]);
+
+  const isAllBranchesSelected = activeBranchFilter === ALL_BRANCHES_KEY;
+
+  const filteredBranches = useMemo<BranchListRow[]>(() => {
+    if (isAllBranchesSelected) return branches;
+    return branches.filter((branch) => branch.id === activeBranchFilter);
+  }, [branches, activeBranchFilter, isAllBranchesSelected]);
+
+  useEffect(() => {
+    if (isAllBranchesSelected) return;
+    if (!branches.some((branch) => branch.id === activeBranchFilter)) {
+      setActiveBranchFilter(ALL_BRANCHES_KEY);
+    }
+  }, [branches, activeBranchFilter, isAllBranchesSelected]);
 
   useEffect(() => {
     if (!importBranchId) {
@@ -751,6 +771,50 @@ export default function AdminDashboardPage() {
       await loadSnapshot();
     } catch (bootstrapError) {
       setError(bootstrapError instanceof Error ? bootstrapError.message : "Seed failed");
+    }
+  }
+
+  async function handleRenameRestaurant(restaurantId: string) {
+    const nextName = (restaurantEdits[restaurantId] ?? "").trim();
+
+    if (nextName.length < 2) {
+      setError("Restaurant name must be at least 2 characters.");
+      return;
+    }
+
+    const current = snapshot.find((entry) => entry.id === restaurantId);
+    if (current && current.name === nextName) {
+      setRestaurantEdits((prev) => {
+        const next = { ...prev };
+        delete next[restaurantId];
+        return next;
+      });
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setSavingRestaurantId(restaurantId);
+
+    try {
+      await requestJson("/api/admin/restaurants", "PUT", { id: restaurantId, name: nextName });
+
+      setSnapshot((prev) =>
+        prev.map((restaurant) =>
+          restaurant.id === restaurantId ? { ...restaurant, name: nextName } : restaurant
+        )
+      );
+      setRestaurantEdits((prev) => {
+        const next = { ...prev };
+        delete next[restaurantId];
+        return next;
+      });
+      setMessage("Restaurant renamed.");
+      void loadSnapshot();
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : "Rename restaurant failed");
+    } finally {
+      setSavingRestaurantId(null);
     }
   }
 
@@ -1063,6 +1127,14 @@ export default function AdminDashboardPage() {
 
     try {
       await requestJson("/api/admin/branches", "DELETE", { id: branch.id, force: openSessionsCount > 0 });
+
+      setSnapshot((prev) =>
+        prev.map((restaurant) => ({
+          ...restaurant,
+          branches: restaurant.branches.filter((entry) => entry.id !== branch.id)
+        }))
+      );
+
       setMessage(
         openSessionsCount > 0
           ? "Branch deleted. Active sessions and related records were removed."
@@ -1073,13 +1145,13 @@ export default function AdminDashboardPage() {
         setEditingBranchId(null);
       }
 
-      await loadSnapshot();
+      void loadSnapshot();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Delete branch failed");
     }
   }
 
-  function startTableEdit(table: TableListRow) {
+  function startTableEdit(table: TableRecord) {
     setEditingTableId(table.id);
     setTableEditForm({
       id: table.id,
@@ -1110,7 +1182,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleDeleteTable(table: TableListRow) {
+  async function handleDeleteTable(table: TableRecord) {
     const hasActiveSession = table.sessions.length > 0;
     const confirmMessage = hasActiveSession
       ? `Table "${table.name}" has an active session. Delete it anyway and remove the session, orders, and payment data linked to this table?`
@@ -1125,6 +1197,17 @@ export default function AdminDashboardPage() {
 
     try {
       await requestJson("/api/admin/tables", "DELETE", { id: table.id, force: hasActiveSession });
+
+      setSnapshot((prev) =>
+        prev.map((restaurant) => ({
+          ...restaurant,
+          branches: restaurant.branches.map((branch) => ({
+            ...branch,
+            tables: branch.tables.filter((entry) => entry.id !== table.id)
+          }))
+        }))
+      );
+
       setMessage(
         hasActiveSession
           ? "Table deleted. The active session and related records were removed."
@@ -1135,13 +1218,13 @@ export default function AdminDashboardPage() {
         setEditingTableId(null);
       }
 
-      await loadSnapshot();
+      void loadSnapshot();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Delete table failed");
     }
   }
 
-  function startCategoryEdit(category: CategoryListRow) {
+  function startCategoryEdit(category: MenuCategory) {
     setEditingCategoryId(category.id);
     setCategoryEditForm({
       id: category.id,
@@ -1170,7 +1253,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleDeleteCategory(category: CategoryListRow) {
+  async function handleDeleteCategory(category: MenuCategory) {
     if (!window.confirm(`Delete category "${category.name}"?`)) {
       return;
     }
@@ -1180,19 +1263,30 @@ export default function AdminDashboardPage() {
 
     try {
       await requestJson("/api/admin/menu-categories", "DELETE", { id: category.id });
+
+      setSnapshot((prev) =>
+        prev.map((restaurant) => ({
+          ...restaurant,
+          branches: restaurant.branches.map((branch) => ({
+            ...branch,
+            menuCategories: branch.menuCategories.filter((entry) => entry.id !== category.id)
+          }))
+        }))
+      );
+
       setMessage("Menu category deleted.");
 
       if (editingCategoryId === category.id) {
         setEditingCategoryId(null);
       }
 
-      await loadSnapshot();
+      void loadSnapshot();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Delete category failed");
     }
   }
 
-  function startItemEdit(item: ItemListRow) {
+  function startItemEdit(item: MenuItem) {
     setEditingItemId(item.id);
     setItemEditForm({
       id: item.id,
@@ -1233,7 +1327,7 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleDeleteItem(item: ItemListRow) {
+  async function handleDeleteItem(item: MenuItem) {
     if (!window.confirm(`Delete menu item "${item.name}"?`)) {
       return;
     }
@@ -1243,13 +1337,28 @@ export default function AdminDashboardPage() {
 
     try {
       await requestJson("/api/admin/menu-items", "DELETE", { id: item.id });
+
+      setSnapshot((prev) =>
+        prev.map((restaurant) => ({
+          ...restaurant,
+          branches: restaurant.branches.map((branch) => ({
+            ...branch,
+            menuItems: branch.menuItems.filter((entry) => entry.id !== item.id),
+            menuCategories: branch.menuCategories.map((category) => ({
+              ...category,
+              items: category.items.filter((entry) => entry.id !== item.id)
+            }))
+          }))
+        }))
+      );
+
       setMessage("Menu item deleted.");
 
       if (editingItemId === item.id) {
         setEditingItemId(null);
       }
 
-      await loadSnapshot();
+      void loadSnapshot();
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Delete menu item failed");
     }
@@ -1315,6 +1424,70 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
+      {snapshot.length > 0 ? (
+        <section className="section-block">
+          <div className="section-copy">
+            <p className="section-kicker">Brand</p>
+            <h3>Restaurant name</h3>
+            <p className="panel-subtitle">Rename the top-level brand shown across branches and receipts.</p>
+          </div>
+
+          <div className="grid-2">
+            {snapshot.map((restaurant) => {
+              const draftValue = restaurantEdits[restaurant.id] ?? restaurant.name;
+              const isDirty = draftValue.trim().length >= 2 && draftValue !== restaurant.name;
+              const isSaving = savingRestaurantId === restaurant.id;
+
+              return (
+                <AdminFormCard
+                  key={restaurant.id}
+                  title={restaurant.name}
+                  description="Type a new restaurant name and save."
+                >
+                  <div className="stack-md">
+                    <AdminField label="Restaurant name">
+                      <input
+                        value={draftValue}
+                        onChange={(event) =>
+                          setRestaurantEdits((prev) => ({ ...prev, [restaurant.id]: event.target.value }))
+                        }
+                        placeholder="Type a restaurant name"
+                      />
+                    </AdminField>
+                    <div className="ticket-actions">
+                      <button
+                        type="button"
+                        className="ticket-action-btn"
+                        onClick={() => void handleRenameRestaurant(restaurant.id)}
+                        disabled={!isDirty || isSaving}
+                      >
+                        {isSaving ? "Saving..." : "Save name"}
+                      </button>
+                      {isDirty ? (
+                        <button
+                          type="button"
+                          className="ticket-action-btn secondary"
+                          onClick={() =>
+                            setRestaurantEdits((prev) => {
+                              const next = { ...prev };
+                              delete next[restaurant.id];
+                              return next;
+                            })
+                          }
+                          disabled={isSaving}
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </AdminFormCard>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <section className="section-block">
         <div className="section-copy">
           <p className="section-kicker">Setup</p>
@@ -1328,27 +1501,18 @@ export default function AdminDashboardPage() {
           <AdminFormCard title="Create branch" description="Add an operating location under an existing restaurant.">
           <form className="stack-md" onSubmit={handleCreateBranch}>
             <AdminField label="Restaurant">
-              {snapshot.length === 1 && selectedBranchRestaurant ? (
-                <>
-                  <input type="hidden" value={selectedBranchRestaurant.id} readOnly />
-                  <div className="readonly-field" role="textbox" aria-readonly="true">
-                    {selectedBranchRestaurant.name}
-                  </div>
-                </>
-              ) : (
-                <select
-                  value={branchForm.restaurantId}
-                  onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
-                  required
-                >
-                  <option value="">Select restaurant</option>
-                  {snapshot.map((restaurant) => (
-                    <option key={restaurant.id} value={restaurant.id}>
-                      {restaurant.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                value={branchForm.restaurantId}
+                onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
+                required
+              >
+                <option value="">Select restaurant</option>
+                {snapshot.map((restaurant) => (
+                  <option key={restaurant.id} value={restaurant.id}>
+                    {restaurant.name}
+                  </option>
+                ))}
+              </select>
             </AdminField>
 
             <AdminField label="Branch name">
@@ -1682,12 +1846,62 @@ export default function AdminDashboardPage() {
         </AdminFormCard>
       </section>
 
+      {branches.length > 0 ? (
+        <section className="panel stack-sm">
+          <div className="section-head">
+            <div className="section-copy">
+              <p className="section-kicker">Filter</p>
+              <h3>Branch groups</h3>
+              <p className="panel-subtitle">
+                Pick a branch to open its workspace. Tables, categories, and menu items all live under their branch.
+              </p>
+            </div>
+          </div>
+
+          <div className="table-filter-bar" role="tablist" aria-label="Branch filter">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isAllBranchesSelected}
+              className={`table-filter-chip${isAllBranchesSelected ? " is-active" : ""}`}
+              onClick={() => setActiveBranchFilter(ALL_BRANCHES_KEY)}
+            >
+              <span>All branches</span>
+              <span className="table-filter-chip-count">{branches.length}</span>
+            </button>
+            {branches.map((branch) => {
+              const isActive = activeBranchFilter === branch.id;
+              const itemCount = branch.tables.length + branch.menuCategories.length + branch.menuItems.length;
+              return (
+                <button
+                  key={branch.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`table-filter-chip${isActive ? " is-active" : ""}`}
+                  onClick={() => setActiveBranchFilter(branch.id)}
+                >
+                  <span>{branch.name}</span>
+                  <span className="table-filter-chip-count">{itemCount}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <section className="panel stack-md">
         <div className="section-head">
           <div className="section-copy">
-            <p className="section-kicker">Locations</p>
-            <h3>Branches ({branches.length})</h3>
-            <p className="panel-subtitle">Owner-friendly visibility into each branch, floor setup, and catalog coverage.</p>
+            <p className="section-kicker">Workspace</p>
+            <h3>
+              Branch workspaces ({filteredBranches.length}
+              {isAllBranchesSelected ? "" : ` of ${branches.length}`})
+            </h3>
+            <p className="panel-subtitle">
+              Every branch keeps its own tables, menu categories, and items nested together so setup stays readable.
+              Closed tables across all branches: {tablesOutOfService}.
+            </p>
           </div>
           {isLoading ? <span className="badge badge-outline">Refreshing</span> : null}
         </div>
@@ -1696,384 +1910,408 @@ export default function AdminDashboardPage() {
           <p className="empty empty-state">No branches yet. Create a branch first so tables and menu content can be attached.</p>
         ) : null}
 
-        <div className="list">
-          {branches.map((branch) => (
-            <article key={branch.id} className="list-item entity-card stack-md">
-              <div className="entity-top">
-                <div className="entity-title">
-                  <h4>{branch.name}</h4>
-                  <p className="entity-summary">Part of {branch.restaurantName}</p>
-                  <div className="badge-row">
-                    <span className="badge badge-outline">{branch.slug}</span>
-                    <span className="badge badge-neutral">{branch.location || "Location not set"}</span>
-                  </div>
-                </div>
-                <AdminActions>
-                  <button type="button" className="secondary" onClick={() => startBranchEdit(branch)}>
-                    {editingBranchId === branch.id ? "Editing" : "Edit"}
-                  </button>
-                  <button type="button" className="warn" onClick={() => void handleDeleteBranch(branch)}>
-                    Delete
-                  </button>
-                </AdminActions>
-              </div>
+        <div className="stack-md">
+          {filteredBranches.map((branch) => {
+            const isFocused = !isAllBranchesSelected;
+            const activeSessions = branch.tables.filter((table) => table.sessions.length > 0).length;
 
-              <div className="detail-grid">
-                <div className="detail-card">
-                  <span className="detail-label">Tables</span>
-                  <span className="detail-value">{branch.tables.length}</span>
-                </div>
-                <div className="detail-card">
-                  <span className="detail-label">Menu categories</span>
-                  <span className="detail-value">{branch.menuCategories.length}</span>
-                </div>
-                <div className="detail-card">
-                  <span className="detail-label">Menu items</span>
-                  <span className="detail-value">{branch.menuItems.length}</span>
-                </div>
-              </div>
-
-              <p className="helper-text">
-                {branch.tables.filter((table) => table.sessions.length > 0).length} active session(s) on this branch
-                floor right now.
-              </p>
-
-              {editingBranchId === branch.id ? (
-                <form className="grid-2 helper-panel" onSubmit={handleUpdateBranch}>
-                  <AdminField label="Branch name">
-                    <input
-                      value={branchEditForm.name}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Slug">
-                    <input
-                      value={branchEditForm.slug}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, slug: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Location">
-                    <input
-                      value={branchEditForm.location}
-                      onChange={(event) => setBranchEditForm((prev) => ({ ...prev, location: event.target.value }))}
-                    />
-                  </AdminField>
-                  <p className="helper-text">Updating a branch does not change QR routes. It updates branding and metadata only.</p>
-                  <AdminActions>
-                    <button type="submit">Save branch</button>
-                    <button type="button" className="secondary" onClick={() => setEditingBranchId(null)}>
-                      Cancel
-                    </button>
-                  </AdminActions>
-                </form>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel stack-md">
-        <div className="section-head">
-          <div className="section-copy">
-            <p className="section-kicker">Floor map</p>
-            <h3>Tables ({tables.length})</h3>
-            <p className="panel-subtitle">
-              Track table status, QR readiness, and live session activity at a glance. Closed: {tablesOutOfService}.
-            </p>
-          </div>
-        </div>
-
-        {tables.length === 0 ? <p className="empty empty-state">No tables found. Create tables to generate QR access and waiter-ready sessions.</p> : null}
-
-        <div className="list">
-          {tables.map((table) => (
-            <article key={table.id} className="list-item entity-card stack-md">
-              <div className="entity-top">
-                <div className="entity-title">
-                  <h4>{table.name}</h4>
-                  <p className="entity-summary">{table.branchName}</p>
-                  <div className="badge-row">
-                    <span className={getTableStatusBadgeClass(table.status)}>{getTableStatusLabel(table.status)}</span>
-                    <span className={`badge ${table.sessions.length > 0 ? "badge-status-open" : "badge-status-closed"}`}>
-                      {table.sessions.length > 0 ? "Active session" : "No active session"}
-                    </span>
-                    <span className={`badge ${table.publicToken ? "badge-status-ready" : "badge-status-pending"}`}>
-                      {table.publicToken ? "QR ready" : "QR missing"}
-                    </span>
-                  </div>
-                </div>
-                <AdminActions>
-                  <button type="button" className="secondary" onClick={() => startTableEdit(table)}>
-                    {editingTableId === table.id ? "Editing" : "Edit"}
-                  </button>
-                  <button type="button" className="warn" onClick={() => void handleDeleteTable(table)}>
-                    Delete
-                  </button>
-                </AdminActions>
-              </div>
-
-              <div className="qr-card">
-                <div className="stack-md">
-                  <div className="detail-grid">
-                    <div className="detail-card">
-                      <span className="detail-label">Table code</span>
-                      <span className="detail-value is-mono">{table.code}</span>
-                    </div>
-                    <div className="detail-card">
-                      <span className="detail-label">Capacity</span>
-                      <span className="detail-value">{table.capacity} seats</span>
-                    </div>
-                    <div className="detail-card">
-                      <span className="detail-label">QR link</span>
-                      <span className="detail-value is-mono">{getTablePublicUrl(table.publicToken)}</span>
+            return (
+              <article key={branch.id} className="branch-workspace stack-md">
+                <div className="branch-workspace-head">
+                  <div className="entity-title">
+                    <h4>{branch.name}</h4>
+                    <p className="entity-summary">Part of {branch.restaurantName}</p>
+                    <div className="badge-row">
+                      <span className="badge badge-outline">{branch.slug}</span>
+                      <span className="badge badge-neutral">{branch.location || "Location not set"}</span>
+                      <span className="badge badge-neutral">{branch.tables.length} tables</span>
+                      <span className="badge badge-neutral">{branch.menuCategories.length} categories</span>
+                      <span className="badge badge-neutral">{branch.menuItems.length} items</span>
+                      <span className="badge badge-outline">{activeSessions} active session(s)</span>
                     </div>
                   </div>
-
-                  <p className="helper-text">
-                    {table.sessions.length > 0
-                      ? `${formatTableSessionSummary(table.name, table.sessions[0])} (${formatDateTime(table.sessions[0].openedAt)}).`
-                      : "No active session on this table right now."}
-                  </p>
-                </div>
-
-                <div className="qr-preview">
-                  <Image
-                    src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}`}
-                    alt={`QR code for ${table.name}`}
-                    width={108}
-                    height={108}
-                    loading="lazy"
-                    unoptimized
-                  />
-                  <p className="helper-text">Print-ready QR destination for customers.</p>
-                </div>
-              </div>
-
-              {editingTableId === table.id ? (
-                <form className="grid-2 helper-panel" onSubmit={handleUpdateTable}>
-                  <AdminField label="Table name">
-                    <input
-                      value={tableEditForm.name}
-                      onChange={(event) => setTableEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Capacity">
-                    <input
-                      type="number"
-                      min={1}
-                      value={tableEditForm.capacity}
-                      onChange={(event) => setTableEditForm((prev) => ({ ...prev, capacity: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Status">
-                    <select
-                      value={tableEditForm.status}
-                      onChange={(event) => setTableEditForm((prev) => ({ ...prev, status: event.target.value as TableStatus }))}
-                    >
-                      {TABLE_STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {getTableStatusLabel(status)}
-                        </option>
-                      ))}
-                    </select>
-                  </AdminField>
-                  <p className="helper-text">Status changes only update table availability and do not alter routes or session logic.</p>
                   <AdminActions>
-                    <button type="submit">Save table</button>
-                    <button type="button" className="secondary" onClick={() => setEditingTableId(null)}>
-                      Cancel
+                    {isFocused ? null : (
+                      <button type="button" onClick={() => setActiveBranchFilter(branch.id)}>
+                        Open workspace
+                      </button>
+                    )}
+                    <button type="button" className="secondary" onClick={() => startBranchEdit(branch)}>
+                      {editingBranchId === branch.id ? "Editing" : "Edit"}
+                    </button>
+                    <button type="button" className="warn" onClick={() => void handleDeleteBranch(branch)}>
+                      Delete
                     </button>
                   </AdminActions>
-                </form>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      </section>
+                </div>
 
-      <section className="panel stack-md">
-        <div className="section-head">
-          <div className="section-copy">
-            <p className="section-kicker">Catalog</p>
-            <h3>Menu categories ({categories.length})</h3>
-            <p className="panel-subtitle">Keep category ordering readable for customers and operators.</p>
-          </div>
-        </div>
+                {editingBranchId === branch.id ? (
+                  <form className="grid-2 helper-panel" onSubmit={handleUpdateBranch}>
+                    <AdminField label="Branch name">
+                      <input
+                        value={branchEditForm.name}
+                        onChange={(event) => setBranchEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                        required
+                      />
+                    </AdminField>
+                    <AdminField label="Slug">
+                      <input
+                        value={branchEditForm.slug}
+                        onChange={(event) => setBranchEditForm((prev) => ({ ...prev, slug: event.target.value }))}
+                        required
+                      />
+                    </AdminField>
+                    <AdminField label="Location">
+                      <input
+                        value={branchEditForm.location}
+                        onChange={(event) => setBranchEditForm((prev) => ({ ...prev, location: event.target.value }))}
+                      />
+                    </AdminField>
+                    <p className="helper-text">Updating a branch does not change QR routes. It updates branding and metadata only.</p>
+                    <AdminActions>
+                      <button type="submit">Save branch</button>
+                      <button type="button" className="secondary" onClick={() => setEditingBranchId(null)}>
+                        Cancel
+                      </button>
+                    </AdminActions>
+                  </form>
+                ) : null}
 
-        {categories.length === 0 ? <p className="empty empty-state">No menu categories found. Add categories to organize the customer menu.</p> : null}
+                {isFocused ? (
+                  <div className="branch-workspace-body stack-md">
+                    <details className="branch-workspace-section" open>
+                      <summary>
+                        <span className="branch-workspace-section-kicker">Floor map</span>
+                        <span className="branch-workspace-section-title">Tables</span>
+                        <span className="table-filter-chip-count">{branch.tables.length}</span>
+                      </summary>
 
-        <div className="list">
-          {categories.map((category) => (
-            <article key={category.id} className="list-item entity-card stack-md">
-              <div className="entity-top">
-                <div className="entity-title">
-                  <h4>{category.name}</h4>
-                  <p className="entity-summary">{category.branchName}</p>
-                  <div className="badge-row">
-                    <span className="badge badge-outline">Sort {category.sortOrder}</span>
-                    <span className="badge badge-neutral">{category.items.length} linked items</span>
+                      <div className="branch-workspace-section-body stack-md">
+                        {branch.tables.length === 0 ? (
+                          <p className="empty empty-state">No tables for this branch yet. Add tables above to generate QR access.</p>
+                        ) : (
+                          <div className="list">
+                            {branch.tables.map((table) => (
+                              <article key={table.id} className="list-item entity-card stack-md">
+                                <div className="entity-top">
+                                  <div className="entity-title">
+                                    <h4>{table.name}</h4>
+                                    <div className="badge-row">
+                                      <span className={getTableStatusBadgeClass(table.status)}>{getTableStatusLabel(table.status)}</span>
+                                      <span className={`badge ${table.sessions.length > 0 ? "badge-status-open" : "badge-status-closed"}`}>
+                                        {table.sessions.length > 0 ? "Active session" : "No active session"}
+                                      </span>
+                                      <span className={`badge ${table.publicToken ? "badge-status-ready" : "badge-status-pending"}`}>
+                                        {table.publicToken ? "QR ready" : "QR missing"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <AdminActions>
+                                    <button type="button" className="secondary" onClick={() => startTableEdit(table)}>
+                                      {editingTableId === table.id ? "Editing" : "Edit"}
+                                    </button>
+                                    <button type="button" className="warn" onClick={() => void handleDeleteTable(table)}>
+                                      Delete
+                                    </button>
+                                  </AdminActions>
+                                </div>
+
+                                <div className="qr-card">
+                                  <div className="stack-md">
+                                    <div className="detail-grid">
+                                      <div className="detail-card">
+                                        <span className="detail-label">Table code</span>
+                                        <span className="detail-value is-mono">{table.code}</span>
+                                      </div>
+                                      <div className="detail-card">
+                                        <span className="detail-label">Capacity</span>
+                                        <span className="detail-value">{table.capacity} seats</span>
+                                      </div>
+                                      <div className="detail-card">
+                                        <span className="detail-label">QR link</span>
+                                        <span className="detail-value is-mono">{getTablePublicUrl(table.publicToken)}</span>
+                                      </div>
+                                    </div>
+
+                                    <p className="helper-text">
+                                      {table.sessions.length > 0
+                                        ? `${formatTableSessionSummary(table.name, table.sessions[0])} (${formatDateTime(table.sessions[0].openedAt)}).`
+                                        : "No active session on this table right now."}
+                                    </p>
+                                  </div>
+
+                                  <div className="qr-preview">
+                                    <Image
+                                      src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}`}
+                                      alt={`QR code for ${table.name}`}
+                                      width={108}
+                                      height={108}
+                                      loading="lazy"
+                                      unoptimized
+                                    />
+                                    <p className="helper-text">Print-ready QR destination for customers.</p>
+                                  </div>
+                                </div>
+
+                                {editingTableId === table.id ? (
+                                  <form className="grid-2 helper-panel" onSubmit={handleUpdateTable}>
+                                    <AdminField label="Table name">
+                                      <input
+                                        value={tableEditForm.name}
+                                        onChange={(event) => setTableEditForm((prev) => ({ ...prev, name: event.target.value }))}
+                                        required
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Capacity">
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={tableEditForm.capacity}
+                                        onChange={(event) => setTableEditForm((prev) => ({ ...prev, capacity: event.target.value }))}
+                                        required
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Status">
+                                      <select
+                                        value={tableEditForm.status}
+                                        onChange={(event) =>
+                                          setTableEditForm((prev) => ({ ...prev, status: event.target.value as TableStatus }))
+                                        }
+                                      >
+                                        {TABLE_STATUS_OPTIONS.map((status) => (
+                                          <option key={status} value={status}>
+                                            {getTableStatusLabel(status)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </AdminField>
+                                    <p className="helper-text">Status changes only update table availability and do not alter routes or session logic.</p>
+                                    <AdminActions>
+                                      <button type="submit">Save table</button>
+                                      <button type="button" className="secondary" onClick={() => setEditingTableId(null)}>
+                                        Cancel
+                                      </button>
+                                    </AdminActions>
+                                  </form>
+                                ) : null}
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
+
+                    <details className="branch-workspace-section">
+                      <summary>
+                        <span className="branch-workspace-section-kicker">Catalog</span>
+                        <span className="branch-workspace-section-title">Menu categories</span>
+                        <span className="table-filter-chip-count">{branch.menuCategories.length}</span>
+                      </summary>
+
+                      <div className="branch-workspace-section-body stack-md">
+                        {branch.menuCategories.length === 0 ? (
+                          <p className="empty empty-state">No categories for this branch yet.</p>
+                        ) : (
+                          <div className="list">
+                            {branch.menuCategories.map((category) => (
+                              <article key={category.id} className="list-item entity-card stack-md">
+                                <div className="entity-top">
+                                  <div className="entity-title">
+                                    <h4>{category.name}</h4>
+                                    <div className="badge-row">
+                                      <span className="badge badge-outline">Sort {category.sortOrder}</span>
+                                      <span className="badge badge-neutral">{category.items.length} linked items</span>
+                                    </div>
+                                  </div>
+                                  <AdminActions>
+                                    <button type="button" className="secondary" onClick={() => startCategoryEdit(category)}>
+                                      {editingCategoryId === category.id ? "Editing" : "Edit"}
+                                    </button>
+                                    <button type="button" className="warn" onClick={() => void handleDeleteCategory(category)}>
+                                      Delete
+                                    </button>
+                                  </AdminActions>
+                                </div>
+
+                                {editingCategoryId === category.id ? (
+                                  <form className="grid-2 helper-panel" onSubmit={handleUpdateCategory}>
+                                    <AdminField label="Category name">
+                                      <input
+                                        value={categoryEditForm.name}
+                                        onChange={(event) =>
+                                          setCategoryEditForm((prev) => ({ ...prev, name: event.target.value }))
+                                        }
+                                        required
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Sort order">
+                                      <input
+                                        type="number"
+                                        value={categoryEditForm.sortOrder}
+                                        onChange={(event) =>
+                                          setCategoryEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))
+                                        }
+                                      />
+                                    </AdminField>
+                                    <p className="helper-text">Sort order controls how categories appear in QR and waiter menus.</p>
+                                    <AdminActions>
+                                      <button type="submit">Save category</button>
+                                      <button type="button" className="secondary" onClick={() => setEditingCategoryId(null)}>
+                                        Cancel
+                                      </button>
+                                    </AdminActions>
+                                  </form>
+                                ) : null}
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
+
+                    <details className="branch-workspace-section">
+                      <summary>
+                        <span className="branch-workspace-section-kicker">Items</span>
+                        <span className="branch-workspace-section-title">Menu items</span>
+                        <span className="table-filter-chip-count">{branch.menuItems.length}</span>
+                      </summary>
+
+                      <div className="branch-workspace-section-body stack-md">
+                        {branch.menuItems.length === 0 ? (
+                          <p className="empty empty-state">No menu items for this branch yet.</p>
+                        ) : (
+                          <div className="list">
+                            {branch.menuItems.map((item) => (
+                              <article key={item.id} className="list-item entity-card stack-md">
+                                <div className="entity-top">
+                                  <div className="entity-title">
+                                    <h4>{item.name}</h4>
+                                    <div className="badge-row">
+                                      <span className={`badge ${item.isAvailable ? "badge-status-available" : "badge-danger"}`}>
+                                        {item.isAvailable ? "Available to order" : "Hidden from ordering"}
+                                      </span>
+                                      <span className="badge badge-neutral">{item.category?.name ?? "Uncategorized"}</span>
+                                    </div>
+                                  </div>
+                                  <AdminActions>
+                                    <button type="button" className="secondary" onClick={() => startItemEdit(item)}>
+                                      {editingItemId === item.id ? "Editing" : "Edit"}
+                                    </button>
+                                    <button type="button" className="warn" onClick={() => void handleDeleteItem(item)}>
+                                      Delete
+                                    </button>
+                                  </AdminActions>
+                                </div>
+
+                                <div className="admin-menu-item-preview">
+                                  {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={item.name} className="admin-menu-item-image" />
+                                  ) : (
+                                    <div className="admin-menu-item-image admin-menu-item-image--empty">
+                                      {item.name.slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <div className="stack-md">
+                                    {item.description ? (
+                                      <p className="helper-text">{item.description}</p>
+                                    ) : (
+                                      <p className="helper-text">No description provided yet.</p>
+                                    )}
+                                    <p className="helper-text">
+                                      {item.imageUrl ? "Image attached to customer menu." : "No image attached yet."}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="detail-grid">
+                                  <div className="detail-card">
+                                    <span className="detail-label">Fiyat</span>
+                                    <span className="detail-value">{formatTryCurrency(item.price)}</span>
+                                  </div>
+                                  <div className="detail-card">
+                                    <span className="detail-label">Sort order</span>
+                                    <span className="detail-value">{item.sortOrder}</span>
+                                  </div>
+                                  <div className="detail-card">
+                                    <span className="detail-label">Category</span>
+                                    <span className="detail-value">{item.category?.name ?? "Uncategorized"}</span>
+                                  </div>
+                                  <div className="detail-card">
+                                    <span className="detail-label">Image</span>
+                                    <span className="detail-value">{item.imageUrl ? "Ready" : "Missing"}</span>
+                                  </div>
+                                </div>
+
+                                {editingItemId === item.id ? (
+                                  <form className="grid-2 helper-panel" onSubmit={handleUpdateItem}>
+                                    <AdminField label="Name">
+                                      <input
+                                        value={itemEditForm.name}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({ ...prev, name: event.target.value }))
+                                        }
+                                        required
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Category">
+                                      <select
+                                        value={itemEditForm.categoryId}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({ ...prev, categoryId: event.target.value }))
+                                        }
+                                      >
+                                        <option value="">Uncategorized</option>
+                                        {selectableCategoriesForEditItem.map((category) => (
+                                          <option key={category.id} value={category.id}>
+                                            {category.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </AdminField>
+                                    <AdminField label="Description">
+                                      <textarea
+                                        value={itemEditForm.description}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({ ...prev, description: event.target.value }))
+                                        }
+                                      />
+                                    </AdminField>
+                                    <AdminField label="Availability">
+                                      <select
+                                        value={itemEditForm.isAvailable}
+                                        onChange={(event) =>
+                                          setItemEditForm((prev) => ({
+                                            ...prev,
+                                            isAvailable: event.target.value as AvailabilityValue,
+                                          }))
+                                        }
+                                      >
+                                        <option value="true">Available</option>
+                                        <option value="false">Unavailable</option>
+                                      </select>
+                                    </AdminField>
+                                    <p className="helper-text">
+                                      Changing availability keeps the item record but blocks new orders when off.
+                                    </p>
+                                    <AdminActions>
+                                      <button type="submit">Save item</button>
+                                      <button type="button" className="secondary" onClick={() => setEditingItemId(null)}>
+                                        Cancel
+                                      </button>
+                                    </AdminActions>
+                                  </form>
+                                ) : null}
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
                   </div>
-                </div>
-                <AdminActions>
-                  <button type="button" className="secondary" onClick={() => startCategoryEdit(category)}>
-                    {editingCategoryId === category.id ? "Editing" : "Edit"}
-                  </button>
-                  <button type="button" className="warn" onClick={() => void handleDeleteCategory(category)}>
-                    Delete
-                  </button>
-                </AdminActions>
-              </div>
-
-              {editingCategoryId === category.id ? (
-                <form className="grid-2 helper-panel" onSubmit={handleUpdateCategory}>
-                  <AdminField label="Category name">
-                    <input
-                      value={categoryEditForm.name}
-                      onChange={(event) => setCategoryEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Sort order">
-                    <input
-                      type="number"
-                      value={categoryEditForm.sortOrder}
-                      onChange={(event) => setCategoryEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-                    />
-                  </AdminField>
-                  <p className="helper-text">Sort order controls how categories appear in QR and waiter menus.</p>
-                  <AdminActions>
-                    <button type="submit">Save category</button>
-                    <button type="button" className="secondary" onClick={() => setEditingCategoryId(null)}>
-                      Cancel
-                    </button>
-                  </AdminActions>
-                </form>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel stack-md">
-        <div className="section-head">
-          <div className="section-copy">
-            <p className="section-kicker">Items</p>
-            <h3>Menu items ({menuItems.length})</h3>
-            <p className="panel-subtitle">
-              Availability, pricing, and descriptions shown here feed directly into waiter and QR ordering.
-            </p>
-          </div>
-        </div>
-
-        {menuItems.length === 0 ? <p className="empty empty-state">No menu items found. Add dishes or drinks to make ordering available.</p> : null}
-
-        <div className="list">
-          {menuItems.map((item) => (
-            <article key={item.id} className="list-item entity-card stack-md">
-              <div className="entity-top">
-                <div className="entity-title">
-                  <h4>{item.name}</h4>
-                  <p className="entity-summary">{item.branchName}</p>
-                  <div className="badge-row">
-                    <span className={`badge ${item.isAvailable ? "badge-status-available" : "badge-danger"}`}>
-                      {item.isAvailable ? "Available to order" : "Hidden from ordering"}
-                    </span>
-                    <span className="badge badge-neutral">{item.category?.name ?? "Uncategorized"}</span>
-                  </div>
-                </div>
-                <AdminActions>
-                  <button type="button" className="secondary" onClick={() => startItemEdit(item)}>
-                    {editingItemId === item.id ? "Editing" : "Edit"}
-                  </button>
-                  <button type="button" className="warn" onClick={() => void handleDeleteItem(item)}>
-                    Delete
-                  </button>
-                </AdminActions>
-              </div>
-
-              <div className="admin-menu-item-preview">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} className="admin-menu-item-image" />
-                ) : (
-                  <div className="admin-menu-item-image admin-menu-item-image--empty">{item.name.slice(0, 2).toUpperCase()}</div>
-                )}
-                <div className="stack-md">
-                  {item.description ? <p className="helper-text">{item.description}</p> : <p className="helper-text">No description provided yet.</p>}
-                  <p className="helper-text">{item.imageUrl ? "Image attached to customer menu." : "No image attached yet."}</p>
-                </div>
-              </div>
-
-              <div className="detail-grid">
-                <div className="detail-card">
-                  <span className="detail-label">Fiyat</span>
-                  <span className="detail-value">{formatTryCurrency(item.price)}</span>
-                </div>
-                <div className="detail-card">
-                  <span className="detail-label">Sort order</span>
-                  <span className="detail-value">{item.sortOrder}</span>
-                </div>
-                <div className="detail-card">
-                  <span className="detail-label">Category</span>
-                  <span className="detail-value">{item.category?.name ?? "Uncategorized"}</span>
-                </div>
-                <div className="detail-card">
-                  <span className="detail-label">Image</span>
-                  <span className="detail-value">{item.imageUrl ? "Ready" : "Missing"}</span>
-                </div>
-              </div>
-
-              {editingItemId === item.id ? (
-                <form className="grid-2 helper-panel" onSubmit={handleUpdateItem}>
-                  <AdminField label="Name">
-                    <input
-                      value={itemEditForm.name}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                      required
-                    />
-                  </AdminField>
-                  <AdminField label="Category">
-                    <select
-                      value={itemEditForm.categoryId}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                    >
-                      <option value="">Uncategorized</option>
-                      {selectableCategoriesForEditItem.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </AdminField>
-                  <AdminField label="Description">
-                    <textarea
-                      value={itemEditForm.description}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, description: event.target.value }))}
-                    />
-                  </AdminField>
-                  <AdminField label="Availability">
-                    <select
-                      value={itemEditForm.isAvailable}
-                      onChange={(event) => setItemEditForm((prev) => ({ ...prev, isAvailable: event.target.value as AvailabilityValue }))}
-                    >
-                      <option value="true">Available</option>
-                      <option value="false">Unavailable</option>
-                    </select>
-                  </AdminField>
-                  <p className="helper-text">Changing availability keeps the item record but blocks new orders when off.</p>
-                  <AdminActions>
-                    <button type="submit">Save item</button>
-                    <button type="button" className="secondary" onClick={() => setEditingItemId(null)}>
-                      Cancel
-                    </button>
-                  </AdminActions>
-                </form>
-              ) : null}
-            </article>
-          ))}
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
