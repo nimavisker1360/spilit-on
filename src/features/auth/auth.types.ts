@@ -34,6 +34,7 @@ export type Permission =
   | "session.read"
   | "session.open"
   | "order.create.manual"
+  | "order.delete"
   | "kitchen.read"
   | "kitchen.update"
   | "cashier.read"

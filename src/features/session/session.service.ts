@@ -138,7 +138,11 @@ export async function listOpenSessions(branchId?: string, branchIds?: string[] |
       guests: true,
       orders: {
         include: {
-          items: { where: { status: { not: "VOID" } } },
+          placedByGuest: true,
+          items: {
+            where: { status: { not: "VOID" } },
+            include: { guest: true },
+          },
         },
       },
     },

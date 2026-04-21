@@ -20,6 +20,13 @@ export type RealtimeEvent =
       source: OrderSource;
     }
   | {
+      type: "order.item.deleted";
+      orderItemId: string;
+      orderId: string;
+      sessionId: string;
+      branchId: string;
+    }
+  | {
       type: "kitchen.item-status.updated";
       orderItemId: string;
       status: KitchenItemStatus;

@@ -168,7 +168,7 @@ function SignupPageContent() {
                   onFocus={() => setFocused(f.id)}
                   onBlur={() => setFocused(null)}
                   placeholder={f.placeholder}
-                  style={{ ...inputStyle, borderColor: focused === f.id ? "rgba(249,115,22,0.6)" : "#252b38" }}
+                  style={{ ...inputStyle, borderColor: focused === f.id ? "rgba(34,197,94,0.6)" : "#252b38" }}
                 />
               </div>
             ))}
@@ -176,9 +176,9 @@ function SignupPageContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ marginTop: "4px", width: "100%", backgroundColor: "#f97316", color: "#fff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.65 : 1, minHeight: "unset", transition: "background-color 150ms ease" }}
-              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = "#ea6c0a"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#f97316"; }}
+              style={{ marginTop: "4px", width: "100%", backgroundColor: "#16a34a", color: "#fff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.65 : 1, minHeight: "unset", transition: "background-color 150ms ease" }}
+              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = "#15803d"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#16a34a"; }}
             >
               {loading ? "Hesap oluşturuluyor..." : "Devam Et"}
             </button>
@@ -186,7 +186,7 @@ function SignupPageContent() {
 
           <p style={{ marginTop: "20px", textAlign: "center", fontSize: "13px", color: "#94a3b8" }}>
             Zaten hesabınız var mı?{" "}
-            <Link href="/login" style={{ fontWeight: 600, color: "#fb923c" }}>
+            <Link href="/login" style={{ fontWeight: 600, color: "#22c55e" }}>
               Giriş yapın
             </Link>
           </p>

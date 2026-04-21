@@ -422,8 +422,8 @@ function defaultStore(): LocalStoreData {
         location: "Center",
         logoUrl: null,
         coverImageUrl: null,
-        primaryColor: "#f28c28",
-        accentColor: "#ffd6b5",
+        primaryColor: "#16a34a",
+        accentColor: "#bbf7d0",
         fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif",
         currency: "TRY",
         localeDefault: "tr",
@@ -764,8 +764,8 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
           location: typeof branch.location === "string" ? branch.location : null,
           logoUrl: typeof branch.logoUrl === "string" ? branch.logoUrl : null,
           coverImageUrl: typeof branch.coverImageUrl === "string" ? branch.coverImageUrl : null,
-          primaryColor: typeof branch.primaryColor === "string" ? branch.primaryColor : "#f28c28",
-          accentColor: typeof branch.accentColor === "string" ? branch.accentColor : "#ffd6b5",
+          primaryColor: typeof branch.primaryColor === "string" ? branch.primaryColor : "#16a34a",
+          accentColor: typeof branch.accentColor === "string" ? branch.accentColor : "#bbf7d0",
           fontFamily:
             typeof branch.fontFamily === "string" && branch.fontFamily.trim()
               ? branch.fontFamily

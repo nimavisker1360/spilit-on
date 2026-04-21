@@ -170,8 +170,8 @@ model Branch {
   location       String?
   logoUrl        String?
   coverImageUrl  String?
-  primaryColor   String                   @default("#f28c28")
-  accentColor    String                   @default("#ffd6b5")
+  primaryColor   String                   @default("#16a34a")
+  accentColor    String                   @default("#bbf7d0")
   fontFamily     String                   @default("\"Trebuchet MS\", \"Segoe UI\", sans-serif")
   currency       String                   @default("TRY") @db.VarChar(3)
   localeDefault  LocaleCode               @default(TR)

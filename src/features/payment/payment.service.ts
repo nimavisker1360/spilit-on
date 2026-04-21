@@ -461,7 +461,6 @@ export async function createPaymentSessionFromInvoice(invoiceId: string) {
       return [
         {
           userId: a?.guestId ?? null,
-          guestId: a?.guestId ?? null,
           guest: a?.guestId ? { connect: { id: a.guestId } } : undefined,
           payerLabel: a ? (a.guest?.displayName ?? a.payerLabel) : formatFullPaymentLabel(tableName),
           amount: invoice.total,
@@ -477,7 +476,6 @@ export async function createPaymentSessionFromInvoice(invoiceId: string) {
 
     return invoice.splits.map((a) => ({
       userId: a.guestId ?? null,
-      guestId: a.guestId ?? null,
       guest: a.guestId ? { connect: { id: a.guestId } } : undefined,
       payerLabel: a.guest?.displayName ?? a.payerLabel,
       amount: a.amount,

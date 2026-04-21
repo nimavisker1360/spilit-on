@@ -12,6 +12,7 @@ const ALL_TENANT_PERMISSIONS: Permission[] = [
   "session.read",
   "session.open",
   "order.create.manual",
+  "order.delete",
   "kitchen.read",
   "kitchen.update",
   "cashier.read",
@@ -33,6 +34,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     "session.read",
     "session.open",
     "order.create.manual",
+    "order.delete",
     "kitchen.read",
     "kitchen.update",
     "cashier.read",
@@ -40,7 +42,7 @@ export const ROLE_PERMISSIONS: Record<StaffRole, Permission[]> = {
     "cashier.payment.manage"
   ],
   CASHIER: ["tenant.read", "session.read", "cashier.read", "cashier.invoice.create", "cashier.payment.manage"],
-  WAITER: ["tenant.read", "session.read", "session.open", "order.create.manual", "kitchen.read"],
+  WAITER: ["tenant.read", "session.read", "session.open", "order.create.manual", "order.delete", "kitchen.read"],
   KITCHEN: ["tenant.read", "kitchen.read", "kitchen.update"]
 };
 

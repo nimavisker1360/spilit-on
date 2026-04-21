@@ -328,8 +328,8 @@ export function GuestExperience({ tableCode }: Props) {
   }, [pathname, tableCode]);
   const branchThemeStyle = useMemo<CSSProperties>(
     () => ({
-      ["--guest-brand" as string]: state?.table.branch.primaryColor ?? "#f28c28",
-      ["--guest-accent" as string]: state?.table.branch.accentColor ?? "#ffd6b5",
+      ["--guest-brand" as string]: state?.table.branch.primaryColor ?? "#16a34a",
+      ["--guest-accent" as string]: state?.table.branch.accentColor ?? "#bbf7d0",
       ["--guest-font" as string]: state?.table.branch.fontFamily ?? "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
     }),
     [state?.table.branch.accentColor, state?.table.branch.fontFamily, state?.table.branch.primaryColor]

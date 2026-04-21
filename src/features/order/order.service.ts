@@ -1,4 +1,4 @@
-import { type KitchenItemStatus, OrderSource } from "@prisma/client";
+import { type KitchenItemStatus, OrderSource, type OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { centsToDecimalString, toCents } from "@/lib/currency";
 import {
@@ -52,6 +52,16 @@ type CreateOrderInternalInput = {
   note?: string;
   items: Array<{ menuItemId: string; quantity: number; guestId?: string; note?: string }>;
 };
+
+function deriveOrderStatus(itemStatuses: KitchenItemStatus[]): OrderStatus {
+  const nonVoided = itemStatuses.filter((status) => status !== "VOID");
+  if (nonVoided.length === 0) return "CANCELLED";
+  if (nonVoided.every((status) => status === "SERVED")) return "COMPLETED";
+  if (nonVoided.every((status) => status === "READY" || status === "SERVED")) return "READY";
+  if (nonVoided.some((status) => status === "IN_PROGRESS")) return "IN_PROGRESS";
+  if (nonVoided.some((status) => status !== "PENDING")) return "IN_PROGRESS";
+  return "PENDING";
+}
 
 async function createOrderInternal(input: CreateOrderInternalInput) {
   const session = await prisma.tableSession.findUnique({ where: { id: input.sessionId } });
@@ -142,6 +152,64 @@ export async function getSessionOrderFeed(sessionId: string) {
       },
     },
     orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function deleteOrderItem(orderItemId: string) {
+  const id = orderItemId.trim();
+  if (!id) throw new Error("Order item id is required");
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.orderItem.findUnique({
+      where: { id },
+      include: {
+        invoiceLines: { select: { id: true } },
+        order: {
+          include: {
+            session: true,
+            items: { select: { id: true, status: true } },
+          },
+        },
+      },
+    });
+
+    if (!existing) throw new Error("Order item not found");
+    if (!existing.order?.session) throw new Error("Order item relation mismatch");
+    if (existing.order.session.status !== "OPEN") {
+      throw new Error("Cannot delete an item from a closed session");
+    }
+    if (existing.invoiceLines.length > 0) {
+      throw new Error("Cannot delete an item that is already on an invoice. Recreate the invoice first.");
+    }
+
+    const remainingStatuses = existing.order.items
+      .filter((item) => item.id !== existing.id)
+      .map((item) => item.status);
+
+    await tx.orderItem.delete({ where: { id: existing.id } });
+
+    let deletedOrder = false;
+    let orderStatus: OrderStatus | null = null;
+
+    if (remainingStatuses.length === 0) {
+      await tx.order.delete({ where: { id: existing.orderId } });
+      deletedOrder = true;
+    } else {
+      orderStatus = deriveOrderStatus(remainingStatuses);
+      await tx.order.update({
+        where: { id: existing.orderId },
+        data: { status: orderStatus },
+      });
+    }
+
+    return {
+      item: existing,
+      orderId: existing.orderId,
+      sessionId: existing.order.sessionId,
+      branchId: existing.order.branchId,
+      deletedOrder,
+      orderStatus,
+    };
   });
 }
 

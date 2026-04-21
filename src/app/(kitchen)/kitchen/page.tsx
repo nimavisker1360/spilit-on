@@ -236,20 +236,20 @@ export default function KitchenDashboardPage() {
   const servedCount = tickets.filter((ticket) => ticket.status === "SERVED").length;
 
   return (
-    <div className="stack-md">
-      <section className="panel dashboard-hero stack-md">
-        <div className="section-head">
+    <div className="kitchen-page stack-md">
+      <section className="panel dashboard-hero kitchen-hero stack-md">
+        <div className="section-head kitchen-hero-head">
           <div className="dashboard-hero-copy">
             <p className="section-kicker">Kitchen flow</p>
             <h2>Kitchen board</h2>
             <p className="panel-subtitle">Workflow remains unchanged: pending to in progress to ready to served.</p>
           </div>
-          <button type="button" onClick={loadTickets}>
+          <button type="button" className="kitchen-refresh-btn" onClick={loadTickets}>
             Refresh
           </button>
         </div>
 
-        <div className="dashboard-stat-grid">
+        <div className="dashboard-stat-grid kitchen-stat-grid">
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Waiting</p>
             <p className="dashboard-stat-value">{pendingCount}</p>

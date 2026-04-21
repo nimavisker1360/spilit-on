@@ -89,6 +89,8 @@ type GuestOrderGroup = {
 const ALL_GUESTS_KEY = "__all_guests__";
 const UNASSIGNED_GUEST_KEY = "__unassigned_guest__";
 
+const GUEST_COLORS = ['#3b82f6', '#10b981', '#a855f7', '#ec4899', '#22c55e', '#ef4444'];
+
 function getSessionKitchenCounts(session: OpenSession): Record<SessionKitchenStatus, number> {
   const counts: Record<SessionKitchenStatus, number> = {
     PENDING: 0,
@@ -283,12 +285,24 @@ async function postJson<T>(url: string, payload: unknown): Promise<T> {
   return json;
 }
 
+async function deleteJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, { method: "DELETE" });
+  const json = (await response.json()) as T & { error?: string };
+
+  if (!response.ok) {
+    throw new Error(json.error || "Delete failed");
+  }
+
+  return json;
+}
+
 export default function WaiterDashboardPage() {
   const [snapshot, setSnapshot] = useState<RestaurantSnapshot[]>([]);
   const [sessions, setSessions] = useState<OpenSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [deletingItemId, setDeletingItemId] = useState("");
 
   const [openForm, setOpenForm] = useState({ tableCode: "" });
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState("");
@@ -496,23 +510,54 @@ export default function WaiterDashboardPage() {
       }
 
       const quantity = Math.max(1, Number(orderForm.quantity) || 1);
+      const submittedGuestId = orderForm.guestId;
+      const submittedSessionId = orderForm.sessionId;
+      const guestForOrder = selectedSession?.guests.find((guest) => guest.id === submittedGuestId) ?? null;
+      const itemForOrder = selectedMenuItem;
 
       await postJson("/api/orders/waiter", {
-        sessionId: orderForm.sessionId,
+        sessionId: submittedSessionId,
         items: [
           {
             menuItemId: orderForm.menuItemId,
             quantity,
-            guestId: orderForm.guestId
+            guestId: submittedGuestId
           }
         ]
       });
 
-      setMessage("Order sent to kitchen queue.");
+      setMessage(
+        `Sent ${itemForOrder?.name ?? "item"} x${quantity} for ${guestForOrder?.displayName ?? "guest"}.`
+      );
+      setSessionGuestFocus((prev) => ({ ...prev, [submittedSessionId]: submittedGuestId }));
       setOrderForm((prev) => ({ ...prev, quantity: "1" }));
       await loadData();
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : "Order failed");
+    }
+  }
+
+  async function handleDeleteOrderItem(item: GuestOrderItem, groupLabel: string) {
+    const confirmed = window.confirm(
+      `Delete ${item.itemName} x${item.quantity} for ${groupLabel}? This removes it from the database.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setDeletingItemId(item.id);
+
+    try {
+      await deleteJson<{ data: unknown }>(`/api/orders/items/${encodeURIComponent(item.id)}`);
+      setMessage(`Deleted ${item.itemName} x${item.quantity}.`);
+      await loadData({ silent: true });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Delete order item failed");
+    } finally {
+      setDeletingItemId((current) => (current === item.id ? "" : current));
     }
   }
 
@@ -524,9 +569,9 @@ export default function WaiterDashboardPage() {
   }, 0);
 
   return (
-    <div className="stack-md">
-      <section className="panel dashboard-hero stack-md">
-        <div className="section-head">
+    <div className="waiter-page stack-md">
+      <section className="waiter-hero stack-md">
+        <div className="section-head waiter-hero-head">
           <div className="dashboard-hero-copy">
             <p className="section-kicker">Floor control</p>
             <h2>Waiter dashboard</h2>
@@ -536,6 +581,7 @@ export default function WaiterDashboardPage() {
           </div>
           <button
             type="button"
+            className="waiter-refresh-btn"
             onClick={() => {
               void loadData();
             }}
@@ -544,7 +590,7 @@ export default function WaiterDashboardPage() {
           </button>
         </div>
 
-        <div className="dashboard-stat-grid">
+        <div className="dashboard-stat-grid waiter-stat-grid">
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Open sessions</p>
             <p className="dashboard-stat-value">{sessions.length}</p>
@@ -581,8 +627,8 @@ export default function WaiterDashboardPage() {
           <p className="panel-subtitle">The workflow stays the same, but the menu and guest selection are much easier to read.</p>
         </div>
 
-        <div className="grid-2">
-          <form className="form-card stack-md" onSubmit={handleOpenSession}>
+        <div className="waiter-actions-grid">
+          <form className="form-card stack-md waiter-open-session-card" onSubmit={handleOpenSession}>
             <div className="section-copy">
               <h3>Open session</h3>
               <p className="helper-text">Use this when guests arrive and the table has not been opened yet.</p>
@@ -606,61 +652,83 @@ export default function WaiterDashboardPage() {
             <button type="submit">Open table</button>
           </form>
 
-          <form className="form-card stack-md" onSubmit={handlePlaceOrder}>
+          <form className="form-card stack-md waiter-order-form" onSubmit={handlePlaceOrder}>
             <div className="section-copy">
               <h3>Waiter order</h3>
-              <p className="helper-text">Pick the guest first, then browse the branch menu by category.</p>
+              <p className="helper-text">Follow the steps below to assign and send an item to the kitchen.</p>
             </div>
-            <label>
-              Session
-              <select
-                value={orderForm.sessionId}
-                onChange={(event) =>
-                  setOrderForm({ sessionId: event.target.value, menuItemId: "", quantity: "1", guestId: "" })
-                }
-                required
-              >
-                <option value="">Select open session</option>
-                {sessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {formatSessionLabel(session)}
-                  </option>
-                ))}
-              </select>
-            </label>
 
-            {selectedSession ? (
-              <div className="selection-summary stack-md">
-                <div className="badge-row">
-                  <span className="badge badge-outline">{selectedSession.branch.name}</span>
-                  <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
-                  <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+            <div className="waiter-step-section">
+              <div className="waiter-step-header">
+                <span className="waiter-step-badge">1</span>
+                <div className="waiter-step-header-copy">
+                  <h4>Session</h4>
+                  <p>Choose the active table</p>
                 </div>
-                <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
               </div>
-            ) : (
-              <p className="helper-text">Select an open session to load guests and branch menu items.</p>
-            )}
+              <label>
+                Table session
+                <select
+                  value={orderForm.sessionId}
+                  onChange={(event) =>
+                    setOrderForm({ sessionId: event.target.value, menuItemId: "", quantity: "1", guestId: "" })
+                  }
+                  required
+                >
+                  <option value="">Select open session</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {formatSessionLabel(session)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedSession ? (
+                <div className="selection-summary stack-md">
+                  <div className="badge-row">
+                    <span className="badge badge-outline">{selectedSession.branch.name}</span>
+                    <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
+                    <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+                  </div>
+                  <p className="helper-text">{formatSessionSummary(selectedSession)}</p>
+                </div>
+              ) : (
+                <p className="helper-text">Select an open session to load guests and branch menu items.</p>
+              )}
+            </div>
 
             {selectedSession && selectedSession.guests.length > 0 ? (
-              <div className="stack-md">
-                <div className="section-copy">
-                  <h4>Guest</h4>
-                  <p className="helper-text">These bright cards make it clear which guest owns the next item.</p>
+              <div className="waiter-step-section">
+                <div className="waiter-step-header">
+                  <span className="waiter-step-badge">2</span>
+                  <div className="waiter-step-header-copy">
+                    <h4>Guest</h4>
+                    <p>Who should this item be assigned to?</p>
+                  </div>
                 </div>
                 <div className="waiter-guest-picker">
-                  {selectedSession.guests.map((guest) => {
+                  {selectedSession.guests.map((guest, guestIndex) => {
                     const guestGroup = selectedSessionGuestGroups.find((group) => group.key === guest.id);
                     const isActive = guest.id === orderForm.guestId;
+                    const guestColor = GUEST_COLORS[guestIndex % GUEST_COLORS.length];
 
                     return (
                       <button
                         key={guest.id}
                         type="button"
                         className={`waiter-guest-card${isActive ? " is-active" : ""}`}
+                        style={
+                          isActive
+                            ? { borderColor: guestColor, background: `${guestColor}1a`, boxShadow: `0 0 0 2px ${guestColor}40` }
+                            : { borderColor: `${guestColor}55` }
+                        }
                         onClick={() => setOrderForm((prev) => ({ ...prev, guestId: guest.id }))}
                         aria-pressed={isActive}
                       >
+                        <div className="waiter-guest-avatar" style={{ background: guestColor }}>
+                          {guest.displayName.charAt(0).toUpperCase()}
+                        </div>
                         <span className="waiter-guest-card-name">{guest.displayName}</span>
                         <span className="waiter-guest-card-meta">
                           {guestGroup ? formatGuestOrderMeta(guestGroup) : "No items yet"}
@@ -672,70 +740,80 @@ export default function WaiterDashboardPage() {
               </div>
             ) : null}
 
-            <div className="waiter-menu-block">
-              <div className="section-copy">
-                <h4>Menu</h4>
-                <p className="helper-text">Pizza, drinks, dessert, and other categories stay grouped instead of mixed in one select box.</p>
+            <div className="waiter-step-section">
+              <div className="waiter-step-header">
+                <span className="waiter-step-badge">3</span>
+                <div className="waiter-step-header-copy">
+                  <h4>Menu item</h4>
+                  <p>Pick a category, then tap an item to select it</p>
+                </div>
+              </div>
+              <div className="waiter-menu-block">
+                {selectedSession && menuCategoriesForSelectedSession.length > 0 ? (
+                  <>
+                    <div className="menu-category-scroller" role="tablist" aria-label="Waiter menu categories">
+                      {menuCategoriesForSelectedSession.map((category) => {
+                        const isActive = category.id === activeMenuCategory?.id;
+
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            className={`menu-category-chip${isActive ? " is-active" : ""}`}
+                            onClick={() => setActiveMenuCategoryId(category.id)}
+                            aria-pressed={isActive}
+                          >
+                            <span>{category.name}</span>
+                            <span className="menu-category-count">{category.items.length}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="waiter-menu-item-grid">
+                      {menuItemsForActiveCategory.map((item) => {
+                        const isSelected = item.id === orderForm.menuItemId;
+
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={`menu-item-card waiter-menu-item-card${isSelected ? " is-selected" : ""}`}
+                            onClick={() => setOrderForm((prev) => ({ ...prev, menuItemId: item.id }))}
+                            aria-pressed={isSelected}
+                          >
+                            <div className="menu-item-head">
+                              <h4>{item.name}</h4>
+                              <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
+                            </div>
+                            <p className="menu-item-description">
+                              {selectedOrderGuest ? `Assign to ${selectedOrderGuest.displayName}` : "Choose a guest and tap to select."}
+                            </p>
+                            <div className="badge-row menu-item-meta">
+                              {activeMenuCategory ? <span className="badge badge-outline">{activeMenuCategory.name}</span> : null}
+                              {isSelected ? <span className="badge badge-status-open">Selected</span> : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : null}
               </div>
 
-              {selectedSession && menuCategoriesForSelectedSession.length > 0 ? (
-                <>
-                  <div className="menu-category-scroller" role="tablist" aria-label="Waiter menu categories">
-                    {menuCategoriesForSelectedSession.map((category) => {
-                      const isActive = category.id === activeMenuCategory?.id;
-
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          className={`menu-category-chip${isActive ? " is-active" : ""}`}
-                          onClick={() => setActiveMenuCategoryId(category.id)}
-                          aria-pressed={isActive}
-                        >
-                          <span>{category.name}</span>
-                          <span className="menu-category-count">{category.items.length}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="waiter-menu-item-grid">
-                    {menuItemsForActiveCategory.map((item) => {
-                      const isSelected = item.id === orderForm.menuItemId;
-
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`menu-item-card waiter-menu-item-card${isSelected ? " is-selected" : ""}`}
-                          onClick={() => setOrderForm((prev) => ({ ...prev, menuItemId: item.id }))}
-                          aria-pressed={isSelected}
-                        >
-                          <div className="menu-item-head">
-                            <h4>{item.name}</h4>
-                            <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
-                          </div>
-                          <p className="menu-item-description">
-                            {selectedOrderGuest ? `Assign to ${selectedOrderGuest.displayName}` : "Choose a guest and tap to select."}
-                          </p>
-                          <div className="badge-row menu-item-meta">
-                            {activeMenuCategory ? <span className="badge badge-outline">{activeMenuCategory.name}</span> : null}
-                            {isSelected ? <span className="badge badge-status-open">Selected</span> : null}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
+              {selectedSession && menuCategoriesForSelectedSession.length === 0 ? (
+                <p className="helper-text">No menu items were found for this branch yet.</p>
               ) : null}
             </div>
 
-            {selectedSession && menuCategoriesForSelectedSession.length === 0 ? (
-              <p className="helper-text">No menu items were found for this branch yet.</p>
-            ) : null}
-
-            <div className="quantity-row">
-              <label htmlFor="waiter-order-quantity">Quantity</label>
+            <div className="waiter-step-section">
+              <div className="waiter-step-header">
+                <span className="waiter-step-badge">4</span>
+                <div className="waiter-step-header-copy">
+                  <h4>Quantity</h4>
+                  <p>How many of this item to send?</p>
+                </div>
+              </div>
               <div className="quantity-stepper waiter-quantity-stepper">
                 <button
                   type="button"
@@ -750,6 +828,7 @@ export default function WaiterDashboardPage() {
                   id="waiter-order-quantity"
                   type="number"
                   min={1}
+                  aria-label="Quantity"
                   inputMode="numeric"
                   value={orderForm.quantity}
                   onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))}
@@ -789,9 +868,10 @@ export default function WaiterDashboardPage() {
 
             <button
               type="submit"
+              className="waiter-cta-btn"
               disabled={!selectedSession || selectedSession.guests.length === 0 || !selectedMenuItem || !orderForm.guestId}
             >
-              Send order
+              Send to kitchen
             </button>
             {selectedSession && selectedSession.guests.length === 0 ? (
               <p className="meta">No guests in this session yet. Ask guests to join before ordering.</p>
@@ -800,7 +880,7 @@ export default function WaiterDashboardPage() {
         </div>
       </section>
 
-      <section className="panel stack-md">
+      <section className="waiter-live-section stack-md">
         <div className="section-head">
           <div className="section-copy">
             <p className="section-kicker">Live floor</p>
@@ -877,6 +957,8 @@ export default function WaiterDashboardPage() {
                     </button>
                     {guestOrderGroups.map((group) => {
                       const isActive = group.key === activeGuestKey;
+                      const guestIdx = group.guest ? session.guests.findIndex((g) => g.id === group.guest!.id) : -1;
+                      const guestColor = guestIdx >= 0 ? GUEST_COLORS[guestIdx % GUEST_COLORS.length] : null;
 
                       return (
                         <button
@@ -886,6 +968,11 @@ export default function WaiterDashboardPage() {
                           onClick={() => setSessionGuestFocus((prev) => ({ ...prev, [session.id]: group.key }))}
                           aria-pressed={isActive}
                         >
+                          {guestColor ? (
+                            <div className="waiter-guest-avatar waiter-guest-avatar-sm" style={{ background: guestColor }}>
+                              {group.label.charAt(0).toUpperCase()}
+                            </div>
+                          ) : null}
                           <span className="waiter-session-guest-name">{group.label}</span>
                           <span className="waiter-session-guest-meta">{formatGuestOrderMeta(group)}</span>
                         </button>
@@ -915,7 +1002,7 @@ export default function WaiterDashboardPage() {
                               {group.guest ? "Every assigned item is shown here in full." : "These items should be checked and assigned to a guest."}
                             </p>
                           </div>
-                          <div className="badge-row">
+                          <div className="badge-row waiter-guest-order-summary">
                             <span className="badge badge-outline">{group.items.length} line item(s)</span>
                             <span className="badge badge-neutral">{group.totalQuantity} qty</span>
                             <span className="badge badge-status-progress">{group.activeQuantity} active</span>
@@ -924,25 +1011,44 @@ export default function WaiterDashboardPage() {
 
                         {group.items.length > 0 ? (
                           <div className="waiter-guest-order-list">
-                            {group.items.map((item) => (
-                              <article key={item.id} className="waiter-guest-order-item">
-                                <div className="waiter-guest-order-item-main">
-                                  <div className="waiter-guest-order-item-copy">
-                                    <h5>{item.itemName}</h5>
-                                    <p>{group.guest ? `For ${group.label}` : "Guest not assigned yet"}</p>
+                            {group.items.map((item) => {
+                              const isDeletingItem = deletingItemId === item.id;
+
+                              return (
+                                <article key={item.id} className="waiter-guest-order-item">
+                                  <div className="waiter-guest-order-item-main">
+                                    <div className="waiter-guest-order-item-copy">
+                                      <h5>{item.itemName}</h5>
+                                      <p>{group.guest ? `For ${group.label}` : "Guest not assigned yet"}</p>
+                                    </div>
+                                    <div className="waiter-guest-order-item-side">
+                                      <div className="waiter-guest-order-item-actions">
+                                        <span className="waiter-guest-order-qty">x{item.quantity}</span>
+                                        <button
+                                          type="button"
+                                          className="waiter-delete-order-item-btn"
+                                          onClick={() => void handleDeleteOrderItem(item, group.label)}
+                                          disabled={isDeletingItem}
+                                          aria-label={`Delete ${item.itemName}`}
+                                          title="Delete cancelled order"
+                                        >
+                                          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                                            <path d="M9 3h6l1 2h4v2H4V5h4l1-2Z" />
+                                            <path d="M6 9h12l-1 11H7L6 9Zm4 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z" />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                      <span className="meta">{formatShortTime(item.createdAt)}</span>
+                                    </div>
                                   </div>
-                                  <div className="waiter-guest-order-item-side">
-                                    <span className="waiter-guest-order-qty">x{item.quantity}</span>
-                                    <span className="meta">{formatShortTime(item.createdAt)}</span>
+                                  <div className="badge-row">
+                                    <span className={sourceBadgeClass(item.source)}>{orderSourceLabel(item.source)}</span>
+                                    <span className={orderStatusBadgeClass(item.orderStatus)}>{orderStatusLabel(item.orderStatus)}</span>
+                                    <span className={kitchenCountBadgeClass(item.status)}>{kitchenStatusLabel(item.status)}</span>
                                   </div>
-                                </div>
-                                <div className="badge-row">
-                                  <span className={sourceBadgeClass(item.source)}>{orderSourceLabel(item.source)}</span>
-                                  <span className={orderStatusBadgeClass(item.orderStatus)}>{orderStatusLabel(item.orderStatus)}</span>
-                                  <span className={kitchenCountBadgeClass(item.status)}>{kitchenStatusLabel(item.status)}</span>
-                                </div>
-                              </article>
-                            ))}
+                                </article>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="waiter-empty-order-card">

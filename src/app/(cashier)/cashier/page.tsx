@@ -1018,9 +1018,9 @@ export default function CashierDashboardPage() {
   );
 
   return (
-    <div className="stack-md">
-      <section className="panel dashboard-hero stack-md">
-        <div className="section-head">
+    <div className="cashier-page stack-md">
+      <section className="panel dashboard-hero cashier-hero stack-md">
+        <div className="section-head cashier-hero-head">
           <div className="dashboard-hero-copy">
             <p className="section-kicker">Billing desk</p>
             <h2>Cashier settlement desk</h2>
@@ -1030,6 +1030,7 @@ export default function CashierDashboardPage() {
           </div>
           <button
             type="button"
+            className="cashier-refresh-btn"
             onClick={() => {
               loadData();
             }}
@@ -1038,7 +1039,7 @@ export default function CashierDashboardPage() {
           </button>
         </div>
 
-        <div className="dashboard-stat-grid">
+        <div className="dashboard-stat-grid cashier-stat-grid">
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Open sessions</p>
             <p className="dashboard-stat-value">{sessions.length}</p>
@@ -1069,7 +1070,7 @@ export default function CashierDashboardPage() {
         </div>
       </section>
 
-      <form className="form-card stack-md" onSubmit={handleCalculate}>
+      <form className="form-card stack-md cashier-check-form" onSubmit={handleCalculate}>
         <div className="section-copy">
           <h3>Calculate check</h3>
           <p className="helper-text">Prepare the check summary before creating payment shares.</p>

@@ -164,7 +164,7 @@ function LoginPageContent() {
                 onFocus={() => setEmailFocus(true)}
                 onBlur={() => setEmailFocus(false)}
                 placeholder="ornek@restoran.com"
-                style={{ ...inputStyle, borderColor: emailFocus ? "rgba(249,115,22,0.6)" : "#252b38" }}
+                style={{ ...inputStyle, borderColor: emailFocus ? "rgba(34,197,94,0.6)" : "#252b38" }}
               />
             </div>
 
@@ -181,10 +181,10 @@ function LoginPageContent() {
                 onFocus={() => setPassFocus(true)}
                 onBlur={() => setPassFocus(false)}
                 placeholder="••••••••"
-                style={{ ...inputStyle, borderColor: passFocus ? "rgba(249,115,22,0.6)" : "#252b38" }}
+                style={{ ...inputStyle, borderColor: passFocus ? "rgba(34,197,94,0.6)" : "#252b38" }}
               />
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-                <Link href="/forgot-password" style={{ fontSize: "12px", color: "#fb923c" }}>
+                <Link href="/forgot-password" style={{ fontSize: "12px", color: "#22c55e" }}>
                   Şifremi unuttum?
                 </Link>
               </div>
@@ -193,9 +193,9 @@ function LoginPageContent() {
             <button
               type="submit"
               disabled={loading}
-              style={{ width: "100%", backgroundColor: "#f97316", color: "#fff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.65 : 1, transition: "background-color 150ms ease", minHeight: "unset" }}
-              onMouseEnter={(e) => { if (!loading) (e.currentTarget.style.backgroundColor = "#ea6c0a"); }}
-              onMouseLeave={(e) => { (e.currentTarget.style.backgroundColor = "#f97316"); }}
+              style={{ width: "100%", backgroundColor: "#16a34a", color: "#fff", border: "none", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.65 : 1, transition: "background-color 150ms ease", minHeight: "unset" }}
+              onMouseEnter={(e) => { if (!loading) (e.currentTarget.style.backgroundColor = "#15803d"); }}
+              onMouseLeave={(e) => { (e.currentTarget.style.backgroundColor = "#16a34a"); }}
             >
               {loading ? "Giriş yapılıyor..." : "Devam Et"}
             </button>
@@ -203,7 +203,7 @@ function LoginPageContent() {
 
           <p style={{ marginTop: "20px", textAlign: "center", fontSize: "13px", color: "#94a3b8" }}>
             Hesabınız yok mu?{" "}
-            <Link href="/signup" style={{ fontWeight: 600, color: "#fb923c" }}>
+            <Link href="/signup" style={{ fontWeight: 600, color: "#22c55e" }}>
               Kayıt olun
             </Link>
           </p>

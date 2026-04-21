@@ -437,8 +437,8 @@ export default function AdminDashboardPage() {
     location: "",
     logoUrl: "",
     coverImageUrl: "",
-    primaryColor: "#f28c28",
-    accentColor: "#ffd6b5",
+    primaryColor: "#16a34a",
+    accentColor: "#bbf7d0",
     fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
   });
 
@@ -482,8 +482,8 @@ export default function AdminDashboardPage() {
     location: "",
     logoUrl: "",
     coverImageUrl: "",
-    primaryColor: "#f28c28",
-    accentColor: "#ffd6b5",
+    primaryColor: "#16a34a",
+    accentColor: "#bbf7d0",
     fontFamily: "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
   });
 
@@ -523,6 +523,14 @@ export default function AdminDashboardPage() {
       }))
     );
   }, [snapshot]);
+
+  const selectedBranchRestaurant = useMemo(() => {
+    if (snapshot.length === 1) {
+      return snapshot[0];
+    }
+
+    return snapshot.find((restaurant) => restaurant.id === branchForm.restaurantId) ?? null;
+  }, [branchForm.restaurantId, snapshot]);
 
   const tables = useMemo<TableListRow[]>(() => {
     return branches.flatMap((branch) =>
@@ -1007,8 +1015,8 @@ export default function AdminDashboardPage() {
       location: branch.location ?? "",
       logoUrl: branch.logoUrl ?? "",
       coverImageUrl: branch.coverImageUrl ?? "",
-      primaryColor: branch.primaryColor ?? "#f28c28",
-      accentColor: branch.accentColor ?? "#ffd6b5",
+      primaryColor: branch.primaryColor ?? "#16a34a",
+      accentColor: branch.accentColor ?? "#bbf7d0",
       fontFamily: branch.fontFamily ?? "\"Trebuchet MS\", \"Segoe UI\", sans-serif"
     });
   }
@@ -1255,9 +1263,9 @@ export default function AdminDashboardPage() {
   const tablesOutOfService = tables.filter((table) => table.status === "OUT_OF_SERVICE").length;
 
   return (
-    <div className="stack-md">
-      <section className="panel dashboard-hero stack-md">
-        <div className="section-head">
+    <div className="admin-page stack-md">
+      <section className="admin-hero stack-md">
+        <div className="section-head admin-hero-head">
           <div className="dashboard-hero-copy">
             <p className="section-kicker">Owner overview</p>
             <h2>Restaurant setup and live floor control</h2>
@@ -1265,7 +1273,7 @@ export default function AdminDashboardPage() {
               Keep branches, floor tables, QR access, and menu content clear for daily operations.
             </p>
           </div>
-          <div className="toolbar">
+          <div className="toolbar admin-toolbar">
             <button type="button" className="secondary" onClick={handleBootstrap}>
               Load sample data
             </button>
@@ -1275,7 +1283,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="dashboard-stat-grid">
+        <div className="dashboard-stat-grid admin-stat-grid">
           <article className="dashboard-stat-card">
             <p className="dashboard-stat-label">Restaurants</p>
             <p className="dashboard-stat-value">{snapshot.length}</p>
@@ -1320,18 +1328,27 @@ export default function AdminDashboardPage() {
           <AdminFormCard title="Create branch" description="Add an operating location under an existing restaurant.">
           <form className="stack-md" onSubmit={handleCreateBranch}>
             <AdminField label="Restaurant">
-              <select
-                value={branchForm.restaurantId}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
-                required
-              >
-                <option value="">Select restaurant</option>
-                {snapshot.map((restaurant) => (
-                  <option key={restaurant.id} value={restaurant.id}>
-                    {restaurant.name}
-                  </option>
-                ))}
-              </select>
+              {snapshot.length === 1 && selectedBranchRestaurant ? (
+                <>
+                  <input type="hidden" value={selectedBranchRestaurant.id} readOnly />
+                  <div className="readonly-field" role="textbox" aria-readonly="true">
+                    {selectedBranchRestaurant.name}
+                  </div>
+                </>
+              ) : (
+                <select
+                  value={branchForm.restaurantId}
+                  onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
+                  required
+                >
+                  <option value="">Select restaurant</option>
+                  {snapshot.map((restaurant) => (
+                    <option key={restaurant.id} value={restaurant.id}>
+                      {restaurant.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </AdminField>
 
             <AdminField label="Branch name">
