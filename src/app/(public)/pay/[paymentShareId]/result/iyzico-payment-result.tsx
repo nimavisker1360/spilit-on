@@ -207,18 +207,16 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
     return centsToDecimalString(toCents(paymentShare.amount) + toCents(paymentShare.tip));
   }, [paymentShare]);
   const tableCode = paymentSession?.session?.table?.code ?? "";
-  const hasRemainingGuestPayments = Boolean(
-    paymentShare?.status === "PAID" && paymentSession && paymentSession.status === "PARTIALLY_PAID" && toCents(paymentSession.remainingAmount) > 0
-  );
-  const nextGuestPaymentHref = tableCode ? `/guest/${encodeURIComponent(tableCode)}/payment?handoff=next` : "";
+  const shouldReturnToGuestPayment = Boolean(paymentShare?.status === "PAID" && tableCode);
+  const guestPaymentHref = tableCode ? `/guest/${encodeURIComponent(tableCode)}/payment` : "";
 
   useEffect(() => {
-    if (!hasRemainingGuestPayments || !nextGuestPaymentHref) {
+    if (!shouldReturnToGuestPayment || !guestPaymentHref) {
       return;
     }
 
-    router.replace(nextGuestPaymentHref);
-  }, [hasRemainingGuestPayments, nextGuestPaymentHref, router]);
+    router.replace(guestPaymentHref);
+  }, [guestPaymentHref, router, shouldReturnToGuestPayment]);
 
   return (
     <div className="stack-md">
@@ -239,9 +237,6 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
               {paymentSession?.session?.table ? `Masa ${paymentSession.session.table.name}` : "Odeme sonucu"} guncelleniyor.
             </p>
           </div>
-          <button type="button" onClick={() => void load()} disabled={loading}>
-            Yenile
-          </button>
         </div>
 
         <div className="status-stack">
@@ -296,12 +291,7 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
 
           {tableCode ? (
             <div className="ticket-actions">
-              {hasRemainingGuestPayments ? (
-                <Link className="checkout-link" href={`/guest/${encodeURIComponent(tableCode)}/payment?handoff=next`}>
-                  Siradaki odemeye gec
-                </Link>
-              ) : null}
-              <Link className="checkout-link" href={`/guest/${encodeURIComponent(tableCode)}/payment`}>
+              <Link className="checkout-link" href={guestPaymentHref}>
                 Hesaba geri don
               </Link>
             </div>

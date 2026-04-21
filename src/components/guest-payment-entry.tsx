@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
@@ -149,7 +148,6 @@ type GuestPaymentActionResponse = {
 type Props = {
   tableCode: string;
   initialGuestId?: string;
-  backHref?: string;
   handoffMode?: string;
 };
 
@@ -178,8 +176,9 @@ type SplitPreviewRow = {
   isYou?: boolean;
 };
 
-const isDevelopment = process.env.NODE_ENV !== "production";
 const TIP_PRESET_RATES = [0, 0.07, 0.1, 0.15] as const;
+const HOST_ROLE_LABEL = "Host";
+const GUEST_ROLE_LABEL = "Guest";
 const CHECKOUT_STEPS: Array<{ id: CheckoutStep; label: string }> = [
   { id: "bill", label: "Hesap" },
   { id: "split", label: "Bol" },
@@ -248,7 +247,7 @@ function formatPaymentStatus(value: string): string {
   }
 
   if (value === "PAID") {
-    return "پرداخت کرده";
+    return "Odendi";
   }
 
   if (value === "FAILED") {
@@ -492,7 +491,7 @@ async function payPaymentShare(shareId: string, input: { userId?: string | null;
   return json.data;
 }
 
-export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, handoffMode = "" }: Props) {
+export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode = "" }: Props) {
   const [state, setState] = useState<GuestPaymentEntryState | null>(null);
   const [identity, setIdentity] = useState<GuestIdentityState | null>(() =>
     initialGuestId.trim()
@@ -610,6 +609,15 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
   const joinedGuestNames = useMemo(
     () => state?.session?.guests.map((guest) => guest.displayName).filter(Boolean) ?? [],
     [state?.session?.guests]
+  );
+  const hostGuestId = useMemo(() => state?.session?.guests[0]?.id ?? "", [state?.session?.guests]);
+  const getGuestRoleLabel = useCallback(
+    (guestId: string | null | undefined) => (guestId && guestId === hostGuestId ? HOST_ROLE_LABEL : GUEST_ROLE_LABEL),
+    [hostGuestId]
+  );
+  const getGuestRoleClassName = useCallback(
+    (guestId: string | null | undefined) => `guest-checkout-role${guestId && guestId === hostGuestId ? " is-host" : ""}`,
+    [hostGuestId]
   );
   const nextPaymentCandidates = useMemo(
     () =>
@@ -923,6 +931,10 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
     void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Odeme payiniz henuz hazir degil.");
   }
 
+  function handleContinueToIyzico() {
+    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Odeme payiniz henuz hazir degil.");
+  }
+
   function handlePayFullBill() {
     void handlePayShare(fullBillShare, "Tum hesabi odeme secenegi bu hesap icin kullanilamaz.");
   }
@@ -1050,11 +1062,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
       <div className="guest-checkout-candidates">
         {visibleCandidates.map((candidate) => {
           const isPaidCandidate = isPaidStatus(candidate.shareStatus);
+          const candidateRoleLabel = getGuestRoleLabel(candidate.id);
           const candidateShareMeta = candidate.hasPaymentShare
-            ? `${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatus(candidate.shareStatus) : "Ready"}`
+            ? `${candidateRoleLabel} | ${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatus(candidate.shareStatus) : "Ready"}`
             : paymentSession
-              ? "No active share found"
-              : "Share is being prepared";
+              ? `${candidateRoleLabel} | No active share found`
+              : `${candidateRoleLabel} | Share is being prepared`;
 
           return (
             <button
@@ -1100,52 +1113,9 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
       const currentSharePaid = myShare?.status === "PAID" && !isCheckoutClosed;
 
       return (
-        <div className="guest-checkout-identity">
-          <div className="guest-checkout-person">
-            <span className="guest-checkout-avatar">{getGuestInitials(state.identifiedGuest.displayName)}</span>
-            <span>
-              <small>Paying as</small>
-              <strong>{state.identifiedGuest.displayName}</strong>
-            </span>
-          </div>
-          <div className="guest-checkout-identity-meta">
-            {myShare ? (
-              <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(myShare.status)}`}>
-                {formatTryCurrency(myShare.amount)} | {formatPaymentStatus(myShare.status)}
-              </span>
-            ) : (
-              <span className="guest-checkout-pill is-muted">No share yet</span>
-            )}
-            {mapping.matchSource ? <small>Matched by {formatMatchSource(mapping.matchSource)}</small> : null}
-          </div>
-          <div className="guest-checkout-identity-actions">
-            <button type="button" className="guest-checkout-text-btn" onClick={handleResetGuest}>
-              Change
-            </button>
-            <button type="button" className="guest-checkout-text-btn" onClick={handleAddGuestClick}>
-              Add guest
-            </button>
-          </div>
-          {currentSharePaid ? (
-            <div className="guest-checkout-handoff">
-              <div>
-                <strong>{state.identifiedGuest.displayName} paid.</strong>
-                <small>
-                  {nextPayableGuestCandidate
-                    ? `Next payable share: ${nextPayableGuestCandidate.displayName}`
-                    : "No other unpaid share is ready yet."}
-                </small>
-              </div>
-              {nextPayableGuestCandidate ? (
-                <button type="button" onClick={handleNextGuestPayment}>
-                  Pay next
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {renderJoinedGuestsList({ excludeGuestId: state.identifiedGuest.id })}
+        <div className="guest-checkout-identity-stack">
           {showAddGuestForm ? (
-            <div className="guest-checkout-inline-join">
+            <div className="guest-checkout-inline-join is-standalone">
               <form className="guest-checkout-join-form" onSubmit={handleJoin}>
                 <input
                   type="text"
@@ -1162,7 +1132,58 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
                 Cancel
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="guest-checkout-add-guest-row">
+              <button type="button" className="guest-checkout-text-btn" onClick={handleAddGuestClick}>
+                Add guest
+              </button>
+            </div>
+          )}
+          <div className="guest-checkout-identity">
+            <div className="guest-checkout-person">
+              <span className="guest-checkout-avatar">{getGuestInitials(state.identifiedGuest.displayName)}</span>
+              <span>
+                <small>Paying as</small>
+                <strong className="guest-checkout-name-line">
+                  <span>{state.identifiedGuest.displayName}</span>
+                  <span className={getGuestRoleClassName(state.identifiedGuest.id)}>{getGuestRoleLabel(state.identifiedGuest.id)}</span>
+                </strong>
+              </span>
+            </div>
+            <div className="guest-checkout-identity-meta">
+              {myShare ? (
+                <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(myShare.status)}`}>
+                  {formatTryCurrency(myShare.amount)} | {formatPaymentStatus(myShare.status)}
+                </span>
+              ) : (
+                <span className="guest-checkout-pill is-muted">No share yet</span>
+              )}
+              {mapping.matchSource ? <small>Matched by {formatMatchSource(mapping.matchSource)}</small> : null}
+            </div>
+            <div className="guest-checkout-identity-actions">
+              <button type="button" className="guest-checkout-text-btn" onClick={handleResetGuest}>
+                Change
+              </button>
+            </div>
+            {currentSharePaid ? (
+              <div className="guest-checkout-handoff">
+                <div>
+                  <strong>{state.identifiedGuest.displayName} paid.</strong>
+                  <small>
+                    {nextPayableGuestCandidate
+                      ? `Next payable share: ${nextPayableGuestCandidate.displayName}`
+                      : "No other unpaid share is ready yet."}
+                  </small>
+                </div>
+                {nextPayableGuestCandidate ? (
+                  <button type="button" onClick={handleNextGuestPayment}>
+                    Pay next
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {renderJoinedGuestsList({ excludeGuestId: state.identifiedGuest.id })}
+          </div>
         </div>
       );
     }
@@ -1195,7 +1216,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
           <span>Live bill</span>
-          <h1>Yerevan Tavern</h1>
+          <h1>{state ? `Table ${state.table.name}` : "Table bill"}</h1>
           <p>{state ? `Table ${state.table.name}` : "Table bill"}</p>
         </div>
 
@@ -1421,6 +1442,15 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
   }
 
   function renderPaymentStep() {
+    const paymentDisabled = !canOpenPaymentShare(paymentShare) || isCheckoutClosed || Boolean(payingShareId);
+    const paymentDisabledReason = !paymentShare
+      ? "Connect this phone to a guest before payment."
+      : isCheckoutClosed
+        ? "This bill is already closed."
+        : !canOpenPaymentShare(paymentShare)
+          ? mapping.payMyShareDisabledReason ?? "This share is not ready for online payment."
+          : "";
+
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
@@ -1448,6 +1478,21 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
           <p className="guest-checkout-note">Your payable share differs from your item subtotal because the prepared split is not by items.</p>
         ) : null}
 
+        <div className="guest-iyzico-handoff">
+          <div className="guest-iyzico-brand">
+            <span>iy</span>
+            <div>
+              <strong>iyzico secure payment</strong>
+              <small>You will leave this page for the card screen, then return automatically.</small>
+            </div>
+          </div>
+          <div className="guest-iyzico-steps">
+            <span className="is-done">Share ready</span>
+            <span className={paymentShare ? "is-active" : ""}>Redirect</span>
+            <span>Result sync</span>
+          </div>
+        </div>
+
         <div className="guest-payment-methods">
           {PAYMENT_METHODS.map((method) => (
             <button
@@ -1455,13 +1500,22 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
               type="button"
               className={selectedPaymentMethod === method.id ? "is-active" : ""}
               onClick={() => handlePaymentMethod(method.id)}
-              disabled={!canOpenPaymentShare(paymentShare) || isCheckoutClosed || Boolean(payingShareId)}
+              disabled={paymentDisabled}
             >
               <span>{selectedPaymentMethod === method.id ? paymentMethodLabel(paymentShare, payingShareId) : method.label}</span>
               <small>{method.helper}</small>
             </button>
           ))}
         </div>
+
+        <button type="button" className="guest-checkout-primary-action" onClick={handleContinueToIyzico} disabled={paymentDisabled}>
+          {payingShareId === paymentShare?.id
+            ? "Opening iyzico..."
+            : hasPendingPaymentLink(paymentShare)
+              ? "Continue iyzico payment"
+              : "Pay with iyzico"}
+        </button>
+        {paymentDisabledReason ? <p className="guest-checkout-note is-warning">{paymentDisabledReason}</p> : null}
 
         {fullBillShare && fullBillShare.id !== paymentShare?.id ? (
           <button
@@ -1474,9 +1528,6 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
           </button>
         ) : null}
 
-        <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("tip")}>
-          Back to Tip
-        </button>
       </section>
     );
   }
@@ -1538,7 +1589,6 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
       <section className="guest-checkout-phone">
         <header className="guest-checkout-header">
           <div>
-            <span>GLANA</span>
             <strong>{state ? `Table ${state.table.name}` : "Split payment"}</strong>
             {state?.session && paymentSession ? (
               <small>
@@ -1555,14 +1605,6 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
                 </span>
               </>
             ) : null}
-            {backHref ? (
-              <Link href={backHref} className="guest-checkout-link">
-                Back
-              </Link>
-            ) : null}
-            <button type="button" onClick={() => void load()}>
-              Refresh
-            </button>
           </div>
         </header>
 
@@ -1614,12 +1656,6 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", backHref, ha
         )}
       </section>
 
-      {isDevelopment && state?.debug ? (
-        <section className="guest-checkout-dev">
-          <h3>Dev trace</h3>
-          <pre className="debug-trail">{JSON.stringify(state.debug, null, 2)}</pre>
-        </section>
-      ) : null}
     </div>
   );
 }

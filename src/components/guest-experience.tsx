@@ -63,21 +63,6 @@ type DeviceGuestIdentity = {
   sessionId: string | null;
 };
 
-type GuestJoinDebug = {
-  joinedCustomerOnDevice: {
-    guestId: string | null;
-    guestName: string | null;
-    sessionId: string | null;
-  };
-  activeSessionId: string | null;
-  sessionGuests: Array<{
-    guestId: string;
-    displayName: string;
-  }>;
-  addAnotherGuestAvailable: boolean;
-  showingAddAnotherGuestForm: boolean;
-};
-
 type GuestOrderStatus = "PENDING" | "IN_PROGRESS" | "READY" | "SERVED" | "VOID";
 
 type GuestOrdersState = {
@@ -118,6 +103,9 @@ type GuestOrdersState = {
     }>;
   }>;
 };
+
+const HOST_ROLE_LABEL = "Host";
+const GUEST_ROLE_LABEL = "Guest";
 
 async function fetchGuestState(tableCode: string): Promise<GuestState> {
   const response = await fetch(`/api/guest/${tableCode}`, { cache: "no-store" });
@@ -238,8 +226,6 @@ type Props = {
   tableCode: string;
 };
 
-const isDevelopment = process.env.NODE_ENV !== "production";
-
 export function GuestExperience({ tableCode }: Props) {
   const pathname = usePathname();
   const [state, setState] = useState<GuestState | null>(null);
@@ -315,6 +301,15 @@ export function GuestExperience({ tableCode }: Props) {
     () => state?.session?.guests.filter((guest) => guest.id !== joinedGuest?.id) ?? [],
     [joinedGuest?.id, state?.session?.guests]
   );
+  const hostGuestId = state?.session?.guests[0]?.id ?? "";
+  const getGuestRoleLabel = useCallback(
+    (nextGuestId: string | null | undefined) => (nextGuestId && nextGuestId === hostGuestId ? HOST_ROLE_LABEL : GUEST_ROLE_LABEL),
+    [hostGuestId]
+  );
+  const getGuestRoleClassName = useCallback(
+    (nextGuestId: string | null | undefined) => `guest-role-pill${nextGuestId && nextGuestId === hostGuestId ? " is-host" : ""}`,
+    [hostGuestId]
+  );
   const activeSessionId = state?.session?.id ?? "";
   const activeJoinedGuestId = joinedGuest?.id ?? "";
   const shouldShowJoinForm = !joinedGuest || showAddGuestForm;
@@ -334,27 +329,6 @@ export function GuestExperience({ tableCode }: Props) {
     }),
     [state?.table.branch.accentColor, state?.table.branch.fontFamily, state?.table.branch.primaryColor]
   );
-  const guestJoinDebug = useMemo<GuestJoinDebug | null>(() => {
-    if (!isDevelopment) {
-      return null;
-    }
-
-    return {
-      joinedCustomerOnDevice: {
-        guestId: deviceGuestIdentity?.guestId ?? null,
-        guestName: deviceGuestIdentity?.guestName ?? null,
-        sessionId: deviceGuestIdentity?.sessionId ?? null
-      },
-      activeSessionId: state?.session?.id ?? null,
-      sessionGuests:
-        state?.session?.guests.map((guest) => ({
-          guestId: guest.id,
-          displayName: guest.displayName
-        })) ?? [],
-      addAnotherGuestAvailable,
-      showingAddAnotherGuestForm: Boolean(joinedGuest && showAddGuestForm)
-    };
-  }, [addAnotherGuestAvailable, deviceGuestIdentity, joinedGuest, showAddGuestForm, state?.session]);
   const loadGuestOrders = useCallback(
     async (options?: { silent?: boolean }) => {
       if (!activeSessionId || !activeJoinedGuestId) {
@@ -1028,7 +1002,11 @@ export function GuestExperience({ tableCode }: Props) {
             <div className="badge-row">
               <span className="badge badge-outline">{formatSessionDisplayLabel(state)}</span>
               <span className="badge badge-status-open">{state.session.guests.length} guest(s) joined</span>
-              {joinedGuest ? <span className="badge badge-neutral">You: {joinedGuest.displayName}</span> : null}
+              {joinedGuest ? (
+                <span className="badge badge-neutral">
+                  You: {joinedGuest.displayName} - {getGuestRoleLabel(joinedGuest.id)}
+                </span>
+              ) : null}
             </div>
 
             {joinedGuest ? (
@@ -1056,7 +1034,9 @@ export function GuestExperience({ tableCode }: Props) {
                           onClick={() => handleSwitchGuest(guest)}
                         >
                           <span className="guest-selector-name">{guest.displayName}</span>
-                          <span className="guest-selector-meta">Switch this device to {guest.displayName}</span>
+                          <span className="guest-selector-meta">
+                            {getGuestRoleLabel(guest.id)} - Switch this device to {guest.displayName}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1093,7 +1073,8 @@ export function GuestExperience({ tableCode }: Props) {
               <div className="guest-strip">
                 {state.session.guests.map((guest) => (
                   <span key={guest.id} className="guest-chip">
-                    {guest.displayName}
+                    <span>{guest.displayName}</span>
+                    <span className={getGuestRoleClassName(guest.id)}>{getGuestRoleLabel(guest.id)}</span>
                   </span>
                 ))}
               </div>
@@ -1416,15 +1397,6 @@ export function GuestExperience({ tableCode }: Props) {
         </div>
       ) : null}
 
-      {guestJoinDebug ? (
-        <section className="panel stack-md">
-          <div className="section-copy">
-            <h3>Dev trace</h3>
-            <p className="helper-text">Visible only in development.</p>
-          </div>
-          <pre className="debug-trail">{JSON.stringify(guestJoinDebug, null, 2)}</pre>
-        </section>
-      ) : null}
     </div>
   );
 }

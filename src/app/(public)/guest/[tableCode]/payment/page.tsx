@@ -16,7 +16,6 @@ export default function GuestPaymentEntryPage({ params, searchParams }: Props) {
       tableCode={params.tableCode}
       initialGuestId={searchParams.guestId ?? ""}
       handoffMode={searchParams.handoff ?? ""}
-      backHref={`/guest/${encodeURIComponent(params.tableCode)}`}
     />
   );
 }

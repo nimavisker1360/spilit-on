@@ -211,6 +211,11 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
             : "Payment completed."
           : "Payment marked as failed."
       );
+
+      const tableCode = json.data.paymentSession.session?.table?.code;
+      if (action === "COMPLETE" && json.data.paymentShare.status === "PAID" && tableCode) {
+        window.location.assign(`/guest/${encodeURIComponent(tableCode)}/payment`);
+      }
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Mock payment action failed.");
     } finally {
@@ -243,9 +248,6 @@ export function MockPaymentExperience({ paymentShareId, token, tipAmount = "" }:
               ) : null}
             </div>
           </div>
-          <button type="button" onClick={() => void load()}>
-            Refresh
-          </button>
         </div>
 
         <div className="status-stack">

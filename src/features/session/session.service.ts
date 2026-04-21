@@ -18,13 +18,13 @@ function foldName(value: string): string {
 
 const SESSION_WITH_TABLE_AND_GUESTS = {
   table: true,
-  guests: true,
+  guests: { orderBy: { joinedAt: "asc" } },
 } as const;
 
 const SESSION_DETAIL = {
   table: true,
   branch: { select: { id: true, name: true, slug: true } },
-  guests: true,
+  guests: { orderBy: { joinedAt: "asc" } },
 } as const;
 
 export async function openSession(input: OpenSessionInput) {
@@ -135,7 +135,7 @@ export async function listOpenSessions(branchId?: string, branchIds?: string[] |
     include: {
       table: true,
       branch: { select: { id: true, name: true } },
-      guests: true,
+      guests: { orderBy: { joinedAt: "asc" } },
       orders: {
         include: {
           placedByGuest: true,

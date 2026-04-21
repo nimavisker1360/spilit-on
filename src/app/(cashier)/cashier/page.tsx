@@ -1356,7 +1356,7 @@ export default function CashierDashboardPage() {
                   const actionLocked = Boolean(runningShareAction) || isPreparingPayment;
 
                   return (
-                    <article key={share.id} className="checkout-share-card stack-md">
+                    <article key={share.id} className={`checkout-share-card stack-md${isPaid ? " is-paid" : ""}`}>
                       <div className="checkout-share-head">
                         <div className="checkout-share-copy">
                           <p className="checkout-share-payer">{share.payerLabel}</p>
@@ -1738,4 +1738,3 @@ export default function CashierDashboardPage() {
     </div>
   );
 }
-

@@ -170,7 +170,7 @@ const paymentSessionFullInclude = {
   session: {
     include: {
       table: true,
-      guests: true
+      guests: { orderBy: { joinedAt: "asc" } }
     }
   }
 } as const;
@@ -867,7 +867,7 @@ export async function getGuestPaymentEntry(
 
   const activeSession = await prisma.tableSession.findFirst({
     where: { tableId: table.id, status: SessionStatus.OPEN },
-    include: { guests: true }
+    include: { guests: { orderBy: { joinedAt: "asc" } } }
   });
 
   const closedSession =
@@ -879,7 +879,7 @@ export async function getGuestPaymentEntry(
             status: SessionStatus.CLOSED,
             paymentSessions: { some: { status: PaymentSessionStatus.PAID } }
           },
-          include: { guests: true }
+          include: { guests: { orderBy: { joinedAt: "asc" } } }
         })
       : null;
 
