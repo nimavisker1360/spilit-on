@@ -10,3 +10,6 @@ yarn-error.log*
 pnpm-debug.log*
 .DS_Store
 *.tsbuildinfo
+
+# Local Codex/dev-server logs
+.codex-*.log
