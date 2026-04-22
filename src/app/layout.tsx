@@ -1,10 +1,24 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
 
 import "./globals.css";
 
-const APP_NAME = "SplitTable";
-const APP_DESCRIPTION = "Restaurant operations app with QR guest ordering and split billing.";
+const fontBody = Inter({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-body",
+  display: "swap"
+});
+
+const fontDisplay = Plus_Jakarta_Sans({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"]
+});
+
+const APP_NAME = "MasaPayz";
+const APP_DESCRIPTION = "Restoran hesabınızı QR kod ile anında bölün. POS entegrasyonu, iyzico ve PayTR desteği ile.";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
@@ -40,7 +54,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="tr" className={`${fontBody.variable} ${fontDisplay.variable}`}>
       <body className="min-h-dvh antialiased">
         <PwaRegister />
         {children}

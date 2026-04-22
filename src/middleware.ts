@@ -25,6 +25,7 @@ const PUBLIC_PATHS = [
 const PUBLIC_FILE_PATTERN = /\.(?:avif|gif|ico|jpg|jpeg|mp4|png|svg|webm|webp)$/i;
 
 function isPublicPath(pathname: string): boolean {
+  if (pathname === "/") return true;
   return PUBLIC_FILE_PATTERN.test(pathname) || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 }
 
