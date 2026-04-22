@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { InstallAppButton } from "@/components/install-app-button";
+import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS } from "@/lib/navigation";
 import type { AppNavLink } from "@/types";
 
@@ -104,6 +105,7 @@ export function AppShell({
 
         <div className="sidebar-footer">
           {showInstallButton ? <InstallAppButton /> : null}
+          <LogoutButton />
         </div>
       </aside>
 

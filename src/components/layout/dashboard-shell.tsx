@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { InstallAppButton } from "@/components/install-app-button";
+import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS, ROLE_LAYOUT_META } from "@/lib/navigation";
 import type { AppRole } from "@/types";
 
@@ -91,6 +92,7 @@ export function DashboardShell({ children, role }: Props) {
 
         <div className="sidebar-footer">
           <InstallAppButton />
+          <LogoutButton />
         </div>
       </aside>
 
