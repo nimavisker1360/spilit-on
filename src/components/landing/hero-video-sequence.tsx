@@ -3,11 +3,12 @@
 import {
   AnimatePresence,
   motion,
-  useMotionValueEvent,
   useScroll,
   useTransform
 } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+
+import { useLang } from "./i18n";
 
 // Unlock scroll when the video reaches this fraction of its duration.
 const UNLOCK_AT = 0.85;
@@ -15,6 +16,7 @@ const UNLOCK_AT = 0.85;
 const TEXT_REVEAL_AT_SECONDS = 3;
 
 export function HeroVideoSequence() {
+  const { t } = useLang();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrubSectionRef = useRef<HTMLDivElement | null>(null);
   const [scrollUnlocked, setScrollUnlocked] = useState(false);
@@ -106,7 +108,7 @@ export function HeroVideoSequence() {
   const overlayOpacity = useTransform(scrollYProgress, [0, 1], [0, 0.65]);
 
   return (
-    <section className="mp-hero" aria-label="MasaPayz tanıtım">
+    <section className="mp-hero" aria-label={t.hero.sectionAria}>
       <div className="mp-hero-scrub" ref={scrubSectionRef}>
         <div className="mp-hero-scrub-stage" style={{ perspective: 1200 }}>
           <motion.video
@@ -153,23 +155,21 @@ export function HeroVideoSequence() {
                 transformPerspective: 1000
               }}
             >
-              <span className="mp-hero-badge">QR ile hesap bölüştürme</span>
+              <span className="mp-hero-badge">{t.hero.badge}</span>
               <h1 className="mp-hero-title">
-                Hesabı bölmek artık <span className="mp-accent">saniyeler</span> sürer
+                {t.hero.title[0]}<span className="mp-accent">{t.hero.title[1]}</span>{t.hero.title[2]}
               </h1>
-              <p className="mp-hero-sub">
-                Masadaki QR ile canlı hesap telefonda. Eşit böl veya ürüne göre öde — iyzico, PayTR ve kartla.
-              </p>
+              <p className="mp-hero-sub">{t.hero.sub}</p>
               <div className="mp-hero-cta-row">
                 <a href="#baslangic" className="mp-btn mp-btn-primary">
-                  Hemen Başla
+                  {t.hero.ctaStart}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
                     <polyline points="12 5 19 12 12 19" />
                   </svg>
                 </a>
                 <a href="#nasil-calisir" className="mp-btn mp-btn-ghost">
-                  Nasıl çalışır?
+                  {t.hero.ctaHow}
                 </a>
               </div>
             </motion.div>
@@ -184,7 +184,7 @@ export function HeroVideoSequence() {
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               aria-hidden={!scrollUnlocked}
             >
-              <span>Kaydır</span>
+              <span>{t.hero.scroll}</span>
               <span className="mp-scroll-hint-bar" />
             </motion.div>
           </div>
@@ -201,14 +201,14 @@ export function HeroVideoSequence() {
                 transition={{ duration: 0.6, delay: 0.5 }}
               >
                 <span className="mp-dot" />
-                <span>Film oynatılıyor…</span>
+                <span>{t.hero.playing}</span>
                 <button
                   type="button"
                   className="mp-hero-skip"
                   onClick={unlock}
-                  aria-label="Kaydırmayı etkinleştir"
+                  aria-label={t.hero.skipAria}
                 >
-                  Atla
+                  {t.hero.skip}
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6" />
                   </svg>

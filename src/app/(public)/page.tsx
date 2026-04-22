@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 import { HeroVideoSequence } from "@/components/landing/hero-video-sequence";
+import { LangProvider } from "@/components/landing/i18n";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingNavbar } from "@/components/landing/landing-navbar";
+import { MobileScrollVideo } from "@/components/landing/mobile-scroll-video";
 import {
   CtaSection,
   DashboardsSection,
@@ -27,20 +29,23 @@ export const metadata: Metadata = {
 
 export default function LandingPage() {
   return (
-    <div className="mp-landing">
-      <LandingNavbar />
-      <HeroVideoSequence />
+    <LangProvider>
+      <div className="mp-landing">
+        <LandingNavbar />
+        <HeroVideoSequence />
+        <MobileScrollVideo />
 
-      <main>
-        <FeaturesSection />
-        <HowItWorksSection />
-        <DashboardsSection />
-        <PaymentProvidersSection />
-        <CtaSection />
-      </main>
+        <main>
+          <FeaturesSection />
+          <HowItWorksSection />
+          <DashboardsSection />
+          <PaymentProvidersSection />
+          <CtaSection />
+        </main>
 
-      <LandingFooter />
-      <RevealOnScroll />
-    </div>
+        <LandingFooter />
+        <RevealOnScroll />
+      </div>
+    </LangProvider>
   );
 }

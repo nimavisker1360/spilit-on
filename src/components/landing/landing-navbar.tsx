@@ -3,16 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const NAV_ITEMS = [
-  { href: "#ozellikler", label: "Özellikler" },
-  { href: "#nasil-calisir", label: "Nasıl Çalışır" },
-  { href: "#panel", label: "Paneller" },
-  { href: "#odeme", label: "Ödeme" }
-];
+import { useLang, type Lang } from "./i18n";
 
 export function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const { lang, setLang, t } = useLang();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -32,8 +28,8 @@ export function LandingNavbar() {
 
   return (
     <>
-      <nav className={`mp-nav${scrolled ? " is-scrolled" : ""}`} aria-label="Ana navigasyon">
-        <Link href="/" className="mp-nav-brand" aria-label="MasaPayz ana sayfa">
+      <nav className={`mp-nav${scrolled ? " is-scrolled" : ""}`} aria-label={t.nav.aria}>
+        <Link href="/" className="mp-nav-brand" aria-label={t.nav.brandAria}>
           <BrandMark />
           <span>
             Masa<strong>Payz</strong>
@@ -41,25 +37,28 @@ export function LandingNavbar() {
         </Link>
 
         <div className="mp-nav-links">
-          {NAV_ITEMS.map((item) => (
+          {t.nav.items.map((item) => (
             <a key={item.href} href={item.href} className="mp-nav-link">
               {item.label}
             </a>
           ))}
         </div>
 
-        <Link href="/admin" className="mp-nav-cta">
-          Panele Git
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
-        </Link>
+        <div className="mp-nav-right">
+          <LangSwitcher lang={lang} setLang={setLang} trLabel={t.nav.langTr} enLabel={t.nav.langEn} groupLabel={t.nav.langSwitcherLabel} />
+          <Link href="/admin" className="mp-nav-cta">
+            {t.nav.cta}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </Link>
+        </div>
 
         <button
           type="button"
           className="mp-nav-mobile-toggle"
-          aria-label={open ? "Menüyü kapat" : "Menüyü aç"}
+          aria-label={open ? t.nav.menuClose : t.nav.menuOpen}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
@@ -78,17 +77,124 @@ export function LandingNavbar() {
         </button>
       </nav>
 
-      <div className={`mp-nav-mobile-panel${open ? " is-open" : ""}`} role="dialog" aria-label="Mobil menü">
-        {NAV_ITEMS.map((item) => (
+      <div className={`mp-nav-mobile-panel${open ? " is-open" : ""}`} role="dialog" aria-label={t.nav.mobileMenuAria}>
+        {t.nav.items.map((item) => (
           <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
             {item.label}
           </a>
         ))}
+        <LangSwitcher
+          lang={lang}
+          setLang={setLang}
+          trLabel={t.nav.langTr}
+          enLabel={t.nav.langEn}
+          groupLabel={t.nav.langSwitcherLabel}
+          compact
+        />
         <Link href="/admin" className="mp-nav-cta" onClick={() => setOpen(false)}>
-          Panele Git
+          {t.nav.cta}
         </Link>
       </div>
     </>
+  );
+}
+
+function LangSwitcher({
+  lang,
+  setLang,
+  trLabel,
+  enLabel,
+  groupLabel,
+  compact = false
+}: {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  trLabel: string;
+  enLabel: string;
+  groupLabel: string;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`mp-lang-switcher${compact ? " is-compact" : ""}`}
+      role="group"
+      aria-label={groupLabel}
+    >
+      <button
+        type="button"
+        className={`mp-lang-btn${lang === "tr" ? " is-active" : ""}`}
+        aria-pressed={lang === "tr"}
+        aria-label={trLabel}
+        title={trLabel}
+        onClick={() => setLang("tr")}
+      >
+        <FlagTR />
+      </button>
+      <button
+        type="button"
+        className={`mp-lang-btn${lang === "en" ? " is-active" : ""}`}
+        aria-pressed={lang === "en"}
+        aria-label={enLabel}
+        title={enLabel}
+        onClick={() => setLang("en")}
+      >
+        <FlagEN />
+      </button>
+    </div>
+  );
+}
+
+function FlagTR() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <clipPath id="mp-flag-tr-clip">
+          <circle cx="12" cy="12" r="11" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#mp-flag-tr-clip)">
+        <rect width="24" height="24" fill="#E30A17" />
+        <circle cx="10.3" cy="12" r="4.4" fill="#ffffff" />
+        <circle cx="11.3" cy="12" r="3.5" fill="#E30A17" />
+        <polygon
+          fill="#ffffff"
+          points="15.2,12 12.9,12.75 14.35,10.8 14.35,13.2 12.9,11.25"
+        />
+      </g>
+      <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function FlagEN() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <clipPath id="mp-flag-en-clip">
+          <circle cx="12" cy="12" r="11" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#mp-flag-en-clip)">
+        <rect width="24" height="24" fill="#012169" />
+        <path d="M0,0 L24,24 M24,0 L0,24" stroke="#ffffff" strokeWidth="4" />
+        <path d="M0,0 L24,24 M24,0 L0,24" stroke="#C8102E" strokeWidth="2" />
+        <path d="M12,0 V24 M0,12 H24" stroke="#ffffff" strokeWidth="6" />
+        <path d="M12,0 V24 M0,12 H24" stroke="#C8102E" strokeWidth="3" />
+      </g>
+      <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+    </svg>
   );
 }
 

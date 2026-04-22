@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+
+import { useLang } from "./i18n";
 
 const FEATURES = [
   {
@@ -142,26 +146,25 @@ const DASHBOARDS = [
 ];
 
 export function FeaturesSection() {
+  const { t } = useLang();
+
   return (
     <section className="mp-section" id="ozellikler">
       <div className="mp-container">
         <div className="mp-section-header mp-reveal">
-          <span className="mp-kicker">Özellikler</span>
-          <h2>Restoran için sadeleştirilmiş bölüştürme deneyimi</h2>
-          <p className="mp-section-lead">
-            MasaPayz, POS&apos;tan kasaya kadar olan tüm adımları tek akışta toplar. Personel için pratik,
-            misafir için sürtünmesiz.
-          </p>
+          <span className="mp-kicker">{t.features.kicker}</span>
+          <h2>{t.features.title}</h2>
+          <p className="mp-section-lead">{t.features.lead}</p>
         </div>
 
         <div className="mp-features-grid">
-          {FEATURES.map((f, i) => (
+          {t.features.items.map((f, i) => (
             <article
               key={f.title}
               className="mp-feature-card mp-reveal"
               data-delay={String((i % 3) + 1)}
             >
-              <div className="mp-feature-icon">{f.icon}</div>
+              <div className="mp-feature-icon">{FEATURES[i]?.icon}</div>
               <h3>{f.title}</h3>
               <p>{f.desc}</p>
             </article>
@@ -173,21 +176,21 @@ export function FeaturesSection() {
 }
 
 export function HowItWorksSection() {
+  const { t } = useLang();
+
   return (
     <section className="mp-section" id="nasil-calisir">
       <div className="mp-container">
         <div className="mp-section-header mp-reveal">
-          <span className="mp-kicker">Nasıl Çalışır</span>
-          <h2>Dört adımda hesap bölüştürme</h2>
-          <p className="mp-section-lead">
-            Garson hesabı gönderir, misafir QR&apos;ı okutur, herkes kendi payını saniyeler içinde öder.
-          </p>
+          <span className="mp-kicker">{t.steps.kicker}</span>
+          <h2>{t.steps.title}</h2>
+          <p className="mp-section-lead">{t.steps.lead}</p>
         </div>
 
         <div className="mp-steps">
-          {STEPS.map((s, i) => (
-            <article key={s.num} className="mp-step mp-reveal" data-delay={String((i % 4) + 1)}>
-              <span className="mp-step-num">{s.num}</span>
+          {t.steps.items.map((s, i) => (
+            <article key={STEPS[i]?.num ?? s.num} className="mp-step mp-reveal" data-delay={String((i % 4) + 1)}>
+              <span className="mp-step-num">{STEPS[i]?.num ?? s.num}</span>
               <h3>{s.title}</h3>
               <p>{s.desc}</p>
             </article>
@@ -199,26 +202,26 @@ export function HowItWorksSection() {
 }
 
 export function DashboardsSection() {
+  const { t } = useLang();
+
   return (
     <section className="mp-section" id="panel">
       <div className="mp-container">
         <div className="mp-section-header mp-reveal">
-          <span className="mp-kicker">Paneller</span>
-          <h2>Her rol için ayrı çalışma alanı</h2>
-          <p className="mp-section-lead">
-            Yönetici, garson, mutfak ve kasa için özel olarak tasarlanmış arayüzler. Herkes işine odaklanır.
-          </p>
+          <span className="mp-kicker">{t.dashboards.kicker}</span>
+          <h2>{t.dashboards.title}</h2>
+          <p className="mp-section-lead">{t.dashboards.lead}</p>
         </div>
 
         <div className="mp-dash-grid">
-          {DASHBOARDS.map((d, i) => (
+          {t.dashboards.items.map((d, i) => (
             <Link
-              key={d.href}
-              href={d.href}
+              key={DASHBOARDS[i]?.href ?? d.title}
+              href={DASHBOARDS[i]?.href ?? "/admin"}
               className="mp-dash-card mp-reveal"
               data-delay={String((i % 4) + 1)}
             >
-              <div className="mp-dash-icon">{d.icon}</div>
+              <div className="mp-dash-icon">{DASHBOARDS[i]?.icon}</div>
               <div>
                 <h3>{d.title}</h3>
                 <p>{d.desc}</p>
@@ -238,11 +241,13 @@ export function DashboardsSection() {
 }
 
 export function PaymentProvidersSection() {
+  const { t } = useLang();
+
   return (
     <section className="mp-section" id="odeme" style={{ paddingTop: 40, paddingBottom: 40 }}>
       <div className="mp-container">
         <div className="mp-providers mp-reveal">
-          <span className="mp-providers-label">Ödeme ortakları</span>
+          <span className="mp-providers-label">{t.providers.label}</span>
           <span className="mp-provider-chip"><span className="mp-dot" />iyzico</span>
           <span className="mp-provider-chip"><span className="mp-dot" />PayTR</span>
           <span className="mp-provider-chip"><span className="mp-dot" />Visa / Mastercard</span>
@@ -256,26 +261,25 @@ export function PaymentProvidersSection() {
 }
 
 export function CtaSection() {
+  const { t } = useLang();
+
   return (
     <section className="mp-section" id="baslangic" style={{ paddingTop: 40 }}>
       <div className="mp-container">
         <div className="mp-cta mp-reveal">
-          <span className="mp-kicker" style={{ marginBottom: 18 }}>Hemen Başla</span>
-          <h2>Restoranın için MasaPayz&apos;ı bugün kur</h2>
-          <p>
-            İlk şubeni birkaç dakikada hazırla. Varsayılan veri setiyle masaları, menüyü ve kasa akışını
-            otomatik kur, misafirlerini saniyeler içinde karşıla.
-          </p>
+          <span className="mp-kicker" style={{ marginBottom: 18 }}>{t.cta.kicker}</span>
+          <h2>{t.cta.title}</h2>
+          <p>{t.cta.desc}</p>
           <div className="mp-cta-actions">
             <Link href="/admin" className="mp-btn mp-btn-primary">
-              Ücretsiz Dene
+              {t.cta.primary}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </Link>
             <Link href="/cashier" className="mp-btn mp-btn-ghost">
-              Demo&apos;yu Gör
+              {t.cta.secondary}
             </Link>
           </div>
         </div>

@@ -1,57 +1,63 @@
+"use client";
+
 import Link from "next/link";
 
+import { useLang } from "./i18n";
+
 export function LandingFooter() {
+  const { t } = useLang();
   const year = new Date().getFullYear();
+
   return (
     <footer className="mp-footer">
       <div className="mp-container">
         <div className="mp-footer-grid">
           <div className="mp-footer-brand">
-            <Link href="/" className="mp-nav-brand" aria-label="MasaPayz">
+            <Link href="/" className="mp-nav-brand" aria-label={t.nav.brandAria}>
               <FooterMark />
               <span>
                 Masa<strong>Payz</strong>
               </span>
             </Link>
-            <p>
-              Türkiye&apos;nin restoranları için QR ile hesap bölüştürme ve ödeme platformu. POS entegrasyonu,
-              iyzico ve PayTR desteği ile.
-            </p>
+            <p>{t.footer.tagline}</p>
           </div>
 
           <div className="mp-footer-col">
-            <h4>Ürün</h4>
+            <h4>{t.footer.product.title}</h4>
             <ul>
-              <li><a href="#ozellikler">Özellikler</a></li>
-              <li><a href="#nasil-calisir">Nasıl Çalışır</a></li>
-              <li><a href="#panel">Paneller</a></li>
-              <li><a href="#odeme">Ödeme Yöntemleri</a></li>
+              {t.footer.product.items.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href}>{item.label}</a>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div className="mp-footer-col">
-            <h4>Şirket</h4>
+            <h4>{t.footer.company.title}</h4>
             <ul>
-              <li><a href="#">Hakkımızda</a></li>
-              <li><a href="#">İletişim</a></li>
-              <li><a href="#">Kariyer</a></li>
-              <li><a href="#">Blog</a></li>
+              {t.footer.company.items.map((item) => (
+                <li key={item}>
+                  <a href="#">{item}</a>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div className="mp-footer-col">
-            <h4>Yasal</h4>
+            <h4>{t.footer.legal.title}</h4>
             <ul>
-              <li><a href="#">Kullanım Koşulları</a></li>
-              <li><a href="#">Gizlilik Politikası</a></li>
-              <li><a href="#">KVKK Aydınlatma</a></li>
-              <li><a href="#">Çerez Politikası</a></li>
+              {t.footer.legal.items.map((item) => (
+                <li key={item}>
+                  <a href="#">{item}</a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
         <div className="mp-footer-bottom">
-          <span>© {year} MasaPayz. Tüm hakları saklıdır.</span>
+          <span>&copy; {year} MasaPayz. {t.footer.rights}</span>
           <div className="mp-socials" aria-label="Sosyal medya">
             <a href="#" aria-label="Twitter">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
