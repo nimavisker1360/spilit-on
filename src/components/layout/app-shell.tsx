@@ -48,17 +48,22 @@ type Props = {
   subtitle: string;
   showInstallButton?: boolean;
   activeHref?: string;
+  shellVariant?: "admin" | "waiter" | "cashier" | "kitchen";
 };
 
 export function AppShell({
   children,
+  navLinks = DASHBOARD_NAV_LINKS,
   title,
   subtitle,
   showInstallButton = true,
-  activeHref = "/"
+  activeHref = "/",
+  shellVariant
 }: Props) {
+  const shellClassName = `dashboard-shell${shellVariant ? ` dashboard-shell--${shellVariant}` : ""}`;
+
   return (
-    <div className="dashboard-shell">
+    <div className={shellClassName}>
       <aside className="dashboard-sidebar">
         <div className="sidebar-brand">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -77,11 +82,11 @@ export function AppShell({
             <path d="M12.34 20.5669C11.4558 22.6908 7.12803 28.1911 8.85947 30.0592L13.6057 20.8833L12.34 20.5669Z" fill="#FF7000"/>
             <path d="M13.9219 21.1996L12.3398 31.3248C15.2464 30.4746 13.6353 23.7528 15.8204 21.8324C15.8204 23.8575 15.5273 30.6838 17.7189 31.3248C17.7175 29.2881 18.1304 23.315 16.7608 21.778C16.2057 21.155 14.6921 21.2833 13.9219 21.1996Z" fill="#FF7000"/>
           </svg>
-          <span className="sidebar-brand-text">Masa<span style={{ color: "#fff" }}>Pay</span></span>
+          <span className="sidebar-brand-text">Masa<span style={{ color: "#fff" }}>Payz</span></span>
         </div>
 
         <nav className="sidebar-nav" aria-label="Main Navigation">
-          {DASHBOARD_NAV_LINKS.map((link) => {
+          {navLinks.map((link) => {
             const isActive = link.href === activeHref;
             return (
               <Link

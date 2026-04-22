@@ -4,7 +4,7 @@ type Props = {
 
 export function MasaPayLogo({ className = "" }: Props) {
   return (
-    <div className={`masapay-logo ${className}`.trim()} aria-label="MasaPay">
+    <div className={`masapay-logo ${className}`.trim()} aria-label="MasaPayz">
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M14.2383 0C12.736 2.15616 14.2281 7.85675 14.5548 10.4416L15.8204 10.1252C15.4684 7.33992 15.798 2.28295 14.2383 0Z" fill="#FF7000" />
         <path d="M18.3521 0.316559L16.1372 10.1254L17.4029 10.4418L19.3013 0.632972L18.3521 0.316559Z" fill="#FF7000" />
@@ -22,7 +22,7 @@ export function MasaPayLogo({ className = "" }: Props) {
         <path d="M13.9219 21.1996L12.3398 31.3248C15.2464 30.4746 13.6353 23.7528 15.8204 21.8324C15.8204 23.8575 15.5273 30.6838 17.7189 31.3248C17.7175 29.2881 18.1304 23.315 16.7608 21.778C16.2057 21.155 14.6921 21.2833 13.9219 21.1996Z" fill="#FF7000" />
       </svg>
       <span>
-        Masa<strong>Pay</strong>
+        Masa<strong>Payz</strong>
       </span>
     </div>
   );

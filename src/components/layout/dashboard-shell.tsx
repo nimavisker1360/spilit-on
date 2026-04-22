@@ -69,7 +69,7 @@ export function DashboardShell({ children, role }: Props) {
             <path d="M12.34 20.5669C11.4558 22.6908 7.12803 28.1911 8.85947 30.0592L13.6057 20.8833L12.34 20.5669Z" fill="#FF7000"/>
             <path d="M13.9219 21.1996L12.3398 31.3248C15.2464 30.4746 13.6353 23.7528 15.8204 21.8324C15.8204 23.8575 15.5273 30.6838 17.7189 31.3248C17.7175 29.2881 18.1304 23.315 16.7608 21.778C16.2057 21.155 14.6921 21.2833 13.9219 21.1996Z" fill="#FF7000"/>
           </svg>
-          <span className="sidebar-brand-text">Masa<span style={{color:"#fff"}}>Pay</span></span>
+          <span className="sidebar-brand-text">Masa<span style={{color:"#fff"}}>Payz</span></span>
         </div>
 
         <nav className="sidebar-nav" aria-label="Dashboard Navigation">
