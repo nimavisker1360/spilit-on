@@ -10,6 +10,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { useLang } from "./i18n";
 
+const HERO_QR_IMAGE_SRC = "/Qrcode.png";
+
 // Unlock scroll when the video reaches this fraction of its duration.
 const UNLOCK_AT = 0.85;
 // Reveal hero text after the MasaPayz logo fades out in the intro of the video.
@@ -160,6 +162,9 @@ export function HeroVideoSequence() {
                 {t.hero.title[0]}<span className="mp-accent">{t.hero.title[1]}</span>{t.hero.title[2]}
               </h1>
               <p className="mp-hero-sub">{t.hero.sub}</p>
+              <div className="mp-hero-qr-shell" aria-hidden="true">
+                <img className="mp-hero-qr" src={HERO_QR_IMAGE_SRC} alt="" />
+              </div>
               <div className="mp-hero-cta-row">
                 <a href="#baslangic" className="mp-btn mp-btn-primary">
                   {t.hero.ctaStart}

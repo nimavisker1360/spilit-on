@@ -17,9 +17,11 @@
   --mp-accent-glow: rgba(255, 112, 0, 0.55);
   --mp-radius: 18px;
   --mp-radius-lg: 28px;
+  --mp-mobile-sticky-top: clamp(108px, 12vh, 124px);
 
   position: relative;
-  min-height: 100dvh;
+  min-height: 100vh;
+  min-height: max(100vh, 100dvh);
   background: radial-gradient(120% 80% at 50% 0%, #1a0f06 0%, var(--mp-bg) 50%, var(--mp-bg) 100%);
   color: var(--mp-text);
   font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -70,7 +72,9 @@ html {
 
 body.mp-scroll-locked {
   overflow: hidden !important;
-  height: 100dvh !important;
+  height: 100vh !important;
+  height: max(100vh, 100dvh) !important;
+  min-height: 100vh !important;
 }
 
 /* ===================== Navbar ===================== */
@@ -179,34 +183,62 @@ body.mp-scroll-locked {
 .mp-lang-btn {
   width: 36px;
   height: 36px;
+  aspect-ratio: 1 / 1;
   min-height: 0;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 50%;
   background: transparent;
   color: var(--mp-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  position: relative;
+  isolation: isolate;
+  line-height: 0;
   box-shadow: none;
   opacity: 0.72;
+  transition: opacity 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.mp-lang-btn::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
 .mp-lang-btn svg {
   display: block;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .mp-lang-btn:hover:not(:disabled),
 .mp-lang-btn:focus-visible,
 .mp-lang-btn.is-active {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.16);
+  outline: none;
+  background: transparent;
+  border-color: transparent;
   transform: none;
   box-shadow: none;
+}
+
+.mp-lang-btn:hover:not(:disabled)::before,
+.mp-lang-btn:focus-visible::before,
+.mp-lang-btn.is-active::before {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 .mp-nav-mobile-toggle {
@@ -396,7 +428,8 @@ body.mp-scroll-locked {
 .mp-hero-scrub-stage {
   position: sticky;
   top: 0;
-  height: 100dvh;
+  height: 100vh;
+  height: max(100vh, 100dvh);
   width: 100%;
   overflow: hidden;
   background: #000;
@@ -494,12 +527,15 @@ body.mp-scroll-locked {
 }
 
 .mp-hero-copy-reveal {
-  width: min(72vw, 312px);
-  min-height: clamp(390px, 58vh, 530px);
+  width: min(74vw, 326px);
+  height: calc(100vh - 76px);
+  height: calc(max(100vh, 100dvh) - 76px);
+  min-height: 540px;
+  max-height: 638px;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
-  padding-top: clamp(44px, 8vh, 78px);
+  padding-top: clamp(14px, 2.8vh, 30px);
   will-change: opacity, transform, filter;
 }
 
@@ -507,24 +543,30 @@ body.mp-scroll-locked {
   /* App-card sitting inside the phone screen in the hero video */
   position: relative;
   width: 100%;
-  max-width: 292px;
+  max-width: 306px;
+  min-height: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 13px;
+  gap: 12px;
   will-change: transform, opacity;
   overflow: hidden;
-  padding: 22px 20px 21px;
-  border-radius: 24px;
+  isolation: isolate;
+  padding: 24px 21px 22px;
+  border-radius: 26px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.045) 100%),
-    rgba(8, 7, 10, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.065) 44%, rgba(255, 255, 255, 0.032) 100%),
+    linear-gradient(155deg, rgba(255, 112, 0, 0.12) 0%, rgba(255, 112, 0, 0) 34%),
+    rgba(8, 7, 10, 0.39);
+  border: 1px solid rgba(255, 255, 255, 0.21);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
   box-shadow:
-    0 28px 72px -28px rgba(0, 0, 0, 0.72),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+    0 30px 82px -30px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -28px 56px -42px rgba(255, 112, 0, 0.35);
 }
 
 .mp-hero-copy-inner::before {
@@ -532,7 +574,7 @@ body.mp-scroll-locked {
   align-self: center;
   width: 54px;
   height: 5px;
-  margin-bottom: 2px;
+  margin-bottom: clamp(8px, 1.8vh, 16px);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.26);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -540,11 +582,11 @@ body.mp-scroll-locked {
 
 @media (min-width: 1400px) {
   .mp-hero-copy-reveal {
-    width: min(72vw, 322px);
+    width: min(74vw, 336px);
   }
 
   .mp-hero-copy-inner {
-    max-width: 302px;
+    max-width: 316px;
   }
 }
 
@@ -555,21 +597,75 @@ body.mp-scroll-locked {
   }
 
   .mp-hero-copy-reveal {
-    width: min(78vw, 292px);
-    min-height: clamp(370px, 56vh, 500px);
-    padding-top: clamp(38px, 7vh, 64px);
+    width: min(56vw, 224px);
+    height: calc(100vh - 52px);
+    height: calc(max(100vh, 100dvh) - 52px);
+    min-height: 404px;
+    max-height: 500px;
+    padding-top: clamp(10px, 2vh, 20px);
   }
 
   .mp-hero-copy-inner {
-    max-width: 274px;
-    padding: 20px 18px 19px;
-    gap: 12px;
+    max-width: 224px;
+    padding: 16px 12px 14px;
+    border-radius: 20px;
+    gap: 8px;
+  }
+  .mp-hero-copy-inner::before {
+    width: 40px;
+    height: 4px;
+    margin-bottom: 6px;
   }
   .mp-hero-title {
-    font-size: 20px;
+    font-size: 15px;
+    line-height: 1.12;
   }
   .mp-hero-sub {
-    font-size: 12px;
+    font-size: 9.75px;
+    line-height: 1.38;
+  }
+  .mp-hero-badge,
+  .mp-hero-title,
+  .mp-hero-sub {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .mp-hero-qr-shell {
+    width: clamp(66px, 38%, 86px);
+    padding: 5px;
+    border-radius: 11px;
+    box-shadow:
+      0 0 0 1px rgba(255, 112, 0, 0.62),
+      0 0 14px 1px rgba(255, 112, 0, 0.62),
+      0 14px 28px -20px rgba(0, 0, 0, 0.88);
+  }
+  .mp-hero-qr {
+    border-radius: 6px;
+  }
+  .mp-hero-cta-row {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 7px;
+    margin-top: auto;
+  }
+  .mp-hero-cta-row .mp-btn {
+    width: auto;
+    min-width: 0;
+    min-height: 34px;
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    font-size: 9.5px;
+    gap: 5px;
+  }
+  .mp-hero-cta-row .mp-btn-primary {
+    flex: 1 1 54%;
+  }
+  .mp-hero-cta-row .mp-btn-ghost {
+    flex: 1 1 46%;
+  }
+  .mp-hero-cta-row .mp-btn svg {
+    flex: 0 0 auto;
   }
 }
 
@@ -588,6 +684,7 @@ body.mp-scroll-locked {
   text-transform: uppercase;
   color: #ffb072;
   font-weight: 600;
+  margin: 0;
 }
 
 .mp-hero-badge::before {
@@ -600,6 +697,7 @@ body.mp-scroll-locked {
 }
 
 .mp-hero-title {
+  margin: 0;
   font-size: 21.5px;
   letter-spacing: 0;
   line-height: 1.2;
@@ -617,10 +715,38 @@ body.mp-scroll-locked {
 }
 
 .mp-hero-sub {
+  margin: 0;
   max-width: 100%;
   font-size: 12.75px;
   color: rgba(246, 245, 242, 0.72);
   line-height: 1.62;
+  text-wrap: pretty;
+}
+
+.mp-hero-qr-shell {
+  width: clamp(96px, 48%, 148px);
+  aspect-ratio: 1 / 1;
+  align-self: center;
+  flex: 0 0 auto;
+  margin: auto auto 0;
+  padding: 7px;
+  border-radius: 15px;
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(255, 112, 0, 0.62),
+    0 0 20px 2px rgba(255, 112, 0, 0.72),
+    0 18px 34px -22px rgba(0, 0, 0, 0.88);
+  overflow: hidden;
+}
+
+.mp-hero-qr {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  background: #fff;
+  object-fit: contain;
 }
 
 .mp-hero-cta-row {
@@ -629,13 +755,13 @@ body.mp-scroll-locked {
   flex-wrap: wrap;
   justify-content: flex-start;
   pointer-events: auto;
-  margin-top: 8px;
+  margin-top: auto;
   width: 100%;
 }
 
 .mp-hero-cta-row .mp-btn {
   min-height: 44px;
-  padding: 10px 12px;
+  padding: 11px 13px;
   font-size: 12px;
   flex: 1;
   justify-content: center;
@@ -682,7 +808,13 @@ body.mp-scroll-locked {
 
 /* Scroll hint */
 .mp-scroll-hint {
-  margin-top: 22px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(22px, 5vh, 42px);
+  z-index: 3;
+  width: fit-content;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -738,8 +870,8 @@ body.mp-scroll-locked {
 
 .mp-mobile-scroll-stage {
   position: sticky;
-  top: 0;
-  height: 100dvh;
+  top: var(--mp-mobile-sticky-top);
+  height: calc(100dvh - var(--mp-mobile-sticky-top));
   width: 100%;
   overflow: hidden;
   display: flex;
@@ -787,7 +919,7 @@ body.mp-scroll-locked {
 .mp-mobile-scroll-frame {
   position: relative;
   z-index: 1;
-  height: clamp(360px, calc(100dvh - 180px), 560px);
+  height: clamp(320px, calc(100dvh - var(--mp-mobile-sticky-top) - 190px), 540px);
   aspect-ratio: 9 / 19.5;
   width: auto;
   will-change: transform, opacity;
@@ -865,6 +997,10 @@ body.mp-scroll-locked {
 }
 
 @media (max-width: 760px) {
+  .mp-landing {
+    --mp-mobile-sticky-top: clamp(84px, 11vh, 96px);
+  }
+
   .mp-mobile-scroll {
     height: 145vh;
   }
@@ -874,14 +1010,36 @@ body.mp-scroll-locked {
   }
 
   .mp-mobile-scroll-frame {
-    height: clamp(320px, calc(100dvh - 160px), 520px);
+    height: clamp(300px, calc(100dvh - var(--mp-mobile-sticky-top) - 178px), 500px);
     width: auto;
   }
 }
 
 @media (max-width: 420px) {
+  .mp-landing {
+    --mp-mobile-sticky-top: 76px;
+  }
+
+  .mp-hero-badge {
+    gap: 5px;
+    padding: 4px 7px 4px 5px;
+    font-size: 8px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  .mp-hero-badge::before {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+  }
+
+  .mp-hero-qr-shell {
+    width: clamp(62px, 36%, 78px);
+  }
+
   .mp-mobile-scroll-frame {
-    height: clamp(320px, calc(100dvh - 140px), 500px);
+    height: clamp(280px, calc(100dvh - var(--mp-mobile-sticky-top) - 180px), 480px);
     width: auto;
   }
 

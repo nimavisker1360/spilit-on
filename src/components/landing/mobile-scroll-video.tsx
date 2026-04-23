@@ -8,11 +8,11 @@ const RESULT_IMAGE_SRC = "/m01.png";
 const PHONE_ENTER_DELAY_MS = 420;
 const IMAGE_REVEAL_DELAY_MS = 220;
 const UNLOCK_AFTER_IMAGE_MS = 1500;
-const LOCK_TRIGGER_OFFSET_VH = 0.04;
+const LOCK_TRIGGER_Y_VH = 0.14;
 const IN_VIEW_THRESHOLD_VH = 0.2;
-const PHONE_IDLE_Y = 96;
-const PHONE_ACTIVE_Y = 56;
-const PHONE_OFFSCREEN_Y = 320;
+const PHONE_IDLE_Y = 116;
+const PHONE_ACTIVE_Y = 88;
+const PHONE_OFFSCREEN_Y = 340;
 
 const clearTimer = (timerRef: { current: number | null }) => {
   if (timerRef.current === null) return;
@@ -154,7 +154,7 @@ export function MobileScrollVideo() {
 
       if (sequenceStarted) return;
 
-      const hasReachedLockPoint = rect.top <= -vh * LOCK_TRIGGER_OFFSET_VH;
+      const hasReachedLockPoint = rect.top <= vh * LOCK_TRIGGER_Y_VH;
       const hasRoomToHoldScene = rect.bottom >= vh * 0.85;
 
       if (hasReachedLockPoint && hasRoomToHoldScene) {
