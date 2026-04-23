@@ -252,8 +252,6 @@ export function PaymentProvidersSection() {
           <span className="mp-provider-chip"><span className="mp-dot" />PayTR</span>
           <span className="mp-provider-chip"><span className="mp-dot" />Visa / Mastercard</span>
           <span className="mp-provider-chip"><span className="mp-dot" />Troy</span>
-          <span className="mp-provider-chip"><span className="mp-dot" />Apple Pay</span>
-          <span className="mp-provider-chip"><span className="mp-dot" />Google Pay</span>
         </div>
       </div>
     </section>

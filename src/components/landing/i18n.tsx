@@ -356,7 +356,6 @@ const en: Dict = {
 };
 
 const DICTS: Record<Lang, Dict> = { tr, en };
-const STORAGE_KEY = "masapayz:lang";
 
 type Ctx = {
   lang: Lang;
@@ -370,17 +369,6 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("tr");
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY) as Lang | null;
-      if (stored === "tr" || stored === "en") {
-        setLangState(stored);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
     }
@@ -388,11 +376,6 @@ export function LangProvider({ children }: { children: ReactNode }) {
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, l);
-    } catch {
-      // ignore
-    }
   }, []);
 
   const value = useMemo<Ctx>(() => ({ lang, setLang, t: DICTS[lang] }), [lang, setLang]);

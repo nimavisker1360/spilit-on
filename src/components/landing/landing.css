@@ -87,7 +87,7 @@ body.mp-scroll-locked {
 /* ===================== Navbar ===================== */
 .mp-nav {
   position: fixed;
-  top: 14px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
@@ -145,7 +145,7 @@ body.mp-scroll-locked {
 }
 
 .mp-nav-link:hover {
-  color: var(--mp-text);
+  color: var(--mp-accent);
   background: var(--mp-surface);
 }
 
@@ -1587,8 +1587,26 @@ body.mp-scroll-locked {
   font-size: 17px;
 }
 
+#ozellikler.mp-section {
+  margin-top: clamp(-72px, -5vh, -36px);
+  padding-top: 20px;
+}
+
+#nasil-calisir.mp-section {
+  min-height: clamp(640px, 100dvh, 760px);
+  display: flex;
+  align-items: center;
+  padding-top: clamp(36px, 5vh, 64px);
+  padding-bottom: clamp(44px, 6vh, 72px);
+}
+
+#nasil-calisir .mp-container {
+  width: 100%;
+}
+
 @media (max-width: 620px) {
   #ozellikler.mp-section {
+    margin-top: -28px;
     padding-top: 12px;
     padding-bottom: 28px;
   }
@@ -1645,7 +1663,10 @@ body.mp-scroll-locked {
   }
 
   #nasil-calisir.mp-section {
-    padding-top: 18px;
+    min-height: 0;
+    display: block;
+    padding-top: 28px;
+    padding-bottom: 40px;
   }
 }
 
