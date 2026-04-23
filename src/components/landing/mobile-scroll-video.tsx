@@ -8,7 +8,8 @@ const RESULT_IMAGE_SRC = "/m01.png";
 const PHONE_ENTER_DELAY_MS = 420;
 const IMAGE_REVEAL_DELAY_MS = 220;
 const UNLOCK_AFTER_IMAGE_MS = 1500;
-const LOCK_TRIGGER_Y_VH = 0.14;
+const FALLBACK_LOCK_TRIGGER_Y_VH = 0.12;
+const LOCK_TRIGGER_TOLERANCE_PX = 2;
 const IN_VIEW_THRESHOLD_VH = 0.2;
 const PHONE_IDLE_Y = 116;
 const PHONE_ACTIVE_Y = 88;
@@ -20,8 +21,30 @@ const clearTimer = (timerRef: { current: number | null }) => {
   timerRef.current = null;
 };
 
+const getStageStickyTop = (stage: HTMLElement | null) => {
+  if (!stage) return window.innerHeight * FALLBACK_LOCK_TRIGGER_Y_VH;
+
+  const stickyTop = Number.parseFloat(window.getComputedStyle(stage).top);
+  return Number.isFinite(stickyTop)
+    ? stickyTop
+    : window.innerHeight * FALLBACK_LOCK_TRIGGER_Y_VH;
+};
+
+const getWheelDeltaYPx = (event: WheelEvent) => {
+  if (event.deltaMode === window.WheelEvent.DOM_DELTA_PAGE) {
+    return event.deltaY * window.innerHeight;
+  }
+
+  if (event.deltaMode === window.WheelEvent.DOM_DELTA_LINE) {
+    return event.deltaY * 16;
+  }
+
+  return event.deltaY;
+};
+
 export function MobileScrollVideo() {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playTimerRef = useRef<number | null>(null);
   const revealTimerRef = useRef<number | null>(null);
@@ -37,6 +60,19 @@ export function MobileScrollVideo() {
   const [isInView, setIsInView] = useState(false);
   const [resultVisible, setResultVisible] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const snapToLockPoint = useCallback(() => {
+    const section = sectionRef.current;
+    const stickyTop = getStageStickyTop(stageRef.current);
+    if (!section) return;
+
+    const lockScrollY = window.scrollY + section.getBoundingClientRect().top - stickyTop;
+    window.scrollTo({
+      top: Math.max(0, Math.round(lockScrollY)),
+      left: window.scrollX,
+      behavior: "auto"
+    });
+  }, []);
 
   const unlockScroll = useCallback(() => {
     if (ownsScrollLockRef.current) {
@@ -103,6 +139,7 @@ export function MobileScrollVideo() {
     if (sequenceStartedRef.current || sequenceStarted || sequenceDone) return;
 
     sequenceStartedRef.current = true;
+    snapToLockPoint();
     document.body.classList.add("mp-scroll-locked");
     ownsScrollLockRef.current = true;
     finishStartedRef.current = false;
@@ -121,7 +158,7 @@ export function MobileScrollVideo() {
 
     clearTimer(playTimerRef);
     playTimerRef.current = window.setTimeout(playVideo, PHONE_ENTER_DELAY_MS);
-  }, [playVideo, sequenceDone, sequenceStarted]);
+  }, [playVideo, sequenceDone, sequenceStarted, snapToLockPoint]);
 
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
@@ -154,7 +191,8 @@ export function MobileScrollVideo() {
 
       if (sequenceStarted) return;
 
-      const hasReachedLockPoint = rect.top <= vh * LOCK_TRIGGER_Y_VH;
+      const stickyTop = getStageStickyTop(stageRef.current);
+      const hasReachedLockPoint = rect.top <= stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
       const hasRoomToHoldScene = rect.bottom >= vh * 0.85;
 
       if (hasReachedLockPoint && hasRoomToHoldScene) {
@@ -171,6 +209,35 @@ export function MobileScrollVideo() {
       window.removeEventListener("resize", evaluateScroll);
     };
   }, [sequenceDone, sequenceStarted, startSequence]);
+
+  useEffect(() => {
+    if (sequenceDone) return;
+
+    const lockBeforeWheelOvershoots = (event: WheelEvent) => {
+      if (event.defaultPrevented || sequenceStartedRef.current || event.deltaY <= 0) return;
+
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const rect = section.getBoundingClientRect();
+      const stickyTop = getStageStickyTop(stageRef.current);
+      const nextSectionTop = rect.top - getWheelDeltaYPx(event);
+      const isBeforeLockPoint = rect.top > stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
+      const willCrossLockPoint = nextSectionTop <= stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
+      const hasRoomToHoldScene = rect.bottom >= window.innerHeight * 0.85;
+
+      if (isBeforeLockPoint && willCrossLockPoint && hasRoomToHoldScene) {
+        event.preventDefault();
+        startSequence();
+      }
+    };
+
+    window.addEventListener("wheel", lockBeforeWheelOvershoots, { passive: false });
+
+    return () => {
+      window.removeEventListener("wheel", lockBeforeWheelOvershoots);
+    };
+  }, [sequenceDone, startSequence]);
 
   useEffect(() => {
     if (!isLocked) return;
@@ -221,7 +288,7 @@ export function MobileScrollVideo() {
 
   return (
     <section className="mp-mobile-scroll" ref={sectionRef} aria-label="Mobile payment flow">
-      <div className="mp-mobile-scroll-stage">
+      <div className="mp-mobile-scroll-stage" ref={stageRef}>
         <motion.div
           className="mp-mobile-scroll-glow"
           initial={false}
