@@ -33,9 +33,6 @@ type Dict = {
     ctaStart: string;
     ctaHow: string;
     scroll: string;
-    playing: string;
-    skip: string;
-    skipAria: string;
   };
   features: {
     kicker: string;
@@ -100,9 +97,6 @@ const tr: Dict = {
     ctaStart: "Hemen Başla",
     ctaHow: "Nasıl çalışır?",
     scroll: "Kaydır",
-    playing: "Film oynatılıyor…",
-    skip: "Atla",
-    skipAria: "Kaydırmayı etkinleştir"
   },
   features: {
     kicker: "Özellikler",
@@ -245,9 +239,6 @@ const en: Dict = {
     ctaStart: "Get Started",
     ctaHow: "How it works?",
     scroll: "Scroll",
-    playing: "Playing intro…",
-    skip: "Skip",
-    skipAria: "Enable scrolling"
   },
   features: {
     kicker: "Features",

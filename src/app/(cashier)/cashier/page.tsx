@@ -68,6 +68,7 @@ type PaymentShare = {
   tip: string;
   status: PaymentShareStatus;
   provider: string | null;
+  providerPaymentId: string | null;
   paymentUrl: string | null;
   paidAt: string | null;
   guest: Guest | null;
@@ -705,6 +706,117 @@ function downloadPaperReceipt(receipt: CashierReceipt) {
   window.URL.revokeObjectURL(url);
 }
 
+function isFullyCollectedPaymentSession(paymentSession: PaymentSession | null): boolean {
+  if (!paymentSession) {
+    return false;
+  }
+
+  if (paymentSession.status === "PAID") {
+    return true;
+  }
+
+  if (paymentSession.shares.length === 0 || !paymentSession.shares.every((share) => share.status === "PAID")) {
+    return false;
+  }
+
+  const paidBaseAmount = paymentSession.shares.reduce((sum, share) => sum + Number(share.amount), 0);
+  return paidBaseAmount + 0.009 >= Number(paymentSession.totalAmount);
+}
+
+function buildCurrentReceipt(
+  invoice: InvoiceResponse["data"] | null,
+  paymentSession: PaymentSession | null,
+  selectedSession: OpenSession | undefined
+): CashierReceipt | null {
+  if (!invoice || !paymentSession || !isFullyCollectedPaymentSession(paymentSession)) {
+    return null;
+  }
+
+  const paidAt =
+    paymentSession.session?.closedAt ??
+    paymentSession.session?.readyToCloseAt ??
+    paymentSession.shares
+      .map((share) => share.paidAt)
+      .filter((value): value is string => Boolean(value))
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
+    new Date().toISOString();
+  const guestsById = new Map<string, Guest>();
+
+  for (const guest of selectedSession?.guests ?? []) {
+    guestsById.set(guest.id, guest);
+  }
+
+  for (const split of invoice.splits) {
+    if (split.guest) {
+      guestsById.set(split.guest.id, split.guest);
+    }
+  }
+
+  const paidShares = paymentSession.shares.filter((share) => share.status === "PAID");
+  const tipAmount = paidShares.reduce((sum, share) => sum + Number(share.tip), 0);
+  const collectedAmount = paidShares.reduce((sum, share) => sum + Number(share.amount) + Number(share.tip), 0);
+
+  return {
+    id: paymentSession.id,
+    invoiceId: invoice.id,
+    sessionId: paymentSession.session?.id ?? selectedSession?.id ?? "",
+    splitMode: invoice.splitMode,
+    status: "PAID",
+    currency: paymentSession.currency,
+    total: invoice.total,
+    paidAmount: paymentSession.paidAmount,
+    remainingAmount: paymentSession.remainingAmount,
+    tipAmount: tipAmount.toFixed(2),
+    collectedAmount: collectedAmount.toFixed(2),
+    createdAt: invoice.createdAt,
+    paidAt,
+    branch: selectedSession ? { id: selectedSession.branch.id, name: selectedSession.branch.name } : null,
+    table: paymentSession.session?.table
+      ? {
+          id: paymentSession.session.table.id,
+          name: paymentSession.session.table.name,
+          code: paymentSession.session.table.code
+        }
+      : null,
+    guests: Array.from(guestsById.values()),
+    lines: invoice.lines.map((line) => ({
+      id: line.id,
+      label: line.label,
+      amount: line.amount,
+      itemName: line.itemName,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      guestId: line.guest?.id ?? null,
+      guestName: line.guest?.displayName ?? null
+    })),
+    shares: paymentSession.shares.map((share) => ({
+      id: share.id,
+      payerLabel: share.payerLabel,
+      guestId: share.guest?.id ?? null,
+      guestName: share.guest?.displayName ?? null,
+      amount: share.amount,
+      tip: share.tip,
+      totalCharged: (Number(share.amount) + Number(share.tip)).toFixed(2),
+      status: share.status,
+      provider: share.provider,
+      providerPaymentId: share.providerPaymentId,
+      paidAt: share.paidAt
+    })),
+    payments: paidShares.map((share) => ({
+      id: `receipt_payment_${share.id}`,
+      guestId: share.guest?.id ?? null,
+      guestName: share.guest?.displayName ?? null,
+      amount: (Number(share.amount) + Number(share.tip)).toFixed(2),
+      currency: paymentSession.currency,
+      method: share.provider ?? "PAYMENT",
+      status: "COMPLETED",
+      reference: share.providerPaymentId,
+      paidAt: share.paidAt ?? paidAt,
+      createdAt: share.paidAt ?? paidAt
+    }))
+  };
+}
+
 export default function CashierDashboardPage() {
   const [sessions, setSessions] = useState<OpenSession[]>([]);
   const [receipts, setReceipts] = useState<CashierReceipt[]>([]);
@@ -732,10 +844,36 @@ export default function CashierDashboardPage() {
   });
   const [receiptTableFilter, setReceiptTableFilter] = useState<string>(ALL_TABLES_KEY);
 
+  const selectedSession = useMemo(
+    () => sessions.find((session) => session.id === form.sessionId),
+    [sessions, form.sessionId]
+  );
+  const currentPaymentReceipt = useMemo(
+    () => buildCurrentReceipt(invoice, paymentSession, selectedSession),
+    [invoice, paymentSession, selectedSession]
+  );
+  const receiptArchiveReceipts = useMemo(() => {
+    if (!currentPaymentReceipt) {
+      return receipts;
+    }
+
+    const alreadyArchived = receipts.some((receipt) => receipt.invoiceId === currentPaymentReceipt.invoiceId);
+    return alreadyArchived ? receipts : [currentPaymentReceipt, ...receipts];
+  }, [currentPaymentReceipt, receipts]);
+  const activeInvoiceId = paymentSession?.invoiceId ?? invoice?.id ?? null;
+  const isPaymentSessionSettled = isFullyCollectedPaymentSession(paymentSession);
+  const settledReceipt = useMemo(() => {
+    if (!activeInvoiceId) {
+      return null;
+    }
+
+    return receiptArchiveReceipts.find((receipt) => receipt.invoiceId === activeInvoiceId) ?? null;
+  }, [activeInvoiceId, receiptArchiveReceipts]);
+
   const receiptTableGroups = useMemo(() => {
     const grouped = new Map<string, { tableName: string; branchName: string; count: number }>();
 
-    for (const receipt of receipts) {
+    for (const receipt of receiptArchiveReceipts) {
       if (!receipt.table) {
         continue;
       }
@@ -750,14 +888,14 @@ export default function CashierDashboardPage() {
     }
 
     return Array.from(grouped.entries()).map(([key, value]) => ({ key, ...value }));
-  }, [receipts]);
+  }, [receiptArchiveReceipts]);
 
   const filteredReceipts = useMemo(() => {
     if (receiptTableFilter === ALL_TABLES_KEY) {
-      return receipts;
+      return receiptArchiveReceipts;
     }
 
-    return receipts.filter((receipt) => {
+    return receiptArchiveReceipts.filter((receipt) => {
       if (!receipt.table) {
         return false;
       }
@@ -765,7 +903,7 @@ export default function CashierDashboardPage() {
       const key = `${receipt.branch?.name ?? ""}::${receipt.table.name}`;
       return key === receiptTableFilter;
     });
-  }, [receiptTableFilter, receipts]);
+  }, [receiptTableFilter, receiptArchiveReceipts]);
 
   useEffect(() => {
     if (receiptTableFilter === ALL_TABLES_KEY) {
@@ -777,11 +915,6 @@ export default function CashierDashboardPage() {
       setReceiptTableFilter(ALL_TABLES_KEY);
     }
   }, [receiptTableFilter, receiptTableGroups]);
-
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.id === form.sessionId),
-    [sessions, form.sessionId]
-  );
 
   async function loadData(options?: { silent?: boolean }) {
     if (!options?.silent) {
@@ -796,9 +929,15 @@ export default function CashierDashboardPage() {
       setSessions(sessionData);
       setReceipts(receiptData);
 
-      if (!form.sessionId && sessionData[0]) {
-        setForm((prev) => ({ ...prev, sessionId: sessionData[0].id }));
-      }
+      setForm((prev) => {
+        const selectedSessionStillOpen = sessionData.some((session) => session.id === prev.sessionId);
+
+        if (selectedSessionStillOpen) {
+          return prev;
+        }
+
+        return { ...prev, sessionId: sessionData[0]?.id ?? "", payerGuestId: "" };
+      });
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : "Failed to load cashier data";
       setError(message);
@@ -817,6 +956,10 @@ export default function CashierDashboardPage() {
 
   useEffect(() => {
     if (!invoice || !paymentSession) {
+      return;
+    }
+
+    if (paymentSession.status === "PAID") {
       return;
     }
 
@@ -839,7 +982,28 @@ export default function CashierDashboardPage() {
 
     return () => window.clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoice?.id, paymentSession?.id]);
+  }, [invoice?.id, paymentSession?.id, paymentSession?.status]);
+
+  useEffect(() => {
+    if (!isPaymentSessionSettled) {
+      return;
+    }
+
+    void loadData({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPaymentSessionSettled, paymentSession?.id]);
+
+  useEffect(() => {
+    if (!isPaymentSessionSettled || !settledReceipt) {
+      return;
+    }
+
+    if (settledReceipt.table) {
+      setReceiptTableFilter(`${settledReceipt.branch?.name ?? ""}::${settledReceipt.table.name}`);
+    }
+
+    setExpandedReceiptId(settledReceipt.id);
+  }, [isPaymentSessionSettled, settledReceipt]);
 
   useRealtimeEvents({
     role: "cashier",
@@ -860,6 +1024,10 @@ export default function CashierDashboardPage() {
     setIsCalculating(true);
 
     try {
+      if (!selectedSession) {
+        throw new Error("Select an open session before calculating.");
+      }
+
       const response = await fetch("/api/cashier/invoices", {
         method: "POST",
         headers: {
@@ -888,6 +1056,11 @@ export default function CashierDashboardPage() {
 
   async function handlePreparePayment() {
     if (!invoice) {
+      return;
+    }
+
+    if (paymentSession?.status === "PAID") {
+      setPaymentSessionNotice("This check is already paid. Use the settled receipt for export.");
       return;
     }
 
@@ -921,6 +1094,11 @@ export default function CashierDashboardPage() {
   }
 
   async function handleShareAction(shareId: string, action: CashierPaymentShareAction) {
+    if (paymentSession?.status === "PAID") {
+      setPaymentSessionNotice("This check is already paid. Use the settled receipt for export.");
+      return;
+    }
+
     setPaymentSessionError("");
     setPaymentSessionNotice("");
     setRunningShareAction({ shareId, action });
@@ -953,13 +1131,13 @@ export default function CashierDashboardPage() {
   function handleExportAllReceipts() {
     setExportError("");
 
-    if (receipts.length === 0) {
+    if (receiptArchiveReceipts.length === 0) {
       setExportError("No settled receipts are available to export.");
       return;
     }
 
     try {
-      writeReceiptsExcel(receipts, `cashier-receipts-${formatFileDate()}.xlsx`);
+      writeReceiptsExcel(receiptArchiveReceipts, `cashier-receipts-${formatFileDate()}.xlsx`);
     } catch (exportFailure) {
       setExportError(exportFailure instanceof Error ? exportFailure.message : "Receipt export failed.");
     }
@@ -1058,12 +1236,12 @@ export default function CashierDashboardPage() {
   }, [paymentSession]);
   const receiptSummary = useMemo(
     () => ({
-      count: receipts.length,
-      collectedAmount: receipts.reduce((sum, receipt) => sum + Number(receipt.collectedAmount), 0),
-      tipAmount: receipts.reduce((sum, receipt) => sum + Number(receipt.tipAmount), 0),
-      lastPaidAt: receipts[0]?.paidAt ?? null
+      count: receiptArchiveReceipts.length,
+      collectedAmount: receiptArchiveReceipts.reduce((sum, receipt) => sum + Number(receipt.collectedAmount), 0),
+      tipAmount: receiptArchiveReceipts.reduce((sum, receipt) => sum + Number(receipt.tipAmount), 0),
+      lastPaidAt: receiptArchiveReceipts[0]?.paidAt ?? null
     }),
-    [receipts]
+    [receiptArchiveReceipts]
   );
 
   return (
@@ -1221,7 +1399,7 @@ export default function CashierDashboardPage() {
           </label>
         ) : null}
 
-        <button type="submit" disabled={isCalculating || !form.sessionId}>
+        <button type="submit" disabled={isCalculating || !form.sessionId || !selectedSession}>
           {isCalculating ? "Calculating..." : "Calculate check"}
         </button>
         {invoiceError ? <p className="status-banner is-error">{invoiceError}</p> : null}
@@ -1273,29 +1451,57 @@ export default function CashierDashboardPage() {
 
           <div className="prepare-payment-panel stack-md">
             <div className="section-copy">
-              <h4>Prepare payments</h4>
-              <p className="helper-text">
-                Create payment shares after the check is calculated. Cash, card, and online-link actions can all be
-                managed from this screen for TRY payments.
-              </p>
+              <h4>{isPaymentSessionSettled ? "Payment complete" : "Prepare payments"}</h4>
+              {isPaymentSessionSettled ? (
+                <p className="helper-text">
+                  This table has been fully paid. The settled receipt is the remaining cashier record for export.
+                </p>
+              ) : (
+                <p className="helper-text">
+                  Create payment shares after the check is calculated. Cash, card, and online-link actions can all be
+                  managed from this screen for TRY payments.
+                </p>
+              )}
             </div>
 
-            <div className="ticket-actions">
-              <button
-                type="button"
-                className="ticket-action-btn"
-                onClick={handlePreparePayment}
-                disabled={isPreparingPayment}
-              >
-                {isPreparingPayment ? "Preparing..." : "Create payment shares"}
-              </button>
-            </div>
+            {isPaymentSessionSettled ? (
+              <div className="ticket-actions">
+                {settledReceipt ? (
+                  <>
+                    <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(settledReceipt)}>
+                      Download receipt
+                    </button>
+                    <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(settledReceipt)}>
+                      Print receipt
+                    </button>
+                    <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(settledReceipt)}>
+                      Export Excel
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="ticket-action-btn" onClick={() => loadData({ silent: true })}>
+                    Refresh receipts
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="ticket-actions">
+                <button
+                  type="button"
+                  className="ticket-action-btn"
+                  onClick={handlePreparePayment}
+                  disabled={isPreparingPayment}
+                >
+                  {isPreparingPayment ? "Preparing..." : "Create payment shares"}
+                </button>
+              </div>
+            )}
           </div>
 
           {paymentSessionNotice ? <p className="status-banner is-success">{paymentSessionNotice}</p> : null}
           {paymentSessionError ? <p className="status-banner is-error">{paymentSessionError}</p> : null}
 
-          {paymentSession ? (
+          {paymentSession && !isPaymentSessionSettled ? (
             <div className="settlement-desk stack-md">
               <div className="section-head">
                 <div className="section-copy">
@@ -1460,6 +1666,7 @@ export default function CashierDashboardPage() {
             </div>
           ) : null}
 
+          {!isPaymentSessionSettled ? (
           <div className="grid-2">
             <div>
               <div className="section-copy">
@@ -1523,6 +1730,7 @@ export default function CashierDashboardPage() {
               </div>
             </div>
           </div>
+          ) : null}
         </section>
       ) : (
         <section className="panel">
@@ -1538,9 +1746,22 @@ export default function CashierDashboardPage() {
             <p className="panel-subtitle">Paid checks stay available here after the table closes.</p>
           </div>
           <div className="ticket-actions receipt-archive-actions">
-            <button type="button" className="ticket-action-btn" onClick={handleExportAllReceipts} disabled={receipts.length === 0}>
+            <button type="button" className="ticket-action-btn" onClick={handleExportAllReceipts} disabled={receiptArchiveReceipts.length === 0}>
               Export all Excel
             </button>
+            {settledReceipt ? (
+              <>
+                <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(settledReceipt)}>
+                  Print receipt
+                </button>
+                <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(settledReceipt)}>
+                  Download receipt
+                </button>
+                <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(settledReceipt)}>
+                  Export receipt
+                </button>
+              </>
+            ) : null}
             <button type="button" className="ticket-action-btn" onClick={() => loadData()}>
               Refresh
             </button>
@@ -1586,7 +1807,7 @@ export default function CashierDashboardPage() {
               aria-pressed={receiptTableFilter === ALL_TABLES_KEY}
             >
               <span>All tables</span>
-              <span className="table-filter-chip-count">{receipts.length}</span>
+              <span className="table-filter-chip-count">{receiptArchiveReceipts.length}</span>
             </button>
             {receiptTableGroups.map((group) => {
               const isActive = receiptTableFilter === group.key;
@@ -1608,7 +1829,7 @@ export default function CashierDashboardPage() {
           </div>
         ) : null}
 
-        {receipts.length === 0 ? (
+        {receiptArchiveReceipts.length === 0 ? (
           <p className="empty empty-state">No settled receipts yet. Completed payments will appear here after checkout.</p>
         ) : filteredReceipts.length === 0 ? (
           <p className="empty empty-state">No receipts for this table yet.</p>

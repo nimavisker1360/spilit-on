@@ -509,7 +509,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
   const [joinName, setJoinName] = useState("");
   const [joining, setJoining] = useState(false);
   const [showAddGuestForm, setShowAddGuestForm] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>("bill");
+  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(handoffMode === "next" ? "split" : "bill");
   const [selectedSplitChoice, setSelectedSplitChoice] = useState<SplitChoice>("equal");
   const [equalPeopleCount, setEqualPeopleCount] = useState(2);
   const [selectedTipRate, setSelectedTipRate] = useState<number>(0);
@@ -799,6 +799,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
     myShare && identifiedGuestId && Math.abs(toCents(myShare.amount) - myInvoiceSubtotalCents) > 1
   );
   const isCheckoutClosed = Boolean(paymentSession?.status === "PAID" || state?.session?.status === "CLOSED");
+  const hasPayablePaymentShare = canOpenPaymentShare(paymentShare) && !isCheckoutClosed;
 
   useEffect(() => {
     if (!paymentSession) {
@@ -853,7 +854,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
     setSelectedTipRate(0);
     setPendingGuestNavigation({
       guestId: nextPayableGuestCandidate.id,
-      step: "payment"
+      step: "split"
     });
     setMessage(`Next payer: ${nextPayableGuestCandidate.displayName}.`);
     setError("");
@@ -1340,6 +1341,8 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
           </div>
         ) : null}
 
+        {!hasPayablePaymentShare ? renderIdentityCard() : null}
+
         <div className="guest-split-list">
           <p className="guest-checkout-label">Each person pays</p>
           {splitPreviewRows.map((row, index) => (
@@ -1377,7 +1380,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
           <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("bill")}>
             Back
           </button>
-          <button type="button" className="guest-checkout-primary-action" onClick={() => handleContinue("tip")}>
+          <button
+            type="button"
+            className="guest-checkout-primary-action"
+            onClick={() => handleContinue("tip")}
+            disabled={!hasPayablePaymentShare}
+          >
             Continue to Tip
           </button>
         </div>
@@ -1394,6 +1402,8 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
           <p>{paymentShare ? `Based on ${formatTryCurrency(paymentShare.amount)}` : "Choose a tip after your share is ready."}</p>
         </div>
 
+        {!hasPayablePaymentShare ? renderIdentityCard() : null}
+
         <div className="guest-tip-grid">
           {TIP_PRESET_RATES.map((rate) => {
             const tipAmount = resolveTipAmount(paymentShare?.amount ?? null, rate);
@@ -1405,7 +1415,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
                 type="button"
                 className={isActive ? "is-active" : ""}
                 onClick={() => setSelectedTipRate(rate)}
-                disabled={!paymentShare}
+                disabled={!hasPayablePaymentShare}
               >
                 <span>{formatTipPresetLabel(rate)}</span>
                 <strong>{rate === 0 ? "No extra charge" : formatTryCurrency(tipAmount)}</strong>
@@ -1433,7 +1443,12 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
           <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("split")}>
             Back
           </button>
-          <button type="button" className="guest-checkout-primary-action" onClick={() => handleContinue("payment")} disabled={!paymentShare}>
+          <button
+            type="button"
+            className="guest-checkout-primary-action"
+            onClick={() => handleContinue("payment")}
+            disabled={!hasPayablePaymentShare}
+          >
             Odemeye devam et
           </button>
         </div>

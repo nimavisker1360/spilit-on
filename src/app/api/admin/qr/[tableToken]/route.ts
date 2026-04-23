@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 
 import { requireEntityPermission } from "@/features/auth/auth-context";
 import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
-import { getTablePublicUrl } from "@/lib/public-url";
+import { getRequestPublicAppBaseUrl, getTablePublicUrl } from "@/lib/public-url";
 
 export async function GET(
   request: Request,
@@ -17,7 +17,7 @@ export async function GET(
   try {
     const tableToken = context.params.tableToken;
     await requireEntityPermission(request, "table.qr.read", "tableToken", tableToken);
-    const url = getTablePublicUrl(tableToken);
+    const url = getTablePublicUrl(tableToken, getRequestPublicAppBaseUrl(request));
 
     const svg = await QRCode.toString(url, {
       type: "svg",

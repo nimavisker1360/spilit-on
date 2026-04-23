@@ -465,14 +465,23 @@ async function syncSettlementState(tx: Prisma.TransactionClient, paymentSessionI
   if (remainingCents === 0 && shares.length > 0) newStatus = PaymentSessionStatus.PAID;
   else if (paidCents > 0) newStatus = PaymentSessionStatus.PARTIALLY_PAID;
 
-  await tx.paymentSession.update({
-    where: { id: paymentSessionId },
-    data: {
-      paidAmount: centsToDecimalString(paidCents),
-      remainingAmount: centsToDecimalString(remainingCents),
-      status: newStatus
-    }
-  });
+  const paidAmount = centsToDecimalString(paidCents);
+  const remainingAmount = centsToDecimalString(remainingCents);
+
+  if (
+    ps.status !== newStatus ||
+    toCents(ps.paidAmount.toString()) !== paidCents ||
+    toCents(ps.remainingAmount.toString()) !== remainingCents
+  ) {
+    await tx.paymentSession.update({
+      where: { id: paymentSessionId },
+      data: {
+        paidAmount,
+        remainingAmount,
+        status: newStatus
+      }
+    });
+  }
 
   const tableSession = await tx.tableSession.findUnique({ where: { id: ps.sessionId } });
 
@@ -480,8 +489,8 @@ async function syncSettlementState(tx: Prisma.TransactionClient, paymentSessionI
     const now = new Date();
     const sessionData: Prisma.TableSessionUpdateInput = {
       totalAmount: ps.totalAmount,
-      paidAmount: centsToDecimalString(paidCents),
-      remainingAmount: centsToDecimalString(remainingCents)
+      paidAmount,
+      remainingAmount
     };
 
     if (newStatus === PaymentSessionStatus.PAID) {
@@ -493,13 +502,32 @@ async function syncSettlementState(tx: Prisma.TransactionClient, paymentSessionI
       sessionData.closedAt = null;
     }
 
-    await tx.tableSession.update({ where: { id: ps.sessionId }, data: sessionData });
+    const shouldUpdateTableSession =
+      toCents(tableSession.totalAmount.toString()) !== totalCents ||
+      toCents(tableSession.paidAmount.toString()) !== paidCents ||
+      toCents(tableSession.remainingAmount.toString()) !== remainingCents ||
+      (newStatus === PaymentSessionStatus.PAID &&
+        (tableSession.status !== SessionStatus.CLOSED || !tableSession.closedAt || !tableSession.readyToCloseAt)) ||
+      (newStatus !== PaymentSessionStatus.PAID &&
+        tableSession.status === SessionStatus.OPEN &&
+        (Boolean(tableSession.closedAt) || Boolean(tableSession.readyToCloseAt)));
+
+    if (shouldUpdateTableSession) {
+      await tx.tableSession.update({ where: { id: ps.sessionId }, data: sessionData });
+    }
 
     if (newStatus === PaymentSessionStatus.PAID) {
-      await tx.table.update({
+      const table = await tx.table.findUnique({
         where: { id: tableSession.tableId },
-        data: { status: TableStatus.AVAILABLE }
+        select: { status: true }
       });
+
+      if (table?.status !== TableStatus.AVAILABLE) {
+        await tx.table.update({
+          where: { id: tableSession.tableId },
+          data: { status: TableStatus.AVAILABLE }
+        });
+      }
     }
   }
 }

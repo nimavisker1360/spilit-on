@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AnimatePresence,
   motion,
   useScroll,
   useTransform
@@ -193,34 +192,6 @@ export function HeroVideoSequence() {
               <span className="mp-scroll-hint-bar" />
             </motion.div>
           </div>
-
-          {/* Waiting indicator while scroll is locked */}
-          <AnimatePresence>
-            {!scrollUnlocked ? (
-              <motion.div
-                key="locked-indicator"
-                className="mp-hero-waiting"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10, transition: { duration: 0.4 } }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                <span className="mp-dot" />
-                <span>{t.hero.playing}</span>
-                <button
-                  type="button"
-                  className="mp-hero-skip"
-                  onClick={unlock}
-                  aria-label={t.hero.skipAria}
-                >
-                  {t.hero.skip}
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
 
         </div>
       </div>

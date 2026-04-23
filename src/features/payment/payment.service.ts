@@ -222,14 +222,23 @@ async function syncSettlementState(
     newStatus = PaymentSessionStatus.PARTIALLY_PAID;
   }
 
-  await tx.paymentSession.update({
-    where: { id: paymentSessionId },
-    data: {
-      paidAmount: centsToDecimalString(paidCents),
-      remainingAmount: centsToDecimalString(remainingCents),
-      status: newStatus
-    }
-  });
+  const paidAmount = centsToDecimalString(paidCents);
+  const remainingAmount = centsToDecimalString(remainingCents);
+
+  if (
+    ps.status !== newStatus ||
+    toCents(ps.paidAmount.toString()) !== paidCents ||
+    toCents(ps.remainingAmount.toString()) !== remainingCents
+  ) {
+    await tx.paymentSession.update({
+      where: { id: paymentSessionId },
+      data: {
+        paidAmount,
+        remainingAmount,
+        status: newStatus
+      }
+    });
+  }
 
   const tableSession = await tx.tableSession.findUnique({
     where: { id: ps.sessionId }
@@ -239,8 +248,8 @@ async function syncSettlementState(
     const now = new Date();
     const sessionData: Prisma.TableSessionUpdateInput = {
       totalAmount: ps.totalAmount,
-      paidAmount: centsToDecimalString(paidCents),
-      remainingAmount: centsToDecimalString(remainingCents)
+      paidAmount,
+      remainingAmount
     };
 
     if (newStatus === PaymentSessionStatus.PAID) {
@@ -252,13 +261,32 @@ async function syncSettlementState(
       sessionData.closedAt = null;
     }
 
-    await tx.tableSession.update({ where: { id: ps.sessionId }, data: sessionData });
+    const shouldUpdateTableSession =
+      toCents(tableSession.totalAmount.toString()) !== totalCents ||
+      toCents(tableSession.paidAmount.toString()) !== paidCents ||
+      toCents(tableSession.remainingAmount.toString()) !== remainingCents ||
+      (newStatus === PaymentSessionStatus.PAID &&
+        (tableSession.status !== SessionStatus.CLOSED || !tableSession.closedAt || !tableSession.readyToCloseAt)) ||
+      (newStatus !== PaymentSessionStatus.PAID &&
+        tableSession.status === SessionStatus.OPEN &&
+        (Boolean(tableSession.closedAt) || Boolean(tableSession.readyToCloseAt)));
+
+    if (shouldUpdateTableSession) {
+      await tx.tableSession.update({ where: { id: ps.sessionId }, data: sessionData });
+    }
 
     if (newStatus === PaymentSessionStatus.PAID) {
-      await tx.table.update({
+      const table = await tx.table.findUnique({
         where: { id: tableSession.tableId },
-        data: { status: TableStatus.AVAILABLE }
+        select: { status: true }
       });
+
+      if (table?.status !== TableStatus.AVAILABLE) {
+        await tx.table.update({
+          where: { id: tableSession.tableId },
+          data: { status: TableStatus.AVAILABLE }
+        });
+      }
     }
   }
 
@@ -454,6 +482,10 @@ export async function createPaymentSessionFromInvoice(invoiceId: string) {
     return { created: false, paymentSession: updated };
   }
 
+  if (invoice.session.status === SessionStatus.CLOSED) {
+    throw new Error("This check is already closed.");
+  }
+
   const tableName = invoice.session.table?.name ?? "";
   const shareData: Prisma.PaymentShareCreateWithoutPaymentSessionInput[] = (() => {
     if (invoice.splitMode === SplitMode.FULL_BY_ONE) {
@@ -520,6 +552,14 @@ export async function applyCashierPaymentShareAction(
       where: { id: share.paymentSessionId }
     });
     if (!ps) throw new Error("Payment session not found.");
+
+    const tableSession = await tx.tableSession.findUnique({
+      where: { id: ps.sessionId }
+    });
+
+    if (ps.status === PaymentSessionStatus.PAID || tableSession?.status === SessionStatus.CLOSED) {
+      throw new Error("This payment session is already closed.");
+    }
 
     let message: string;
 

@@ -7,7 +7,7 @@ export function LogoutButton() {
     <button
       type="button"
       className="sidebar-logout"
-      onClick={() => signOut({ callbackUrl: "/login" })}
+      onClick={() => signOut({ callbackUrl: "/" })}
     >
       <span className="sidebar-nav-icon">
         <svg

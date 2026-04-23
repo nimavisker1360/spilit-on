@@ -29,8 +29,15 @@ function resultRedirectUrl(paymentShareId: string, status: string, request: Requ
   return url;
 }
 
-function guestPaymentRedirectUrl(tableCode: string, request: Request): URL {
-  return new URL(`/guest/${encodeURIComponent(tableCode)}/payment`, callbackRedirectBaseUrl(request));
+function guestPaymentRedirectUrl(tableCode: string, request: Request, paidGuestId?: string | null): URL {
+  const url = new URL(`/guest/${encodeURIComponent(tableCode)}/payment`, callbackRedirectBaseUrl(request));
+  url.searchParams.set("handoff", "next");
+
+  if (paidGuestId) {
+    url.searchParams.set("guestId", paidGuestId);
+  }
+
+  return url;
 }
 
 function isLocalhostUrl(value: string): boolean {
@@ -178,7 +185,7 @@ async function redirectForCallback(request: Request, payload: JsonObject) {
     const tableCode = result.paymentSession.session?.table?.code;
 
     if (result.paymentShare.status === "PAID" && tableCode) {
-      return NextResponse.redirect(guestPaymentRedirectUrl(tableCode, request), { status: 303 });
+      return NextResponse.redirect(guestPaymentRedirectUrl(tableCode, request, result.paymentShare.guestId), { status: 303 });
     }
 
     return NextResponse.redirect(resultRedirectUrl(result.paymentShare.id, result.paymentShare.status, request), { status: 303 });

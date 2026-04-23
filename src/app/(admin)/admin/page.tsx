@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 
 import { AdminActions, AdminField, AdminFormCard } from "@/components/admin/admin-form";
 import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
-import { getTablePublicUrl } from "@/lib/public-url";
+import { getClientPublicAppBaseUrl, getPublicAppBaseUrl, getTablePublicUrl } from "@/lib/public-url";
 
 type SessionSummary = {
   id: string;
@@ -430,6 +430,7 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [publicBaseUrl, setPublicBaseUrl] = useState(() => getPublicAppBaseUrl());
 
   const [restaurantEdits, setRestaurantEdits] = useState<Record<string, string>>({});
   const [savingRestaurantId, setSavingRestaurantId] = useState<string | null>(null);
@@ -566,6 +567,10 @@ export default function AdminDashboardPage() {
   }, [branches]);
 
   const isAllBranchesSelected = activeBranchFilter === ALL_BRANCHES_KEY;
+
+  useEffect(() => {
+    setPublicBaseUrl(getClientPublicAppBaseUrl());
+  }, []);
 
   const filteredBranches = useMemo<BranchListRow[]>(() => {
     if (isAllBranchesSelected) return branches;
@@ -2069,7 +2074,7 @@ export default function AdminDashboardPage() {
                                       </div>
                                       <div className="detail-card">
                                         <span className="detail-label">QR link</span>
-                                        <span className="detail-value is-mono">{getTablePublicUrl(table.publicToken)}</span>
+                                        <span className="detail-value is-mono">{getTablePublicUrl(table.publicToken, publicBaseUrl)}</span>
                                       </div>
                                     </div>
 
