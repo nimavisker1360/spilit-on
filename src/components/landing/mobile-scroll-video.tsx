@@ -11,6 +11,7 @@ const IMAGE_REVEAL_DELAY_MS = 220;
 const FALLBACK_LOCK_TRIGGER_Y_VH = 0.12;
 const LOCK_TRIGGER_TOLERANCE_PX = 2;
 const IN_VIEW_THRESHOLD_VH = 0.2;
+const MIN_VISIBLE_SECTION_PX = 80;
 const PHONE_IDLE_Y = 40;
 const PHONE_ACTIVE_Y = 0;
 const PHONE_OFFSCREEN_Y = 340;
@@ -124,6 +125,8 @@ export function MobileScrollVideo() {
   const stageTimerRef = useRef<number | null>(null);
   const unlockTimerRef = useRef<number | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
+  const lockScrollYRef = useRef(0);
+  const touchStartYRef = useRef<number | null>(null);
   const finishStartedRef = useRef(false);
   const ownsScrollLockRef = useRef(false);
   const sequenceStartedRef = useRef(false);
@@ -164,29 +167,55 @@ export function MobileScrollVideo() {
     manualModeRef.current = manualMode;
   }, [manualMode]);
 
-  const snapToLockPoint = useCallback(() => {
+  const getLockScrollY = useCallback(() => {
     const section = sectionRef.current;
     const stickyTop = getStageStickyTop(stageRef.current);
-    if (!section) return;
+    if (!section) return window.scrollY;
 
     const lockScrollY = window.scrollY + section.getBoundingClientRect().top - stickyTop;
+    return Math.max(0, Math.round(lockScrollY));
+  }, []);
+
+  const snapToLockPoint = useCallback(() => {
+    const lockScrollY = getLockScrollY();
     window.scrollTo({
-      top: Math.max(0, Math.round(lockScrollY)),
+      top: lockScrollY,
       left: window.scrollX,
       behavior: "auto"
     });
+    return lockScrollY;
+  }, [getLockScrollY]);
+
+  const lockBodyScroll = useCallback((scrollY: number) => {
+    lockScrollYRef.current = scrollY;
+    document.body.classList.add("mp-scroll-locked");
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    ownsScrollLockRef.current = true;
+  }, []);
+
+  const unlockBodyScroll = useCallback(() => {
+    if (!ownsScrollLockRef.current) return;
+
+    document.body.classList.remove("mp-scroll-locked");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    window.scrollTo({ top: lockScrollYRef.current, left: window.scrollX, behavior: "auto" });
+    ownsScrollLockRef.current = false;
   }, []);
 
   const unlockScroll = useCallback(() => {
-    if (ownsScrollLockRef.current) {
-      document.body.classList.remove("mp-scroll-locked");
-      ownsScrollLockRef.current = false;
-    }
-
+    unlockBodyScroll();
     setIsLocked(false);
     setSequenceDone(true);
     setManualMode(true);
-  }, []);
+  }, [unlockBodyScroll]);
 
   const stageIndexRef = useRef(0);
 
@@ -293,9 +322,8 @@ export function MobileScrollVideo() {
     if (sequenceStartedRef.current || sequenceStarted || sequenceDone) return;
 
     sequenceStartedRef.current = true;
-    snapToLockPoint();
-    document.body.classList.add("mp-scroll-locked");
-    ownsScrollLockRef.current = true;
+    const lockScrollY = snapToLockPoint();
+    lockBodyScroll(lockScrollY);
     finishStartedRef.current = false;
 
     setSequenceStarted(true);
@@ -314,7 +342,16 @@ export function MobileScrollVideo() {
 
     clearTimer(playTimerRef);
     playTimerRef.current = window.setTimeout(playVideo, PHONE_ENTER_DELAY_MS);
-  }, [playVideo, sequenceDone, sequenceStarted, snapToLockPoint]);
+  }, [lockBodyScroll, playVideo, sequenceDone, sequenceStarted, snapToLockPoint]);
+
+  const canHoldSceneAtCurrentScroll = useCallback(() => {
+    const section = sectionRef.current;
+    if (!section) return false;
+
+    const rect = section.getBoundingClientRect();
+    const stickyTop = getStageStickyTop(stageRef.current);
+    return rect.bottom > stickyTop + MIN_VISIBLE_SECTION_PX;
+  }, []);
 
   const handleLoadedMetadata = () => {
     const video = videoRef.current;
@@ -352,7 +389,7 @@ export function MobileScrollVideo() {
       // Allow locking even if the user fast-scrolled past the ideal point,
       // as long as a meaningful portion of the section is still visible.
       // startSequence() will snap back to the lock point.
-      const hasRoomToHoldScene = rect.bottom >= vh * 0.3;
+      const hasRoomToHoldScene = canHoldSceneAtCurrentScroll();
 
       if (hasReachedLockPoint && hasRoomToHoldScene) {
         startSequence();
@@ -367,7 +404,7 @@ export function MobileScrollVideo() {
       window.removeEventListener("scroll", evaluateScroll);
       window.removeEventListener("resize", evaluateScroll);
     };
-  }, [sequenceDone, sequenceStarted, startSequence]);
+  }, [canHoldSceneAtCurrentScroll, sequenceDone, sequenceStarted, startSequence]);
 
   useEffect(() => {
     if (sequenceDone) return;
@@ -383,7 +420,7 @@ export function MobileScrollVideo() {
       const nextSectionTop = rect.top - getWheelDeltaYPx(event);
       const isBeforeLockPoint = rect.top > stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
       const willCrossLockPoint = nextSectionTop <= stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
-      const hasRoomToHoldScene = rect.bottom >= window.innerHeight * 0.3;
+      const hasRoomToHoldScene = canHoldSceneAtCurrentScroll();
 
       if (isBeforeLockPoint && willCrossLockPoint && hasRoomToHoldScene) {
         event.preventDefault();
@@ -396,7 +433,49 @@ export function MobileScrollVideo() {
     return () => {
       window.removeEventListener("wheel", lockBeforeWheelOvershoots);
     };
-  }, [sequenceDone, startSequence]);
+  }, [canHoldSceneAtCurrentScroll, sequenceDone, startSequence]);
+
+  useEffect(() => {
+    if (sequenceDone) return;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      touchStartYRef.current = event.touches[0]?.clientY ?? null;
+    };
+
+    const lockBeforeTouchOvershoots = (event: TouchEvent) => {
+      if (event.defaultPrevented || sequenceStartedRef.current || event.touches.length !== 1) return;
+
+      const startY = touchStartYRef.current;
+      const currentY = event.touches[0]?.clientY;
+      if (startY === null || currentY === undefined) return;
+
+      const deltaY = startY - currentY;
+      if (deltaY <= 0) return;
+
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const rect = section.getBoundingClientRect();
+      const stickyTop = getStageStickyTop(stageRef.current);
+      const nextSectionTop = rect.top - deltaY;
+      const isBeforeLockPoint = rect.top > stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
+      const willCrossLockPoint = nextSectionTop <= stickyTop + LOCK_TRIGGER_TOLERANCE_PX;
+      const hasRoomToHoldScene = canHoldSceneAtCurrentScroll();
+
+      if (isBeforeLockPoint && willCrossLockPoint && hasRoomToHoldScene) {
+        event.preventDefault();
+        startSequence();
+      }
+    };
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", lockBeforeTouchOvershoots, { passive: false });
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", lockBeforeTouchOvershoots);
+    };
+  }, [canHoldSceneAtCurrentScroll, sequenceDone, startSequence]);
 
   useEffect(() => {
     if (!isLocked) return;
@@ -439,12 +518,9 @@ export function MobileScrollVideo() {
       clearTimer(unlockTimerRef);
       clearTimer(fallbackTimerRef);
 
-      if (ownsScrollLockRef.current) {
-        document.body.classList.remove("mp-scroll-locked");
-        ownsScrollLockRef.current = false;
-      }
+      unlockBodyScroll();
     };
-  }, []);
+  }, [unlockBodyScroll]);
 
   const activeStage = stages[stageIndex] ?? stages[0];
   const canGoPrev = stageIndex > 0;

@@ -17,8 +17,8 @@
   --mp-accent-glow: rgba(255, 112, 0, 0.55);
   --mp-radius: 18px;
   --mp-radius-lg: 28px;
-  --mp-mobile-nav-clearance: 0px;
-  --mp-mobile-sticky-top: clamp(160px, 20vh, 220px);
+  --mp-mobile-nav-clearance: calc(env(safe-area-inset-top, 0px) + 96px);
+  --mp-mobile-sticky-top: max(var(--mp-mobile-nav-clearance), clamp(150px, 18vh, 210px));
 
   position: relative;
   min-height: 100vh;
@@ -80,6 +80,8 @@ body.mp-scroll-locked {
   height: 100vh !important;
   height: max(100vh, 100dvh) !important;
   min-height: 100vh !important;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 /* ===================== Navbar ===================== */
@@ -596,14 +598,17 @@ body.mp-scroll-locked {
 /* Scroll-scrub phase (phase 2 — second video scrubs with scroll) */
 .mp-hero-scrub {
   position: relative;
-  height: 140vh; /* scroll distance drives exit animation */
+  height: calc(140vh + var(--mp-mobile-nav-clearance)); /* scroll distance drives exit animation */
+  padding-top: var(--mp-mobile-nav-clearance);
+  box-sizing: border-box;
 }
 
 .mp-hero-scrub-stage {
   position: sticky;
-  top: 0;
-  height: 100vh;
-  height: max(100vh, 100dvh);
+  top: var(--mp-mobile-nav-clearance);
+  height: calc(100vh - var(--mp-mobile-nav-clearance));
+  height: calc(100dvh - var(--mp-mobile-nav-clearance));
+  min-height: 420px;
   width: 100%;
   overflow: hidden;
   background: #000;
