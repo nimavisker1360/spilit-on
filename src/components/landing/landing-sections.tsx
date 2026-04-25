@@ -349,14 +349,14 @@ export function CtaSection() {
           <h2>{t.cta.title}</h2>
           <p>{t.cta.desc}</p>
           <div className="mp-cta-actions">
-            <Link href={t.cta.primaryHref} className="mp-btn mp-btn-primary">
+            <Link href={t.cta.primaryHref} className="mp-btn mp-btn-primary" scroll>
               {t.cta.primary}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
                 <polyline points="12 5 19 12 12 19" />
               </svg>
             </Link>
-            <Link href={t.cta.secondaryHref} className="mp-btn mp-btn-ghost">
+            <Link href={t.cta.secondaryHref} className="mp-btn mp-btn-ghost" scroll>
               {t.cta.secondary}
             </Link>
           </div>

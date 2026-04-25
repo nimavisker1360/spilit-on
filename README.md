@@ -60,7 +60,14 @@ cp .env.example .env
 npm install
 ```
 
-3. Run the app
+3. Configure env
+
+At minimum, set these for any Prisma-backed environment:
+
+```bash
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public
+DIRECT_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public
+```
 
 4. Optional seed
 
@@ -74,6 +81,24 @@ or call `POST /api/seed` once from the app to restore the default local dataset.
 
 ```bash
 npm run dev
+```
+
+## Production deploy
+
+Production builds now run `prisma migrate deploy` automatically before `next build`.
+
+Make sure your deploy environment has:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `AUTH_URL`
+- `AUTH_SECRET`
+
+Useful commands for manual verification:
+
+```bash
+npm run db:deploy
+npx prisma migrate status
 ```
 
 ## Google OAuth

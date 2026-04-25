@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
@@ -820,12 +820,14 @@ function buildCurrentReceipt(
 
 export default function CashierDashboardPage() {
   const { locale, t } = useDashboardLanguage();
+  const archivedInvoiceRef = useRef<string | null>(null);
   const [sessions, setSessions] = useState<OpenSession[]>([]);
   const [receipts, setReceipts] = useState<CashierReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [receiptError, setReceiptError] = useState("");
   const [exportError, setExportError] = useState("");
+  const [archiveNotice, setArchiveNotice] = useState("");
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState("");
   const [invoice, setInvoice] = useState<InvoiceResponse["data"] | null>(null);
@@ -1007,6 +1009,52 @@ export default function CashierDashboardPage() {
     setExpandedReceiptId(settledReceipt.id);
   }, [isPaymentSessionSettled, settledReceipt]);
 
+  useEffect(() => {
+    if (!currentPaymentReceipt) {
+      return;
+    }
+
+    if (archivedInvoiceRef.current === currentPaymentReceipt.invoiceId) {
+      return;
+    }
+
+    archivedInvoiceRef.current = currentPaymentReceipt.invoiceId;
+
+    setReceipts((prev) => {
+      const next = prev.filter((receipt) => receipt.invoiceId !== currentPaymentReceipt.invoiceId);
+      return [currentPaymentReceipt, ...next];
+    });
+
+    if (currentPaymentReceipt.table) {
+      setReceiptTableFilter(`${currentPaymentReceipt.branch?.name ?? ""}::${currentPaymentReceipt.table.name}`);
+    }
+
+    setExpandedReceiptId(currentPaymentReceipt.id);
+    setArchiveNotice(
+      t(
+        `Table ${currentPaymentReceipt.table?.name ?? "-"} was moved to the receipt archive and removed from active checkout.`,
+        `Masa ${currentPaymentReceipt.table?.name ?? "-"} fis arsivine tasindi ve aktif odeme ekranindan kaldirildi.`
+      )
+    );
+    setForm((prev) => {
+      if (prev.sessionId !== currentPaymentReceipt.sessionId) {
+        return prev;
+      }
+
+      const nextSession = sessions.find((session) => session.id !== currentPaymentReceipt.sessionId);
+      return {
+        ...prev,
+        sessionId: nextSession?.id ?? "",
+        payerGuestId: ""
+      };
+    });
+    setInvoice(null);
+    setPaymentSession(null);
+    setPaymentSessionNotice("");
+    setPaymentSessionError("");
+    setRunningShareAction(null);
+  }, [currentPaymentReceipt, sessions, t]);
+
   useRealtimeEvents({
     role: "cashier",
     onEvent: (event) => {
@@ -1018,6 +1066,7 @@ export default function CashierDashboardPage() {
 
   async function handleCalculate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setArchiveNotice("");
     setInvoiceError("");
     setPaymentSession(null);
     setPaymentSessionNotice("");
@@ -1346,6 +1395,7 @@ export default function CashierDashboardPage() {
         <div className="status-stack">
           {loading ? <p className="status-banner is-neutral">{t("Loading open checks.", "Acik hesaplar yukleniyor.")}</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
+          {archiveNotice ? <p className="status-banner is-success">{archiveNotice}</p> : null}
         </div>
       </section>
 
@@ -1444,7 +1494,7 @@ export default function CashierDashboardPage() {
         </div>
 
         {sessions.length > 0 ? (
-          <div className="table-filter-bar" role="tablist" aria-label="Quick pick table">
+          <div className="table-filter-bar cashier-table-filter-bar cashier-table-filter-bar--compact" role="tablist" aria-label="Quick pick table">
             {sessions.map((session) => {
               const isActive = form.sessionId === session.id;
 
@@ -1452,12 +1502,17 @@ export default function CashierDashboardPage() {
                 <button
                   key={session.id}
                   type="button"
-                  className={`table-filter-chip${isActive ? " is-active" : ""}`}
+                  className={`table-filter-chip cashier-table-filter-chip${isActive ? " is-active" : ""}`}
                   onClick={() => setForm((prev) => ({ ...prev, sessionId: session.id, payerGuestId: "" }))}
                   aria-pressed={isActive}
                   title={formatSessionLabel(session)}
                 >
-                  <span>Table {session.table.name}</span>
+                  <span className="table-filter-chip-copy">
+                    <span className="table-filter-chip-title">Table {session.table.name}</span>
+                    <span className="table-filter-chip-meta">
+                      {t(`${session.guests.length} guests ready`, `${session.guests.length} misafir hazir`)}
+                    </span>
+                  </span>
                   <span className="table-filter-chip-count">{session.guests.length}</span>
                 </button>
               );
@@ -1937,14 +1992,21 @@ export default function CashierDashboardPage() {
         </div>
 
         {receiptTableGroups.length > 0 ? (
-          <div className="table-filter-bar" role="tablist" aria-label={t("Filter receipts by table", "Fisleri masaya gore filtrele")}>
+          <div
+            className="table-filter-bar cashier-table-filter-bar"
+            role="tablist"
+            aria-label={t("Filter receipts by table", "Fisleri masaya gore filtrele")}
+          >
             <button
               type="button"
-              className={`table-filter-chip${receiptTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
+              className={`table-filter-chip cashier-table-filter-chip${receiptTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
               onClick={() => setReceiptTableFilter(ALL_TABLES_KEY)}
               aria-pressed={receiptTableFilter === ALL_TABLES_KEY}
             >
-              <span>{t("All tables", "Tum masalar")}</span>
+              <span className="table-filter-chip-copy">
+                <span className="table-filter-chip-title">{t("All tables", "Tum masalar")}</span>
+                <span className="table-filter-chip-meta">{t("Full archive view", "Tum arsiv gorunumu")}</span>
+              </span>
               <span className="table-filter-chip-count">{receiptArchiveReceipts.length}</span>
             </button>
             {receiptTableGroups.map((group) => {
@@ -1954,12 +2016,15 @@ export default function CashierDashboardPage() {
                 <button
                   key={group.key}
                   type="button"
-                  className={`table-filter-chip${isActive ? " is-active" : ""}`}
+                  className={`table-filter-chip cashier-table-filter-chip${isActive ? " is-active" : ""}`}
                   onClick={() => setReceiptTableFilter(group.key)}
                   aria-pressed={isActive}
                   title={`${group.branchName} - Table ${group.tableName}`}
                 >
-                  <span>{t(`Table ${group.tableName}`, `Masa ${group.tableName}`)}</span>
+                  <span className="table-filter-chip-copy">
+                    <span className="table-filter-chip-title">{t(`Table ${group.tableName}`, `Masa ${group.tableName}`)}</span>
+                    <span className="table-filter-chip-meta">{group.branchName}</span>
+                  </span>
                   <span className="table-filter-chip-count">{group.count}</span>
                 </button>
               );

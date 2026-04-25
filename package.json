@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "next dev",
     "dev:mobile": "next dev -H 0.0.0.0 -p 3000",
-    "build": "next build",
+    "build": "prisma migrate deploy && next build",
     "start": "next start",
     "start:mobile": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",

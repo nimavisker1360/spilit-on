@@ -106,7 +106,7 @@ const tr: Dict = {
       { href: "#odeme", label: "Ödeme" }
     ],
     cta: "Canlı Demo",
-    ctaHref: "/cashier",
+    ctaHref: "/admin",
     menuOpen: "Menüyü aç",
     menuClose: "Menüyü kapat",
     mobileMenuAria: "Mobil menü",
@@ -120,8 +120,8 @@ const tr: Dict = {
     title: ["Masadaki hesabı ", "dakikalar değil", " saniyelerde kapatın"],
     sub: "MasaPayz, restoranın POS akışını misafirin telefonuyla buluşturur. QR okut, hesabı gör, eşit böl ya da ürüne göre öde.",
     proofs: ["Uygulama indirme yok", "4 rol, tek operasyon akışı", "iyzico / PayTR hazır"],
-    ctaStart: "Canlı Demoyu Aç",
-    ctaStartHref: "/cashier",
+    ctaStart: "Yönetici Demoyu Aç",
+    ctaStartHref: "/admin",
     ctaHow: "Akışı İncele",
     ctaHowHref: "#nasil-calisir",
     scroll: "Aşağı kaydır"
@@ -264,9 +264,9 @@ const tr: Dict = {
   cta: {
     kicker: "Sunuma Hazır",
     title: "Railway staging'e alın, QR ile açın, müşteriye canlı gösterin",
-    desc: "Bu landing, müşteriyi değer önerisinden gerçek demoya götürür. Sunum sırasında kasa ekranına geç, misafir akışını göster ve yönetici paneli ile kapanışı yap.",
-    primary: "Kasa Demoyu Aç",
-    primaryHref: "/cashier",
+    desc: "Bu landing, müşteriyi değer önerisinden gerçek demoya götürür. Sunuma yönetici panelinden başla, sonra misafir ve kasa akışına geç.",
+    primary: "Yönetici Demoyu Aç",
+    primaryHref: "/admin",
     secondary: "Yönetici Paneli",
     secondaryHref: "/admin"
   },
@@ -315,7 +315,7 @@ const en: Dict = {
       { href: "#odeme", label: "Payments" }
     ],
     cta: "Live Demo",
-    ctaHref: "/cashier",
+    ctaHref: "/admin",
     menuOpen: "Open menu",
     menuClose: "Close menu",
     mobileMenuAria: "Mobile menu",
@@ -329,8 +329,8 @@ const en: Dict = {
     title: ["Close the table bill in ", "seconds", ", not minutes"],
     sub: "MasaPayz connects the restaurant POS flow to the guest's phone. Scan the QR, see the bill, split evenly or by item, and finish payment fast.",
     proofs: ["No app install", "4 role-based dashboards", "iyzico / PayTR ready"],
-    ctaStart: "Open Live Demo",
-    ctaStartHref: "/cashier",
+    ctaStart: "Open Admin Demo",
+    ctaStartHref: "/admin",
     ctaHow: "Review the Flow",
     ctaHowHref: "#nasil-calisir",
     scroll: "Scroll"
@@ -473,9 +473,9 @@ const en: Dict = {
   cta: {
     kicker: "Presentation Ready",
     title: "Deploy to Railway staging, open the QR flow, and show it live",
-    desc: "This landing page now carries the customer from value proposition to live demo. Open cashier, show the guest flow, and close on the admin view.",
-    primary: "Open Cashier Demo",
-    primaryHref: "/cashier",
+    desc: "This landing page now carries the customer from value proposition to live demo. Start in admin, then move into the guest and cashier flow.",
+    primary: "Open Admin Demo",
+    primaryHref: "/admin",
     secondary: "Open Admin Panel",
     secondaryHref: "/admin"
   },

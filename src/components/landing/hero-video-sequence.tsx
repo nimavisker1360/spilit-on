@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   motion,
   useScroll,
@@ -173,13 +174,13 @@ export function HeroVideoSequence() {
                 <Image className="mp-hero-qr" src={HERO_QR_IMAGE_SRC} alt="" width={240} height={240} />
               </div>
               <div className="mp-hero-cta-row">
-                <a href={t.hero.ctaStartHref} className="mp-btn mp-btn-primary">
+                <Link href={t.hero.ctaStartHref} className="mp-btn mp-btn-primary" scroll>
                   {t.hero.ctaStart}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
                     <polyline points="12 5 19 12 12 19" />
                   </svg>
-                </a>
+                </Link>
                 <a href={t.hero.ctaHowHref} className="mp-btn mp-btn-ghost">
                   {t.hero.ctaHow}
                 </a>

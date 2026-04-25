@@ -6310,6 +6310,177 @@ button:disabled {
   width: 100%;
 }
 
+.dashboard-shell--cashier .cashier-table-filter-bar {
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 20px;
+  border: 1px solid rgba(34, 197, 94, 0.16);
+  background:
+    linear-gradient(145deg, rgba(240, 253, 244, 0.96), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-bar--compact {
+  padding: 0.72rem;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 64px;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  color: #0f172a;
+  box-shadow: 0 16px 30px -24px rgba(15, 23, 42, 0.4);
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-weight: 800;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-bar--compact .cashier-table-filter-chip {
+  min-height: 58px;
+  padding: 0.78rem 0.95rem;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip:hover:not(:disabled),
+.dashboard-shell--cashier .cashier-table-filter-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(22, 163, 74, 0.42);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 18px 34px -22px rgba(15, 23, 42, 0.2);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active {
+  border-color: rgba(22, 163, 74, 0.72);
+  background: linear-gradient(145deg, #166534, #16a34a);
+  color: #ffffff;
+  box-shadow: 0 20px 36px -20px rgba(22, 163, 74, 0.55);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:hover:not(:disabled),
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:focus-visible {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 18px 34px -22px rgba(15, 23, 42, 0.2);
+}
+
+.dashboard-shell--cashier .table-filter-chip-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.dashboard-shell--cashier .table-filter-chip-title {
+  display: block;
+  overflow: hidden;
+  font-size: 1.02rem;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-bar--compact .table-filter-chip-title {
+  font-size: 0.96rem;
+}
+
+.dashboard-shell--cashier .table-filter-chip-meta {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.76rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active .table-filter-chip-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip:hover:not(:disabled) .table-filter-chip-meta,
+.dashboard-shell--cashier .cashier-table-filter-chip:focus-visible .table-filter-chip-meta,
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:hover:not(:disabled) .table-filter-chip-meta,
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:focus-visible .table-filter-chip-meta {
+  color: #475569;
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip .table-filter-chip-count {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.7rem;
+  background: linear-gradient(145deg, rgba(22, 163, 74, 0.16), rgba(34, 197, 94, 0.08));
+  color: #166534;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active .table-filter-chip-count {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-shell--cashier .cashier-table-filter-chip:hover:not(:disabled) .table-filter-chip-count,
+.dashboard-shell--cashier .cashier-table-filter-chip:focus-visible .table-filter-chip-count,
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:hover:not(:disabled) .table-filter-chip-count,
+.dashboard-shell--cashier .cashier-table-filter-chip.is-active:focus-visible .table-filter-chip-count {
+  background: linear-gradient(145deg, rgba(22, 163, 74, 0.16), rgba(34, 197, 94, 0.08));
+  color: #166534;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.dashboard-shell--cashier .receipt-card {
+  padding: 1.15rem 1.2rem;
+  border-radius: 18px;
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  background: linear-gradient(180deg, #ffffff, #f7fbf8);
+  box-shadow: 0 20px 36px -28px rgba(15, 23, 42, 0.48);
+}
+
+.dashboard-shell--cashier .receipt-card .entity-top {
+  gap: 0.85rem;
+}
+
+.dashboard-shell--cashier .receipt-card .entity-title h4 {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 1.45rem;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+
+.dashboard-shell--cashier .receipt-card .entity-summary {
+  color: #64748b;
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.dashboard-shell--cashier .receipt-card .badge.badge-outline {
+  padding: 0.45rem 0.82rem;
+  background: linear-gradient(145deg, #effcf3, #dcfce7);
+  color: #15803d;
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
 @media (min-width: 760px) {
   .dashboard-shell--cashier .cashier-hero .dashboard-stat-grid,
   .dashboard-shell--cashier .receipt-archive-panel > .dashboard-stat-grid {

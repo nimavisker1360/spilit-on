@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 import { InstallAppButton } from "@/components/install-app-button";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
@@ -105,6 +107,7 @@ function FlagEN() {
 }
 
 export function DashboardShell({ children, role }: Props) {
+  const pathname = usePathname();
   const { locale, setLocale, t } = useDashboardLanguage();
   const layoutMeta = ROLE_LAYOUT_META[role];
   const navLabels: Record<string, string> = {
@@ -132,6 +135,10 @@ export function DashboardShell({ children, role }: Props) {
       subtitle: t("Calculate split bills with clear invoice summaries.", "Bolunmus hesaplari net fatura ozetleriyle hesaplayin.")
     }
   };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
 
   return (
     <div className={`dashboard-shell dashboard-shell--${role}`}>
