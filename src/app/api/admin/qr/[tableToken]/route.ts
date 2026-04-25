@@ -6,6 +6,19 @@ import { requireEntityPermission } from "@/features/auth/auth-context";
 import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 import { getRequestPublicAppBaseUrl, getTablePublicUrl } from "@/lib/public-url";
 
+function resolveRequestedBaseUrl(request: Request): string | null {
+  const requestedBaseUrl = new URL(request.url).searchParams.get("baseUrl")?.trim();
+  if (!requestedBaseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(requestedBaseUrl).toString().replace(/\/+$/, "");
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   request: Request,
   context: {
@@ -17,7 +30,8 @@ export async function GET(
   try {
     const tableToken = context.params.tableToken;
     await requireEntityPermission(request, "table.qr.read", "tableToken", tableToken);
-    const url = getTablePublicUrl(tableToken, getRequestPublicAppBaseUrl(request));
+    const baseUrl = resolveRequestedBaseUrl(request) ?? getRequestPublicAppBaseUrl(request);
+    const url = getTablePublicUrl(tableToken, baseUrl);
 
     const svg = await QRCode.toString(url, {
       type: "svg",
@@ -29,7 +43,7 @@ export async function GET(
     return new Response(svg, {
       headers: {
         "Content-Type": "image/svg+xml",
-        "Cache-Control": "public, max-age=300"
+        "Cache-Control": "no-store, max-age=0"
       }
     });
   } catch (error) {

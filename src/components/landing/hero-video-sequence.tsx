@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   motion,
   useScroll,
@@ -161,18 +162,25 @@ export function HeroVideoSequence() {
                 {t.hero.title[0]}<span className="mp-accent">{t.hero.title[1]}</span>{t.hero.title[2]}
               </h1>
               <p className="mp-hero-sub">{t.hero.sub}</p>
+              <div className="mp-hero-proof-row">
+                {t.hero.proofs.map((proof) => (
+                  <span key={proof} className="mp-hero-proof">
+                    {proof}
+                  </span>
+                ))}
+              </div>
               <div className="mp-hero-qr-shell" aria-hidden="true">
-                <img className="mp-hero-qr" src={HERO_QR_IMAGE_SRC} alt="" />
+                <Image className="mp-hero-qr" src={HERO_QR_IMAGE_SRC} alt="" width={240} height={240} />
               </div>
               <div className="mp-hero-cta-row">
-                <a href="#baslangic" className="mp-btn mp-btn-primary">
+                <a href={t.hero.ctaStartHref} className="mp-btn mp-btn-primary">
                   {t.hero.ctaStart}
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
                     <polyline points="12 5 19 12 12 19" />
                   </svg>
                 </a>
-                <a href="#nasil-calisir" className="mp-btn mp-btn-ghost">
+                <a href={t.hero.ctaHowHref} className="mp-btn mp-btn-ghost">
                   {t.hero.ctaHow}
                 </a>
               </div>

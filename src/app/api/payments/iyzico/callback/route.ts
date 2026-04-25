@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import {
+  getIyzicoPaymentResultForShare,
   findIyzicoPaymentShareIdByToken,
   handleIyzicoCallback
 } from "@/features/payment/iyzico-payment.service";
@@ -29,12 +30,44 @@ function resultRedirectUrl(paymentShareId: string, status: string, request: Requ
   return url;
 }
 
-function guestPaymentRedirectUrl(tableCode: string, request: Request, paidGuestId?: string | null): URL {
-  const url = new URL(`/guest/${encodeURIComponent(tableCode)}/payment`, callbackRedirectBaseUrl(request));
-  url.searchParams.set("handoff", "next");
+type GuestPaymentRedirectOptions = {
+  guestId?: string | null;
+  handoff?: "next" | "retry";
+  step?: "split" | "payment";
+  paymentStatus?: string;
+  paymentError?: string;
+};
 
-  if (paidGuestId) {
-    url.searchParams.set("guestId", paidGuestId);
+function paymentRetryErrorMessage(error?: string): string {
+  if (!error) {
+    return "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+  }
+
+  if (error.startsWith("[{") || error.includes('"code": "invalid_') || error.includes('"path": ["tip"]')) {
+    return "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+  }
+
+  return error;
+}
+
+function guestPaymentRedirectUrl(tableCode: string, request: Request, options?: GuestPaymentRedirectOptions): URL {
+  const url = new URL(`/guest/${encodeURIComponent(tableCode)}/payment`, callbackRedirectBaseUrl(request));
+  url.searchParams.set("handoff", options?.handoff ?? "next");
+
+  if (options?.guestId) {
+    url.searchParams.set("guestId", options.guestId);
+  }
+
+  if (options?.step) {
+    url.searchParams.set("step", options.step);
+  }
+
+  if (options?.paymentStatus) {
+    url.searchParams.set("paymentStatus", options.paymentStatus.toLowerCase());
+  }
+
+  if (options?.paymentError) {
+    url.searchParams.set("paymentError", paymentRetryErrorMessage(options.paymentError));
   }
 
   return url;
@@ -185,7 +218,25 @@ async function redirectForCallback(request: Request, payload: JsonObject) {
     const tableCode = result.paymentSession.session?.table?.code;
 
     if (result.paymentShare.status === "PAID" && tableCode) {
-      return NextResponse.redirect(guestPaymentRedirectUrl(tableCode, request, result.paymentShare.guestId), { status: 303 });
+      return NextResponse.redirect(
+        guestPaymentRedirectUrl(tableCode, request, {
+          handoff: "next",
+          guestId: result.paymentShare.guestId
+        }),
+        { status: 303 }
+      );
+    }
+
+    if ((result.paymentShare.status === "FAILED" || result.paymentShare.status === "CANCELLED") && tableCode) {
+      return NextResponse.redirect(
+        guestPaymentRedirectUrl(tableCode, request, {
+          handoff: "retry",
+          guestId: result.paymentShare.guestId,
+          step: "payment",
+          paymentStatus: result.paymentShare.status
+        }),
+        { status: 303 }
+      );
     }
 
     return NextResponse.redirect(resultRedirectUrl(result.paymentShare.id, result.paymentShare.status, request), { status: 303 });
@@ -194,7 +245,29 @@ async function redirectForCallback(request: Request, payload: JsonObject) {
     const paymentShareId = token ? await findIyzicoPaymentShareIdByToken(token) : null;
 
     if (paymentShareId) {
-      return NextResponse.redirect(resultRedirectUrl(paymentShareId, "failed", request, routeErrorMessage(error)), { status: 303 });
+      const errorMessage = routeErrorMessage(error);
+
+      try {
+        const result = await getIyzicoPaymentResultForShare(paymentShareId);
+        const tableCode = result.paymentSession.session?.table?.code;
+
+        if (tableCode) {
+          return NextResponse.redirect(
+            guestPaymentRedirectUrl(tableCode, request, {
+              handoff: "retry",
+              guestId: result.paymentShare.guestId,
+              step: "payment",
+              paymentStatus: "failed",
+              paymentError: errorMessage
+            }),
+            { status: 303 }
+          );
+        }
+      } catch {
+        // Fall back to the standalone result page below when payment context cannot be loaded.
+      }
+
+      return NextResponse.redirect(resultRedirectUrl(paymentShareId, "failed", request, errorMessage), { status: 303 });
     }
 
     return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });

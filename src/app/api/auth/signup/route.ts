@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { ensureRestaurantStarterWorkspace } from "@/features/restaurant/restaurant.service";
 
 const signupSchema = z.object({
   name: z.string().min(2).max(80),
@@ -111,6 +112,8 @@ export async function POST(request: Request) {
 
       return { user, restaurant };
     });
+
+    await ensureRestaurantStarterWorkspace(result.restaurant.id);
 
     return NextResponse.json(
       {

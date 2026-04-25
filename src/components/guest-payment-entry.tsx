@@ -149,6 +149,9 @@ type Props = {
   tableCode: string;
   initialGuestId?: string;
   handoffMode?: string;
+  initialStep?: string;
+  initialPaymentStatus?: string;
+  initialPaymentError?: string;
 };
 
 type GuestIdentityState = Pick<GuestIdentityRecord, "guestId" | "guestName" | "sessionId">;
@@ -419,6 +422,51 @@ function formatTipPresetLabel(rate: number): string {
   return rate === 0 ? "No tip" : `${Math.round(rate * 100)}%`;
 }
 
+function resolveInitialCheckoutStep(handoffMode: string, initialStep: string): CheckoutStep {
+  if (initialStep === "bill" || initialStep === "split" || initialStep === "tip" || initialStep === "payment") {
+    return initialStep;
+  }
+
+  if (handoffMode === "next") {
+    return "split";
+  }
+
+  if (handoffMode === "retry") {
+    return "payment";
+  }
+
+  return "bill";
+}
+
+function resolveTipPresetRate(amount: string | null, tip: string | null | undefined): number | null {
+  if (!amount || !tip) {
+    return 0;
+  }
+
+  const amountCents = toCents(amount);
+  const tipCents = toCents(tip);
+
+  if (amountCents <= 0 || tipCents <= 0) {
+    return 0;
+  }
+
+  return TIP_PRESET_RATES.find((rate) => toCents(resolveTipAmount(amount, rate)) === tipCents) ?? null;
+}
+
+function normalizeReturnedPaymentError(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.startsWith("[{") || trimmed.includes('"code": "invalid_') || trimmed.includes('"path": ["tip"]')) {
+    return "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+  }
+
+  return trimmed;
+}
+
 function resolveTipAmount(amount: string | null, rate: number): string {
   if (!amount || rate <= 0) {
     return "0.00";
@@ -491,7 +539,14 @@ async function payPaymentShare(shareId: string, input: { userId?: string | null;
   return json.data;
 }
 
-export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode = "" }: Props) {
+export function GuestPaymentEntry({
+  tableCode,
+  initialGuestId = "",
+  handoffMode = "",
+  initialStep = "",
+  initialPaymentStatus = "",
+  initialPaymentError = ""
+}: Props) {
   const [state, setState] = useState<GuestPaymentEntryState | null>(null);
   const [identity, setIdentity] = useState<GuestIdentityState | null>(() =>
     initialGuestId.trim()
@@ -509,7 +564,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
   const [joinName, setJoinName] = useState("");
   const [joining, setJoining] = useState(false);
   const [showAddGuestForm, setShowAddGuestForm] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(handoffMode === "next" ? "split" : "bill");
+  const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(() => resolveInitialCheckoutStep(handoffMode, initialStep));
   const [selectedSplitChoice, setSelectedSplitChoice] = useState<SplitChoice>("equal");
   const [equalPeopleCount, setEqualPeopleCount] = useState(2);
   const [selectedTipRate, setSelectedTipRate] = useState<number>(0);
@@ -518,6 +573,7 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
   const [pendingGuestNavigation, setPendingGuestNavigation] = useState<PendingGuestNavigation | null>(null);
   const [seenPaymentSessionId, setSeenPaymentSessionId] = useState<string | null>(null);
   const [handoffConsumed, setHandoffConsumed] = useState(false);
+  const [returnStateApplied, setReturnStateApplied] = useState(false);
 
   const persistIdentity = useCallback(
     (nextIdentity: GuestIdentityState | null) => {
@@ -813,12 +869,50 @@ export function GuestPaymentEntry({ tableCode, initialGuestId = "", handoffMode 
 
     setSeenPaymentSessionId(paymentSession.id);
 
-    if (handoffMode === "next" || isCheckoutClosed) {
+    if (handoffMode === "next" || handoffMode === "retry" || initialStep === "payment" || isCheckoutClosed) {
       return;
     }
 
     setCheckoutStep("split");
-  }, [handoffMode, isCheckoutClosed, paymentSession, seenPaymentSessionId]);
+  }, [handoffMode, initialStep, isCheckoutClosed, paymentSession, seenPaymentSessionId]);
+
+  useEffect(() => {
+    if (returnStateApplied || !paymentSession || !paymentShare || isCheckoutClosed) {
+      return;
+    }
+
+    const normalizedError = normalizeReturnedPaymentError(initialPaymentError);
+    const returnedTipRate = resolveTipPresetRate(paymentShare.amount, paymentShare.tip);
+
+    if (initialStep === "payment" || handoffMode === "retry") {
+      setCheckoutStep("payment");
+
+      if (returnedTipRate !== null) {
+        setSelectedTipRate(returnedTipRate);
+      }
+    }
+
+    if (initialPaymentStatus.toLowerCase() === "failed") {
+      setMessage("Odeme basarisiz. Lutfen tekrar deneyin.");
+    }
+
+    if (normalizedError) {
+      setError(normalizedError);
+    }
+
+    if (initialPaymentStatus || normalizedError || initialStep === "payment" || handoffMode === "retry") {
+      setReturnStateApplied(true);
+    }
+  }, [
+    handoffMode,
+    initialPaymentError,
+    initialPaymentStatus,
+    initialStep,
+    isCheckoutClosed,
+    paymentSession,
+    paymentShare,
+    returnStateApplied
+  ]);
 
   useEffect(() => {
     if (!pendingGuestNavigation || identifiedGuestId !== pendingGuestNavigation.guestId || !paymentSession) {

@@ -2,7 +2,11 @@
 
 import { signOut } from "next-auth/react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
+
 export function LogoutButton() {
+  const { t } = useDashboardLanguage();
+
   return (
     <button
       type="button"
@@ -26,7 +30,7 @@ export function LogoutButton() {
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
       </span>
-      <span>Logout</span>
+      <span>{t("Logout", "Cikis Yap")}</span>
     </button>
   );
 }

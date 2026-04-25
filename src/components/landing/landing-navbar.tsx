@@ -46,7 +46,7 @@ export function LandingNavbar() {
 
         <div className="mp-nav-right">
           <LangSwitcher lang={lang} setLang={setLang} trLabel={t.nav.langTr} enLabel={t.nav.langEn} groupLabel={t.nav.langSwitcherLabel} />
-          <Link href="/admin" className="mp-nav-cta">
+          <Link href={t.nav.ctaHref} className="mp-nav-cta">
             {t.nav.cta}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -84,7 +84,7 @@ export function LandingNavbar() {
           groupLabel={t.nav.langSwitcherLabel}
           compact
         />
-        <Link href="/admin" className="mp-nav-cta" onClick={() => setOpen(false)}>
+        <Link href={t.nav.ctaHref} className="mp-nav-cta" onClick={() => setOpen(false)}>
           {t.nav.cta}
         </Link>
       </div>

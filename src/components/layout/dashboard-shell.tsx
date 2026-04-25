@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 
 import { InstallAppButton } from "@/components/install-app-button";
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS, ROLE_LAYOUT_META } from "@/lib/navigation";
 import type { AppRole } from "@/types";
@@ -47,8 +50,88 @@ type Props = {
   role: AppRole;
 };
 
+function FlagTR() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <clipPath id="dashboard-flag-tr-clip">
+          <circle cx="12" cy="12" r="11" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#dashboard-flag-tr-clip)">
+        <rect width="24" height="24" fill="#E30A17" />
+        <circle cx="10.3" cy="12" r="4.4" fill="#ffffff" />
+        <circle cx="11.3" cy="12" r="3.5" fill="#E30A17" />
+        <polygon
+          fill="#ffffff"
+          points="15.2,12 12.9,12.75 14.35,10.8 14.35,13.2 12.9,11.25"
+        />
+      </g>
+      <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function FlagEN() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <clipPath id="dashboard-flag-en-clip">
+          <circle cx="12" cy="12" r="11" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#dashboard-flag-en-clip)">
+        <rect width="24" height="24" fill="#012169" />
+        <path d="M0,0 L24,24 M24,0 L0,24" stroke="#ffffff" strokeWidth="4" />
+        <path d="M0,0 L24,24 M24,0 L0,24" stroke="#C8102E" strokeWidth="2" />
+        <path d="M12,0 V24 M0,12 H24" stroke="#ffffff" strokeWidth="6" />
+        <path d="M12,0 V24 M0,12 H24" stroke="#C8102E" strokeWidth="3" />
+      </g>
+      <circle cx="12" cy="12" r="11" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+    </svg>
+  );
+}
+
 export function DashboardShell({ children, role }: Props) {
+  const { locale, setLocale, t } = useDashboardLanguage();
   const layoutMeta = ROLE_LAYOUT_META[role];
+  const navLabels: Record<string, string> = {
+    "/": t("Home", "Ana Sayfa"),
+    "/admin": t("Admin", "Yonetim"),
+    "/waiter": t("Waiter", "Garson"),
+    "/kitchen": t("Kitchen", "Mutfak"),
+    "/cashier": t("Cashier", "Kasiyer")
+  };
+  const roleCopy: Record<AppRole, { title: string; subtitle: string }> = {
+    admin: {
+      title: t("Admin dashboard", "Yonetim paneli"),
+      subtitle: t("Manage branches, tables, menu, and QR access.", "Subeleri, masalari, menuyu ve QR erisimini yonetin.")
+    },
+    waiter: {
+      title: t("Waiter dashboard", "Garson paneli"),
+      subtitle: t("Open tables and place floor orders quickly.", "Masalari acin ve salon siparislerini hizlica yonetin.")
+    },
+    kitchen: {
+      title: t("Kitchen dashboard", "Mutfak paneli"),
+      subtitle: t("Track live tickets and update prep status.", "Canli fisleri izleyin ve hazirlama durumunu guncelleyin.")
+    },
+    cashier: {
+      title: t("Cashier dashboard", "Kasiyer paneli"),
+      subtitle: t("Calculate split bills with clear invoice summaries.", "Bolunmus hesaplari net fatura ozetleriyle hesaplayin.")
+    }
+  };
 
   return (
     <div className={`dashboard-shell dashboard-shell--${role}`}>
@@ -84,7 +167,7 @@ export function DashboardShell({ children, role }: Props) {
                 aria-current={isActive ? "page" : undefined}
               >
                 <span className="sidebar-nav-icon">{NAV_ICONS[link.href]}</span>
-                <span>{link.label}</span>
+                <span>{navLabels[link.href] ?? link.label}</span>
               </Link>
             );
           })}
@@ -101,8 +184,32 @@ export function DashboardShell({ children, role }: Props) {
           <div className="brand-wrap">
             <span className="brand-dot" />
             <div>
-              <h1 className="brand-title">{layoutMeta.title}</h1>
-              <p className="brand-subtitle">{layoutMeta.subtitle}</p>
+              <h1 className="brand-title">{roleCopy[role].title}</h1>
+              <p className="brand-subtitle">{roleCopy[role].subtitle}</p>
+            </div>
+          </div>
+          <div className="dashboard-topbar-actions">
+            <div className="mp-lang-switcher" role="group" aria-label={t("Dashboard language", "Panel dili")}>
+              <button
+                type="button"
+                className={`mp-lang-btn${locale === "tr" ? " is-active" : ""}`}
+                onClick={() => setLocale("tr")}
+                aria-pressed={locale === "tr"}
+                title={t("Switch to Turkish", "Turkceye gec")}
+                aria-label={t("Switch to Turkish", "Turkceye gec")}
+              >
+                <FlagTR />
+              </button>
+              <button
+                type="button"
+                className={`mp-lang-btn${locale === "en" ? " is-active" : ""}`}
+                onClick={() => setLocale("en")}
+                aria-pressed={locale === "en"}
+                title={t("Switch to English", "Ingilizceye gec")}
+                aria-label={t("Switch to English", "Ingilizceye gec")}
+              >
+                <FlagEN />
+              </button>
             </div>
           </div>
         </header>

@@ -156,6 +156,9 @@ async function createGoogleTrialMembership(input: AuthUserInput): Promise<Sessio
     return ownerMembership;
   });
 
+  const { ensureRestaurantStarterWorkspace } = await import("@/features/restaurant/restaurant.service");
+  await ensureRestaurantStarterWorkspace(membership.restaurantId);
+
   return {
     restaurantId: membership.restaurantId,
     role: membership.role as StaffRole,

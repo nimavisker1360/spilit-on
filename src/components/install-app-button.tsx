@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
@@ -12,6 +14,7 @@ type NavigatorWithStandalone = Navigator & {
 };
 
 export function InstallAppButton() {
+  const { t } = useDashboardLanguage();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosInstallHint, setShowIosInstallHint] = useState(false);
   const [showIosInstallOption, setShowIosInstallOption] = useState(false);
@@ -67,10 +70,15 @@ export function InstallAppButton() {
   return (
     <div className="install-cta">
       <button type="button" className="install-btn" onClick={handleInstall}>
-        Install App
+        {t("Install App", "Uygulamayi Yukle")}
       </button>
       {showIosInstallOption && showIosInstallHint ? (
-        <p className="install-hint">On iPhone and iPad, tap Share, then Add to Home Screen.</p>
+        <p className="install-hint">
+          {t(
+            "On iPhone and iPad, tap Share, then Add to Home Screen.",
+            "iPhone ve iPad'de Paylas'a, sonra Ana Ekrana Ekle'ye dokunun."
+          )}
+        </p>
       ) : null}
     </div>
   );

@@ -1,3 +1,4 @@
+import { DashboardLanguageProvider } from "@/components/layout/dashboard-language";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import type { AppRole } from "@/types";
 
@@ -7,5 +8,9 @@ type Props = {
 };
 
 export function RoleLayout({ children, role }: Props) {
-  return <DashboardShell role={role}>{children}</DashboardShell>;
+  return (
+    <DashboardLanguageProvider>
+      <DashboardShell role={role}>{children}</DashboardShell>
+    </DashboardLanguageProvider>
+  );
 }

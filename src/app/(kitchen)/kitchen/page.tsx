@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 
 const ALL_TABLES_KEY = "__all_tables__";
@@ -159,6 +160,7 @@ function buttonClassForStatus(status: KitchenWorkflowStatus): string {
 }
 
 export default function KitchenDashboardPage() {
+  const { t } = useDashboardLanguage();
   const [tickets, setTickets] = useState<KitchenTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -281,59 +283,191 @@ export default function KitchenDashboardPage() {
   const inProgressCount = tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
   const readyCount = tickets.filter((ticket) => ticket.status === "READY").length;
   const servedCount = tickets.filter((ticket) => ticket.status === "SERVED").length;
+  const oldestActiveTicket = filteredTickets
+    .filter((ticket) => ticket.status === "PENDING" || ticket.status === "IN_PROGRESS" || ticket.status === "READY")
+    .reduce<KitchenTicket | null>((oldest, ticket) => {
+      if (!oldest) {
+        return ticket;
+      }
+
+      return new Date(ticket.createdAt).getTime() < new Date(oldest.createdAt).getTime() ? ticket : oldest;
+    }, null);
+  const activeBoardCount = pendingCount + inProgressCount + readyCount;
+  const localizedTransitionButtonLabel = (current: KitchenStatus, next: KitchenWorkflowStatus) => {
+    const label = transitionButtonLabel(current, next);
+    if (label === "Start prep") return t("Start prep", "Hazirlamayi baslat");
+    if (label === "Back to pending") return t("Back to pending", "Bekleyene geri al");
+    if (label === "Mark ready") return t("Mark ready", "Hazir olarak isaretle");
+    if (label === "Back to prep") return t("Back to prep", "Hazirlamaya geri al");
+    if (label === "Mark served") return t("Mark served", "Servis edildi olarak isaretle");
+    return label;
+  };
+  const localizedLaneTitle = (title: string) => {
+    if (title === "Waiting") return t("Waiting", "Bekleyen");
+    if (title === "In prep") return t("In prep", "Hazirlaniyor");
+    if (title === "Ready") return t("Ready", "Hazir");
+    if (title === "Served") return t("Served", "Servis edildi");
+    return title;
+  };
+  const localizedLaneDescription = (description: string) => {
+    if (description === "New items that still need to enter prep.") return t(description, "Henuz hazirlama asamasina girmemis yeni urunler.");
+    if (description === "Items actively being prepared.") return t(description, "Aktif olarak hazirlanan urunler.");
+    if (description === "Items ready for waiter pickup or delivery.") return t(description, "Garson teslimi veya servis icin hazir urunler.");
+    if (description === "Items marked served and no longer active.") return t(description, "Servis edildi olarak isaretlenen ve artik aktif olmayan urunler.");
+    return description;
+  };
+  const localizedKitchenStatus = (status: KitchenStatus) =>
+    status === "IN_PROGRESS"
+      ? t("In progress", "Hazirlaniyor")
+      : status === "PENDING"
+        ? t("Pending", "Bekleyen")
+        : status === "READY"
+          ? t("Ready", "Hazir")
+          : status === "SERVED"
+            ? t("Served", "Servis edildi")
+            : t("Void", "Iptal");
 
   return (
     <div className="kitchen-page stack-md">
       <section className="panel dashboard-hero kitchen-hero stack-md">
         <div className="section-head kitchen-hero-head">
           <div className="dashboard-hero-copy">
-            <p className="section-kicker">Kitchen flow</p>
-            <h2>Kitchen board</h2>
-            <p className="panel-subtitle">Workflow remains unchanged: pending to in progress to ready to served.</p>
+            <p className="section-kicker">{t("Kitchen flow", "Mutfak akisi")}</p>
+            <h2>{t("Kitchen board", "Mutfak panosu")}</h2>
+            <p className="panel-subtitle">{t("Workflow remains unchanged: pending to in progress to ready to served.", "Akis degismez: bekleyenden hazirlaniyora, hazirdan servis edilene.")}</p>
           </div>
           <button type="button" className="kitchen-refresh-btn" onClick={loadTickets}>
-            Refresh
+            {t("Refresh", "Yenile")}
           </button>
         </div>
 
         <div className="dashboard-stat-grid kitchen-stat-grid">
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Waiting</p>
+            <p className="dashboard-stat-label">{t("Waiting", "Bekleyen")}</p>
             <p className="dashboard-stat-value">{pendingCount}</p>
-            <p className="dashboard-stat-note">Tickets not started yet.</p>
+            <p className="dashboard-stat-note">{t("Tickets not started yet.", "Henuz baslanmamis fisler.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">In prep</p>
+            <p className="dashboard-stat-label">{t("In prep", "Hazirlaniyor")}</p>
             <p className="dashboard-stat-value">{inProgressCount}</p>
-            <p className="dashboard-stat-note">Items currently being prepared.</p>
+            <p className="dashboard-stat-note">{t("Items currently being prepared.", "Su anda hazirlanan urunler.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Ready</p>
+            <p className="dashboard-stat-label">{t("Ready", "Hazir")}</p>
             <p className="dashboard-stat-value">{readyCount}</p>
-            <p className="dashboard-stat-note">Awaiting handoff.</p>
+            <p className="dashboard-stat-note">{t("Awaiting handoff.", "Teslim bekliyor.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Served</p>
+            <p className="dashboard-stat-label">{t("Served", "Servis edildi")}</p>
             <p className="dashboard-stat-value">{servedCount}</p>
-            <p className="dashboard-stat-note">Items marked served in this refresh.</p>
+            <p className="dashboard-stat-note">{t("Items marked served in this refresh.", "Bu yenilemede servis edildi olarak isaretlenen urunler.")}</p>
           </article>
         </div>
 
         <div className="status-stack">
-          {loading ? <p className="status-banner is-neutral">Loading live kitchen tickets.</p> : null}
+          {loading ? <p className="status-banner is-neutral">{t("Loading live kitchen tickets.", "Canli mutfak fisleri yukleniyor.")}</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
         </div>
       </section>
 
+      <section className="panel dashboard-briefing-panel kitchen-briefing-panel">
+        <div className="section-head">
+          <div className="section-copy">
+            <p className="section-kicker">{t("Kitchen script", "Mutfak akisi")}</p>
+            <h3>{t("Show momentum, not just ticket lists", "Sadece fisleri degil, akisin ivmesini gosterin")}</h3>
+            <p className="panel-subtitle">
+              {t(
+                "This board works best in the demo when you narrate the queue: new ticket arrives, prep starts, pickup is ready, and the waiter closes the loop.",
+                "Bu pano demoda en iyi sonucu sirayi anlattiginizda verir: yeni fis gelir, hazirlama baslar, teslim hazir olur ve garson donguyu kapatir."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-story-grid dashboard-story-grid--three">
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">01</span>
+            <h4>{t("Queue incoming demand", "Gelen talebi siraya alin")}</h4>
+            <p>
+              {pendingCount > 0
+                ? t(
+                    `${pendingCount} ticket(s) are waiting to enter prep across ${tableGroups.length} active table group(s).`,
+                    `${tableGroups.length} aktif masa grubunda hazirlamaya girmeyi bekleyen ${pendingCount} fis var.`
+                  )
+                : t("No waiting tickets right now, so the queue is under control.", "Su anda bekleyen fis yok; kuyruk kontrol altinda.")}
+            </p>
+            <span className="dashboard-story-meta">{t("This is the moment where the kitchen proves live order intake.", "Mutfak canli siparis alimini burada kanitlar.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">02</span>
+            <h4>{t("Move work through prep", "Hazirlama asamasini ilerletin")}</h4>
+            <p>
+              {inProgressCount > 0
+                ? t(
+                    `${inProgressCount} ticket(s) are already in prep and can be moved forward from this board.`,
+                    `${inProgressCount} fis zaten hazirlaniyor ve bu panodan ileri tasinabilir.`
+                  )
+                : t("Start prep on any waiting item to demonstrate real-time kitchen action.", "Gercek zamanli mutfak aksiyonunu gostermek icin bekleyen bir urunde hazirlamayi baslatin.")}
+            </p>
+            <span className="dashboard-story-meta">{t("Status changes here are reflected in the waiter and cashier roles.", "Buradaki durum degisiklikleri garson ve kasiyer rollerine de yansir.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">03</span>
+            <h4>{t("Hand off with confidence", "Guvenle teslim edin")}</h4>
+            <p>
+              {readyCount > 0
+                ? t(
+                    `${readyCount} ticket(s) are ready for pickup, so the handoff story is already visible.`,
+                    `${readyCount} fis teslim almaya hazir; bu yuzden teslim hikayesi zaten gorunur durumda.`
+                  )
+                : t("Mark an item ready to show pickup and service completion in the next step.", "Sonraki adimda teslim ve servis tamamlanmasini gostermek icin bir urunu hazir olarak isaretleyin.")}
+            </p>
+            <span className="dashboard-story-meta">{t("Ready and served states make the workflow feel complete in front of the client.", "Hazir ve servis edildi durumlari, musterinin onunde akisi tamamlanmis hissettirir.")}</span>
+          </article>
+        </div>
+
+        <div className="dashboard-pulse-strip">
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Board focus", "Pano odagi")}</span>
+            <strong className="dashboard-pulse-value">
+              {activeTableFilter === ALL_TABLES_KEY
+                ? t("All live tables", "Tum canli masalar")
+                : filteredTickets[0]
+                  ? t(`Table ${filteredTickets[0].order.session.table.name}`, `Masa ${filteredTickets[0].order.session.table.name}`)
+                  : t("No active table", "Aktif masa yok")}
+            </strong>
+            <span className="dashboard-pulse-meta">
+              {activeTableFilter === ALL_TABLES_KEY ? t(`${tableGroups.length} table group(s) visible`, `${tableGroups.length} masa grubu gorunuyor`) : t("Filtered board for a single table.", "Tek masa icin filtrelenmis pano.")}
+            </span>
+          </article>
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Oldest active ticket", "En eski aktif fis")}</span>
+            <strong className="dashboard-pulse-value">{oldestActiveTicket ? formatTicketAge(oldestActiveTicket.createdAt) : t("None", "Yok")}</strong>
+            <span className="dashboard-pulse-meta">
+              {oldestActiveTicket
+                ? `${oldestActiveTicket.itemName} for ${oldestActiveTicket.guest.displayName}`
+                : t("There are no pending, in-progress, or ready tickets right now.", "Su anda bekleyen, hazirlanan veya hazir fis yok.")}
+            </span>
+          </article>
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Active workload", "Aktif yuk")}</span>
+            <strong className="dashboard-pulse-value">{activeBoardCount}</strong>
+            <span className="dashboard-pulse-meta">
+              {readyCount > 0 ? t(`${readyCount} ready for pickup`, `${readyCount} teslime hazir`) : t("Push a ticket through the board to show momentum.", "Ivme gostermek icin bir fisi pano icinde ilerletin.")}
+            </span>
+          </article>
+        </div>
+      </section>
+
       {tableGroups.length > 0 ? (
-        <div className="table-filter-bar" role="tablist" aria-label="Filter by table">
+        <div className="table-filter-bar" role="tablist" aria-label={t("Filter by table", "Masaya gore filtrele")}>
           <button
             type="button"
             className={`table-filter-chip${activeTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
             onClick={() => setActiveTableFilter(ALL_TABLES_KEY)}
             aria-pressed={activeTableFilter === ALL_TABLES_KEY}
           >
-            <span>All tables</span>
+            <span>{t("All tables", "Tum masalar")}</span>
             <span className="table-filter-chip-count">{tickets.length}</span>
           </button>
           {tableGroups.map((group) => {
@@ -348,7 +482,7 @@ export default function KitchenDashboardPage() {
                 aria-pressed={isActive}
                 title={`${group.branchName} - Table ${group.tableName}`}
               >
-                <span>Table {group.tableName}</span>
+                <span>{t(`Table ${group.tableName}`, `Masa ${group.tableName}`)}</span>
                 <span className="table-filter-chip-count">{group.total}</span>
               </button>
             );
@@ -364,14 +498,14 @@ export default function KitchenDashboardPage() {
             <article key={lane.status} className="panel ticket-lane">
               <div className="ticket-lane-head">
                 <div className="ticket-lane-copy">
-                  <h3>{lane.title}</h3>
-                  <p className="helper-text">{lane.description}</p>
+                  <h3>{localizedLaneTitle(lane.title)}</h3>
+                  <p className="helper-text">{localizedLaneDescription(lane.description)}</p>
                 </div>
                 <span className={statusClass(lane.status)}>{laneTickets.length}</span>
               </div>
 
               {laneTickets.length === 0 ? (
-                <p className="empty empty-state">No tickets in {lane.title.toLowerCase()}.</p>
+                <p className="empty empty-state">{t(`No tickets in ${lane.title.toLowerCase()}.`, `${localizedLaneTitle(lane.title).toLowerCase()} alaninda fis yok.`)}</p>
               ) : (
                 <div className="ticket-lane-list">
                   {laneTickets.map((ticket) => (
@@ -381,26 +515,26 @@ export default function KitchenDashboardPage() {
                           <div className="ticket-card-title">
                             <h4>{ticket.itemName}</h4>
                             <p className="entity-summary">
-                              {ticket.order.session.branch.name} \u2022 Table {ticket.order.session.table.name}
+                              {ticket.order.session.branch.name} \u2022 {t(`Table ${ticket.order.session.table.name}`, `Masa ${ticket.order.session.table.name}`)}
                             </p>
                           </div>
                           <div className="badge-row">
-                            <span className="badge badge-outline">Qty {ticket.quantity}</span>
-                            <span className={statusClass(ticket.status)}>{kitchenStatusLabel(ticket.status)}</span>
+                            <span className="badge badge-outline">{t("Qty", "Adet")} {ticket.quantity}</span>
+                            <span className={statusClass(ticket.status)}>{localizedKitchenStatus(ticket.status)}</span>
                           </div>
                         </div>
 
                         <div className="ticket-meta-grid">
                           <div className="detail-card">
-                            <span className="detail-label">Guest</span>
+                            <span className="detail-label">{t("Guest", "Misafir")}</span>
                             <span className="detail-value">{ticket.guest.displayName}</span>
                           </div>
                           <div className="detail-card">
-                            <span className="detail-label">Queued</span>
+                            <span className="detail-label">{t("Queued", "Bekleme")}</span>
                             <span className="detail-value">{formatTicketAge(ticket.createdAt)}</span>
                           </div>
                           <div className="detail-card">
-                            <span className="detail-label">Placed at</span>
+                            <span className="detail-label">{t("Placed at", "Gelis saati")}</span>
                             <span className="detail-value">{formatTicketPlacedAt(ticket.createdAt)}</span>
                           </div>
                         </div>
@@ -409,12 +543,12 @@ export default function KitchenDashboardPage() {
                       <div className="ticket-card-side">
                         {ticket.note ? (
                           <div className="helper-panel ticket-note-panel">
-                            <p className="detail-label">Kitchen note</p>
+                            <p className="detail-label">{t("Kitchen note", "Mutfak notu")}</p>
                             <p className="helper-text ticket-note-text">{ticket.note}</p>
                           </div>
                         ) : (
                           <div className="ticket-note-empty ticket-note-panel">
-                            <p className="helper-text">No kitchen note</p>
+                            <p className="helper-text">{t("No kitchen note", "Mutfak notu yok")}</p>
                           </div>
                         )}
 
@@ -429,7 +563,7 @@ export default function KitchenDashboardPage() {
                                 disabled={busyId === ticket.id}
                                 onClick={() => handleStatus(ticket.id, next)}
                               >
-                                {transitionButtonLabel(ticket.status, next)}
+                                {localizedTransitionButtonLabel(ticket.status, next)}
                               </button>
                             ))}
                         </div>

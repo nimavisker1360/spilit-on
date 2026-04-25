@@ -6,6 +6,7 @@ import Image from "next/image";
 import * as XLSX from "xlsx";
 
 import { AdminActions, AdminField, AdminFormCard } from "@/components/admin/admin-form";
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
 import { getClientPublicAppBaseUrl, getPublicAppBaseUrl, getTablePublicUrl } from "@/lib/public-url";
 
@@ -426,6 +427,7 @@ function getTableStatusLabel(status: TableStatus): string {
 }
 
 export default function AdminDashboardPage() {
+  const { t } = useDashboardLanguage();
   const [snapshot, setSnapshot] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
@@ -1375,66 +1377,172 @@ export default function AdminDashboardPage() {
   const availableMenuItems = menuItems.filter((item) => item.isAvailable).length;
   const unavailableMenuItems = menuItems.length - availableMenuItems;
   const tablesOutOfService = tables.filter((table) => table.status === "OUT_OF_SERVICE").length;
+  const featuredBranch = filteredBranches[0] ?? branches[0] ?? null;
+  const featuredTable = featuredBranch?.tables.find((table) => Boolean(table.publicToken)) ?? featuredBranch?.tables[0] ?? null;
+  const featuredGuestUrl =
+    featuredTable?.publicToken && publicBaseUrl ? getTablePublicUrl(featuredTable.publicToken, publicBaseUrl) : "";
+  const featuredBranchActiveSessions = featuredBranch?.tables.filter((table) => table.sessions.length > 0).length ?? 0;
+  const localizedTableStatusLabel = (status: TableStatus) => {
+    if (status === "AVAILABLE") return t("Available", "Musait");
+    if (status === "OCCUPIED") return t("Occupied", "Dolu");
+    return t("Closed", "Kapali");
+  };
+  const localizedImportFieldLabel = (label: string) => {
+    if (label === "Branch column") return t("Branch column", "Sube kolonu");
+    if (label === "Item name column") return t("Item name column", "Urun adi kolonu");
+    if (label === "Price column") return t("Price column", "Fiyat kolonu");
+    if (label === "Category column") return t("Category column", "Kategori kolonu");
+    if (label === "Description column") return t("Description column", "Aciklama kolonu");
+    if (label === "Sort order column") return t("Sort order column", "Siralama kolonu");
+    if (label === "Availability column") return t("Availability column", "Durum kolonu");
+    return label;
+  };
 
   return (
     <div className="admin-page stack-md">
       <section className="admin-hero stack-md">
         <div className="section-head admin-hero-head">
           <div className="dashboard-hero-copy">
-            <p className="section-kicker">Owner overview</p>
-            <h2>Restaurant setup and live floor control</h2>
+            <p className="section-kicker">{t("Owner overview", "Isletme ozeti")}</p>
+            <h2>{t("Restaurant setup and live floor control", "Restoran kurulumu ve canli salon kontrolu")}</h2>
             <p className="panel-subtitle">
-              Keep branches, floor tables, QR access, and menu content clear for daily operations.
+              {t(
+                "Keep branches, floor tables, QR access, and menu content clear for daily operations.",
+                "Gunluk operasyonlarda subeleri, masalari, QR erisimini ve menu icerigini net sekilde yonetin."
+              )}
             </p>
           </div>
           <div className="toolbar admin-toolbar">
             <button type="button" className="secondary" onClick={handleBootstrap}>
-              Load sample data
+              {t("Load sample data", "Ornek veri yukle")}
             </button>
             <button type="button" onClick={() => void loadSnapshot()}>
-              Refresh
+              {t("Refresh", "Yenile")}
             </button>
           </div>
         </div>
 
         <div className="dashboard-stat-grid admin-stat-grid">
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Restaurants</p>
+            <p className="dashboard-stat-label">{t("Restaurants", "Restoranlar")}</p>
             <p className="dashboard-stat-value">{snapshot.length}</p>
-            <p className="dashboard-stat-note">Top-level brands loaded into this workspace.</p>
+            <p className="dashboard-stat-note">{t("Top-level brands loaded into this workspace.", "Bu calisma alanindaki ana markalar.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Branches</p>
+            <p className="dashboard-stat-label">{t("Branches", "Subeler")}</p>
             <p className="dashboard-stat-value">{branches.length}</p>
-            <p className="dashboard-stat-note">Operating locations with tables and menu data.</p>
+            <p className="dashboard-stat-note">{t("Operating locations with tables and menu data.", "Masa ve menu verisi olan aktif lokasyonlar.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Active sessions</p>
+            <p className="dashboard-stat-label">{t("Active sessions", "Aktif oturumlar")}</p>
             <p className="dashboard-stat-value">{totalOpenSessions}</p>
-            <p className="dashboard-stat-note">{occupiedTables} table(s) currently occupied.</p>
+            <p className="dashboard-stat-note">
+              {t(
+                `${occupiedTables} table(s) currently occupied.`,
+                `Su anda ${occupiedTables} masa dolu.`
+              )}
+            </p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">QR readiness</p>
+            <p className="dashboard-stat-label">{t("QR readiness", "QR hazirligi")}</p>
             <p className="dashboard-stat-value">{qrReadyTables}</p>
             <p className="dashboard-stat-note">
-              {tablesOutOfService} table(s) closed. {availableMenuItems} menu item(s) available, {unavailableMenuItems} hidden.
+              {t(
+                `${tablesOutOfService} table(s) closed. ${availableMenuItems} menu item(s) available, ${unavailableMenuItems} hidden.`,
+                `${tablesOutOfService} masa kapali. ${availableMenuItems} menu urunu aktif, ${unavailableMenuItems} gizli.`
+              )}
             </p>
           </article>
         </div>
 
         <div className="status-stack">
-          {isLoading ? <p className="status-banner is-neutral">Refreshing latest restaurant snapshot.</p> : null}
+          {isLoading ? <p className="status-banner is-neutral">{t("Refreshing latest restaurant snapshot.", "En guncel restoran gorunumu yenileniyor.")}</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
           {message ? <p className="status-banner is-success">{message}</p> : null}
+        </div>
+      </section>
+
+      <section className="panel dashboard-briefing-panel">
+        <div className="section-head">
+          <div className="section-copy">
+            <p className="section-kicker">{t("Presentation mode", "Sunum modu")}</p>
+            <h3>{t("Lead with control, then jump into the live guest journey", "Kontrolle baslayin, sonra canli misafir yolculuguna gecin")}</h3>
+            <p className="panel-subtitle">
+              {t(
+                "This admin view can act as the command center for your demo: setup, live floor, kitchen movement, and cashier settlement all run from the same restaurant data.",
+                "Bu yonetim ekrani demonun komuta merkezi gibi calisir: kurulum, canli salon, mutfak akisi ve kasiyer tahsilati ayni restoran verisiyle yonetilir."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-story-grid dashboard-story-grid--three">
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">01</span>
+            <h4>{t("Brand and branch are ready", "Marka ve sube hazir")}</h4>
+            <p>
+              {t(
+                `${snapshot[0]?.name ?? "Your restaurant"} is loaded with ${branches.length} branch${branches.length === 1 ? "" : "es"} and ${tables.length} table${tables.length === 1 ? "" : "s"} for the demo flow.`,
+                `${snapshot[0]?.name ?? "Restoraniniz"} demo akisi icin ${branches.length} sube ve ${tables.length} masa ile hazirlandi.`
+              )}
+            </p>
+            <span className="dashboard-story-meta">{t("Start here to show ownership, setup, and QR readiness.", "Sahiplik, kurulum ve QR hazirligini burada gosterin.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">02</span>
+            <h4>{t("Live floor snapshot", "Canli salon ozeti")}</h4>
+            <p>
+              {featuredBranch
+                ? t(
+                    `${featuredBranch.name} currently carries ${featuredBranch.tables.length} tables, ${featuredBranch.menuItems.length} menu items, and ${featuredBranchActiveSessions} live session(s).`,
+                    `${featuredBranch.name} su anda ${featuredBranch.tables.length} masa, ${featuredBranch.menuItems.length} menu urunu ve ${featuredBranchActiveSessions} canli oturum barindiriyor.`
+                  )
+                : t("Create a branch to unlock tables, QR access, and menu operations.", "Masalari, QR erisimini ve menu operasyonlarini acmak icin bir sube olusturun.")}
+            </p>
+            <span className="dashboard-story-meta">{t("The same branch powers waiter, kitchen, and cashier screens.", "Ayni sube garson, mutfak ve kasiyer ekranlarini besler.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">03</span>
+            <h4>{t("Guest entry can be shown instantly", "Misafir girisi aninda gosterilebilir")}</h4>
+            <p>
+              {featuredTable
+                ? t(
+                    `Table ${featuredTable.name} already has a public QR token, so you can move straight from admin into the guest checkout story.`,
+                    `${featuredTable.name} masasi zaten bir genel QR token'ina sahip; yonetimden dogrudan misafir odeme akisina gecebilirsiniz.`
+                  )
+                : t("Generate a table token to show the customer-facing mobile flow.", "Musteri tarafindaki mobil akisi gostermek icin bir masa token'i olusturun.")}
+            </p>
+            <span className="dashboard-story-meta">
+              {featuredGuestUrl ? featuredGuestUrl : t("A guest-ready public URL will appear here once a table token exists.", "Masa token'i olustuktan sonra misafir hazir genel URL burada gorunecek.")}
+            </span>
+          </article>
+        </div>
+
+        <div className="dashboard-route-grid">
+          <a className="dashboard-route-card" href="/waiter">
+            <span className="dashboard-route-kicker">{t("Next role", "Sonraki rol")}</span>
+            <h4>{t("Waiter flow", "Garson akisi")}</h4>
+            <p>{t("Show open tables, guest joins, and item assignment with the same live sessions.", "Ayni canli oturumlarla acik masalari, misafir katilimini ve urun atamasini gosterin.")}</p>
+          </a>
+          <a className="dashboard-route-card" href="/kitchen">
+            <span className="dashboard-route-kicker">{t("Operations", "Operasyon")}</span>
+            <h4>{t("Kitchen board", "Mutfak panosu")}</h4>
+            <p>{t("Move the same tickets from waiting to ready and prove that order routing is live.", "Ayni fisleri bekleyenden hazira tasiyin ve siparis yonlendirmesinin canli oldugunu kanitlayin.")}</p>
+          </a>
+          <a className="dashboard-route-card" href="/cashier">
+            <span className="dashboard-route-kicker">{t("Checkout", "Odeme")}</span>
+            <h4>{t("Cashier settlement", "Kasiyer tahsilati")}</h4>
+            <p>{t("Finish the demo by splitting the bill and collecting payment from the same table.", "Demoyu ayni masada hesabi bolup odemeyi tahsil ederek tamamlayin.")}</p>
+          </a>
         </div>
       </section>
 
       {snapshot.length > 0 ? (
         <section className="section-block">
           <div className="section-copy">
-            <p className="section-kicker">Brand</p>
-            <h3>Restaurant name</h3>
-            <p className="panel-subtitle">Rename the top-level brand shown across branches and receipts.</p>
+            <p className="section-kicker">{t("Brand", "Marka")}</p>
+            <h3>{t("Restaurant name", "Restoran adi")}</h3>
+            <p className="panel-subtitle">{t("Rename the top-level brand shown across branches and receipts.", "Subelerde ve fislerde gorunen ana markanin adini guncelleyin.")}</p>
           </div>
 
           <div className="grid-2">
@@ -1447,16 +1555,16 @@ export default function AdminDashboardPage() {
                 <AdminFormCard
                   key={restaurant.id}
                   title={restaurant.name}
-                  description="Type a new restaurant name and save."
+                  description={t("Type a new restaurant name and save.", "Yeni restoran adini yazin ve kaydedin.")}
                 >
                   <div className="stack-md">
-                    <AdminField label="Restaurant name">
+                    <AdminField label={t("Restaurant name", "Restoran adi")}>
                       <input
                         value={draftValue}
                         onChange={(event) =>
                           setRestaurantEdits((prev) => ({ ...prev, [restaurant.id]: event.target.value }))
                         }
-                        placeholder="Type a restaurant name"
+                        placeholder={t("Type a restaurant name", "Bir restoran adi yazin")}
                       />
                     </AdminField>
                     <div className="ticket-actions">
@@ -1466,7 +1574,7 @@ export default function AdminDashboardPage() {
                         onClick={() => void handleRenameRestaurant(restaurant.id)}
                         disabled={!isDirty || isSaving}
                       >
-                        {isSaving ? "Saving..." : "Save name"}
+                        {isSaving ? t("Saving...", "Kaydediliyor...") : t("Save name", "Adi kaydet")}
                       </button>
                       {isDirty ? (
                         <button
@@ -1481,7 +1589,7 @@ export default function AdminDashboardPage() {
                           }
                           disabled={isSaving}
                         >
-                          Cancel
+                          {t("Cancel", "Iptal")}
                         </button>
                       ) : null}
                     </div>
@@ -1495,23 +1603,23 @@ export default function AdminDashboardPage() {
 
       <section className="section-block">
         <div className="section-copy">
-          <p className="section-kicker">Setup</p>
-          <h3>Business structure</h3>
+          <p className="section-kicker">{t("Setup", "Kurulum")}</p>
+          <h3>{t("Business structure", "Is yapisi")}</h3>
           <p className="panel-subtitle">
-            Add branches and tables first so QR entry, live sessions, and waiter operations stay organized.
+            {t("Add branches and tables first so QR entry, live sessions, and waiter operations stay organized.", "QR girisi, canli oturumlar ve garson operasyonlari duzenli kalsin diye once subeleri ve masalari ekleyin.")}
           </p>
         </div>
 
         <div className="grid-2">
-          <AdminFormCard title="Create branch" description="Add an operating location under an existing restaurant.">
+          <AdminFormCard title={t("Create branch", "Sube olustur")} description={t("Add an operating location under an existing restaurant.", "Mevcut restoran altina yeni bir lokasyon ekleyin.")}>
           <form className="stack-md" onSubmit={handleCreateBranch}>
-            <AdminField label="Restaurant">
+            <AdminField label={t("Restaurant", "Restoran")}>
               <select
                 value={branchForm.restaurantId}
                 onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
                 required
               >
-                <option value="">Select restaurant</option>
+                <option value="">{t("Select restaurant", "Restoran secin")}</option>
                 {snapshot.map((restaurant) => (
                   <option key={restaurant.id} value={restaurant.id}>
                     {restaurant.name}
@@ -1520,7 +1628,7 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Branch name">
+            <AdminField label={t("Branch name", "Sube adi")}>
               <input
                 value={branchForm.name}
                 onChange={(event) => setBranchForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -1528,38 +1636,38 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Slug">
+            <AdminField label={t("Slug", "Slug")}>
               <input
                 value={branchForm.slug}
                 onChange={(event) => setBranchForm((prev) => ({ ...prev, slug: event.target.value }))}
-                placeholder="auto if empty"
+                placeholder={t("auto if empty", "Bos birakilirsa otomatik")}
               />
             </AdminField>
 
-            <AdminField label="Location">
+            <AdminField label={t("Location", "Konum")}>
               <input
                 value={branchForm.location}
                 onChange={(event) => setBranchForm((prev) => ({ ...prev, location: event.target.value }))}
               />
             </AdminField>
 
-            <p className="helper-text">Leave slug empty to generate a safe public identifier automatically.</p>
+            <p className="helper-text">{t("Leave slug empty to generate a safe public identifier automatically.", "Guvenli genel tanimlayicinin otomatik uretilmesi icin slug alanini bos birakin.")}</p>
 
             <AdminActions>
-              <button type="submit">Create branch</button>
+              <button type="submit">{t("Create branch", "Sube olustur")}</button>
             </AdminActions>
           </form>
           </AdminFormCard>
 
-          <AdminFormCard title="Create table" description="Create a table with automatic code and customer QR token.">
+          <AdminFormCard title={t("Create table", "Masa olustur")} description={t("Create a table with automatic code and customer QR token.", "Otomatik kod ve musteri QR token'i ile masa olusturun.")}>
           <form className="stack-md" onSubmit={handleCreateTable}>
-            <AdminField label="Branch">
+            <AdminField label={t("Branch", "Sube")}>
               <select
                 value={tableForm.branchId}
                 onChange={(event) => setTableForm((prev) => ({ ...prev, branchId: event.target.value }))}
                 required
               >
-                <option value="">Select branch</option>
+                <option value="">{t("Select branch", "Sube secin")}</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
@@ -1568,16 +1676,16 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Table name">
+            <AdminField label={t("Table name", "Masa adi")}>
               <input
                 value={tableForm.name}
                 onChange={(event) => setTableForm((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder="T1"
+                placeholder={t("T1", "T1")}
                 required
               />
             </AdminField>
 
-            <AdminField label="Capacity">
+            <AdminField label={t("Capacity", "Kapasite")}>
               <input
                 type="number"
                 min={1}
@@ -1587,10 +1695,10 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <p className="helper-text">Each table is linked to a unique code and QR destination automatically.</p>
+            <p className="helper-text">{t("Each table is linked to a unique code and QR destination automatically.", "Her masa otomatik olarak benzersiz bir kod ve QR hedefi ile baglanir.")}</p>
 
             <AdminActions>
-              <button type="submit">Create table</button>
+              <button type="submit">{t("Create table", "Masa olustur")}</button>
             </AdminActions>
           </form>
           </AdminFormCard>
@@ -1600,21 +1708,21 @@ export default function AdminDashboardPage() {
 
       <section className="section-block">
         <div className="section-copy">
-          <p className="section-kicker">Menu setup</p>
-          <h3>Menu import</h3>
+          <p className="section-kicker">{t("Menu setup", "Menu kurulumu")}</p>
+          <h3>{t("Menu import", "Menu ice aktarimi")}</h3>
           <p className="panel-subtitle">
-            Use the Excel or CSV file as the main menu source. Manual forms stay available for quick one-off fixes.
+            {t("Use the Excel or CSV file as the main menu source. Manual forms stay available for quick one-off fixes.", "Excel veya CSV dosyasini ana menu kaynagi olarak kullanin. Tek seferlik hizli duzeltmeler icin manuel formlar da acik kalir.")}
           </p>
         </div>
 
         <AdminFormCard
-          title="Import full menu (Excel/CSV)"
-          description="Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY)."
+          title={t("Import full menu (Excel/CSV)", "Tum menuyu ice aktar (Excel/CSV)")}
+          description={t("Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY).", "Tek dosya yukleyerek urunleri olusturun veya guncelleyin; eksik kategoriler otomatik acilsin. Fiyatlar Turk Lirasi (TRY) olarak yorumlanir.")}
         >
           <form className="stack-md" onSubmit={handleImportMenuItems}>
-            <AdminField label="Branch">
+            <AdminField label={t("Branch", "Sube")}>
               <select value={importBranchId} onChange={(event) => setImportBranchId(event.target.value)} required>
-                <option value="">Select branch</option>
+                <option value="">{t("Select branch", "Sube secin")}</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
@@ -1623,7 +1731,7 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Excel or CSV file">
+            <AdminField label={t("Excel or CSV file", "Excel veya CSV dosyasi")}>
               <input
                 type="file"
                 accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
@@ -1632,11 +1740,11 @@ export default function AdminDashboardPage() {
             </AdminField>
 
             <div className="helper-panel stack-md">
-              <p className="helper-text">
-                Required columns are item name and price. Category names in the file are matched or created for the selected branch.
+                <p className="helper-text">
+                {t("Required columns are item name and price. Category names in the file are matched or created for the selected branch.", "Zorunlu kolonlar urun adi ve fiyattir. Dosyadaki kategori adlari secili sube icin eslestirilir veya olusturulur.")}
               </p>
               <p className="helper-text">
-                Supported template headers: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.
+                {t("Supported template headers: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.", "Desteklenen sablon basliklar: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.")}
               </p>
             </div>
 
@@ -1649,13 +1757,13 @@ export default function AdminDashboardPage() {
                   {IMPORT_MAPPING_FIELDS.map((field) => (
                     <AdminField
                       key={field.key}
-                      label={`${field.label}${field.required ? " *" : ""}`}
+                      label={`${localizedImportFieldLabel(field.label)}${field.required ? " *" : ""}`}
                     >
                       <select
                         value={importColumnMapping[field.key]}
                         onChange={(event) => handleImportMappingChange(field.key, event.target.value)}
                       >
-                        <option value="">Not mapped</option>
+                        <option value="">{t("Not mapped", "Eslestirilmedi")}</option>
                         {importSourceColumns.map((columnName) => (
                           <option key={`${field.key}-${columnName}`} value={columnName}>
                             {columnName}
@@ -1741,30 +1849,30 @@ export default function AdminDashboardPage() {
                   !importBranchId
                 }
               >
-                {isImportingItems ? "Importing..." : "Import menu items"}
+                {isImportingItems ? t("Importing...", "Ice aktariliyor...") : t("Import menu items", "Menu urunlerini ice aktar")}
               </button>
             </AdminActions>
           </form>
         </AdminFormCard>
 
         <div className="section-copy">
-          <p className="section-kicker">Manual fallback</p>
-          <h3>Quick one-off changes</h3>
+          <p className="section-kicker">{t("Manual fallback", "Manuel ekleme")}</p>
+          <h3>{t("Quick one-off changes", "Hizli tek seferlik degisiklikler")}</h3>
           <p className="panel-subtitle">
-            Use these forms only when you need to add a single category or item without uploading the file again.
+            {t("Use these forms only when you need to add a single category or item without uploading the file again.", "Dosyayi yeniden yuklemeden tek bir kategori veya urun eklemeniz gerektiginde bu formlari kullanin.")}
           </p>
         </div>
 
         <div className="grid-2">
-          <AdminFormCard title="Add category manually" description="For a small category fix after the main menu import.">
+          <AdminFormCard title={t("Add category manually", "Kategoriyi manuel ekle")} description={t("For a small category fix after the main menu import.", "Ana menu ice aktarimindan sonra kucuk kategori duzeltmeleri icin.")}>
           <form className="stack-md" onSubmit={handleCreateCategory}>
-            <AdminField label="Branch">
+            <AdminField label={t("Branch", "Sube")}>
               <select
                 value={categoryForm.branchId}
                 onChange={(event) => setCategoryForm((prev) => ({ ...prev, branchId: event.target.value }))}
                 required
               >
-                <option value="">Select branch</option>
+                <option value="">{t("Select branch", "Sube secin")}</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
@@ -1773,7 +1881,7 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Category name">
+            <AdminField label={t("Category name", "Kategori adi")}>
               <input
                 value={categoryForm.name}
                 onChange={(event) => setCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -1781,7 +1889,7 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Sort order">
+            <AdminField label={t("Sort order", "Siralama")}>
               <input
                 type="number"
                 value={categoryForm.sortOrder}
@@ -1789,23 +1897,23 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <p className="helper-text">Lower sort values appear earlier in customer and operator views.</p>
+            <p className="helper-text">{t("Lower sort values appear earlier in customer and operator views.", "Daha dusuk sira degerleri musteri ve operator ekranlarinda daha once gorunur.")}</p>
 
             <AdminActions>
-              <button type="submit" className="secondary">Add category</button>
+              <button type="submit" className="secondary">{t("Add category", "Kategori ekle")}</button>
             </AdminActions>
           </form>
           </AdminFormCard>
 
-          <AdminFormCard title="Add menu item manually" description="For a one-off item; Excel remains the main path for bulk menu setup.">
+          <AdminFormCard title={t("Add menu item manually", "Menu urununu manuel ekle")} description={t("For a one-off item; Excel remains the main path for bulk menu setup.", "Tek seferlik urunler icin; toplu menu kurulumu icin ana yol hala Excel'dir.")}>
           <form className="stack-md" onSubmit={handleCreateItem}>
-            <AdminField label="Branch">
+            <AdminField label={t("Branch", "Sube")}>
               <select
                 value={itemForm.branchId}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, branchId: event.target.value, categoryId: "" }))}
                 required
               >
-                <option value="">Select branch</option>
+                <option value="">{t("Select branch", "Sube secin")}</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
@@ -1814,12 +1922,12 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Category">
+            <AdminField label={t("Category", "Kategori")}>
               <select
                 value={itemForm.categoryId}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, categoryId: event.target.value }))}
               >
-                <option value="">Uncategorized</option>
+                <option value="">{t("Uncategorized", "Kategorisiz")}</option>
                 {selectableCategoriesForCreateItem.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -1828,27 +1936,27 @@ export default function AdminDashboardPage() {
               </select>
             </AdminField>
 
-            <AdminField label="Name">
+            <AdminField label={t("Name", "Ad")}>
               <input value={itemForm.name} onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))} required />
             </AdminField>
 
-            <AdminField label="Description">
+            <AdminField label={t("Description", "Aciklama")}>
               <textarea
                 value={itemForm.description}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
               />
             </AdminField>
 
-            <AdminField label="Image URL">
+            <AdminField label={t("Image URL", "Gorsel URL")}>
               <input
                 type="url"
                 value={itemForm.imageUrl}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
-                placeholder="https://example.com/item.jpg"
+                placeholder={t("https://example.com/item.jpg", "https://example.com/item.jpg")}
               />
             </AdminField>
 
-            <AdminField label="Price (TRY)">
+            <AdminField label={t("Price (TRY)", "Fiyat (TRY)")}>
               <input
                 inputMode="decimal"
                 value={itemForm.price}
@@ -1857,11 +1965,11 @@ export default function AdminDashboardPage() {
                 required
               />
               {createItemPricePreview !== null ? (
-                <span className="helper-text">Preview: {formatTryCurrency(createItemPricePreview)}</span>
+                <span className="helper-text">{t("Preview", "Onizleme")}: {formatTryCurrency(createItemPricePreview)}</span>
               ) : null}
             </AdminField>
 
-            <AdminField label="Sort order">
+            <AdminField label={t("Sort order", "Siralama")}>
               <input
                 type="number"
                 min={0}
@@ -1871,20 +1979,20 @@ export default function AdminDashboardPage() {
               />
             </AdminField>
 
-            <AdminField label="Availability">
+            <AdminField label={t("Availability", "Durum")}>
               <select
                 value={itemForm.isAvailable}
                 onChange={(event) => setItemForm((prev) => ({ ...prev, isAvailable: event.target.value as AvailabilityValue }))}
               >
-                <option value="true">Available</option>
-                <option value="false">Unavailable</option>
+                <option value="true">{t("Available", "Aktif")}</option>
+                <option value="false">{t("Unavailable", "Pasif")}</option>
               </select>
             </AdminField>
 
-            <p className="helper-text">Unavailable items stay in the catalog but are blocked from ordering.</p>
+            <p className="helper-text">{t("Unavailable items stay in the catalog but are blocked from ordering.", "Pasif urunler katalogda kalir ancak siparise kapatilir.")}</p>
 
             <AdminActions>
-              <button type="submit" className="secondary">Add menu item</button>
+              <button type="submit" className="secondary">{t("Add menu item", "Menu urunu ekle")}</button>
             </AdminActions>
           </form>
           </AdminFormCard>
@@ -2087,7 +2195,7 @@ export default function AdminDashboardPage() {
 
                                   <div className="qr-preview">
                                     <Image
-                                      src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}`}
+                                      src={`/api/admin/qr/${encodeURIComponent(table.publicToken)}?baseUrl=${encodeURIComponent(publicBaseUrl)}`}
                                       alt={`QR code for ${table.name}`}
                                       width={108}
                                       height={108}
@@ -2125,16 +2233,16 @@ export default function AdminDashboardPage() {
                                       >
                                         {TABLE_STATUS_OPTIONS.map((status) => (
                                           <option key={status} value={status}>
-                                            {getTableStatusLabel(status)}
+                                            {localizedTableStatusLabel(status)}
                                           </option>
                                         ))}
                                       </select>
                                     </AdminField>
-                                    <p className="helper-text">Status changes only update table availability and do not alter routes or session logic.</p>
+                                    <p className="helper-text">{t("Status changes only update table availability and do not alter routes or session logic.", "Durum degisiklikleri sadece masa uygunlugunu gunceller; rota veya oturum mantigini degistirmez.")}</p>
                                     <AdminActions>
-                                      <button type="submit">Save table</button>
+                                      <button type="submit">{t("Save table", "Masayi kaydet")}</button>
                                       <button type="button" className="secondary" onClick={() => setEditingTableId(null)}>
-                                        Cancel
+                                        {t("Cancel", "Iptal")}
                                       </button>
                                     </AdminActions>
                                   </form>
@@ -2148,14 +2256,14 @@ export default function AdminDashboardPage() {
 
                     <details className="branch-workspace-section">
                       <summary>
-                        <span className="branch-workspace-section-kicker">Catalog</span>
-                        <span className="branch-workspace-section-title">Menu categories</span>
+                        <span className="branch-workspace-section-kicker">{t("Catalog", "Katalog")}</span>
+                        <span className="branch-workspace-section-title">{t("Menu categories", "Menu kategorileri")}</span>
                         <span className="table-filter-chip-count">{branch.menuCategories.length}</span>
                       </summary>
 
                       <div className="branch-workspace-section-body stack-md">
                         {branch.menuCategories.length === 0 ? (
-                          <p className="empty empty-state">No categories for this branch yet.</p>
+                          <p className="empty empty-state">{t("No categories for this branch yet.", "Bu sube icin henuz kategori yok.")}</p>
                         ) : (
                           <div className="list">
                             {branch.menuCategories.map((category) => (
@@ -2164,23 +2272,23 @@ export default function AdminDashboardPage() {
                                   <div className="entity-title">
                                     <h4>{category.name}</h4>
                                     <div className="badge-row">
-                                      <span className="badge badge-outline">Sort {category.sortOrder}</span>
-                                      <span className="badge badge-neutral">{category.items.length} linked items</span>
+                                      <span className="badge badge-outline">{t("Sort", "Sira")} {category.sortOrder}</span>
+                                      <span className="badge badge-neutral">{t(`${category.items.length} linked items`, `${category.items.length} bagli urun`)}</span>
                                     </div>
                                   </div>
                                   <AdminActions>
                                     <button type="button" className="secondary" onClick={() => startCategoryEdit(category)}>
-                                      {editingCategoryId === category.id ? "Editing" : "Edit"}
+                                      {editingCategoryId === category.id ? t("Editing", "Duzenleniyor") : t("Edit", "Duzenle")}
                                     </button>
                                     <button type="button" className="warn" onClick={() => void handleDeleteCategory(category)}>
-                                      Delete
+                                      {t("Delete", "Sil")}
                                     </button>
                                   </AdminActions>
                                 </div>
 
                                 {editingCategoryId === category.id ? (
                                   <form className="grid-2 helper-panel" onSubmit={handleUpdateCategory}>
-                                    <AdminField label="Category name">
+                                    <AdminField label={t("Category name", "Kategori adi")}>
                                       <input
                                         value={categoryEditForm.name}
                                         onChange={(event) =>
@@ -2189,7 +2297,7 @@ export default function AdminDashboardPage() {
                                         required
                                       />
                                     </AdminField>
-                                    <AdminField label="Sort order">
+                                    <AdminField label={t("Sort order", "Siralama")}>
                                       <input
                                         type="number"
                                         value={categoryEditForm.sortOrder}
@@ -2198,11 +2306,11 @@ export default function AdminDashboardPage() {
                                         }
                                       />
                                     </AdminField>
-                                    <p className="helper-text">Sort order controls how categories appear in QR and waiter menus.</p>
+                                    <p className="helper-text">{t("Sort order controls how categories appear in QR and waiter menus.", "Siralama degeri kategorilerin QR ve garson menulerinde nasil gorunecegini belirler.")}</p>
                                     <AdminActions>
-                                      <button type="submit">Save category</button>
+                                      <button type="submit">{t("Save category", "Kategoriyi kaydet")}</button>
                                       <button type="button" className="secondary" onClick={() => setEditingCategoryId(null)}>
-                                        Cancel
+                                        {t("Cancel", "Iptal")}
                                       </button>
                                     </AdminActions>
                                   </form>
@@ -2216,14 +2324,14 @@ export default function AdminDashboardPage() {
 
                     <details className="branch-workspace-section">
                       <summary>
-                        <span className="branch-workspace-section-kicker">Items</span>
-                        <span className="branch-workspace-section-title">Menu items</span>
+                        <span className="branch-workspace-section-kicker">{t("Items", "Urunler")}</span>
+                        <span className="branch-workspace-section-title">{t("Menu items", "Menu urunleri")}</span>
                         <span className="table-filter-chip-count">{branch.menuItems.length}</span>
                       </summary>
 
                       <div className="branch-workspace-section-body stack-md">
                         {branch.menuItems.length === 0 ? (
-                          <p className="empty empty-state">No menu items for this branch yet.</p>
+                          <p className="empty empty-state">{t("No menu items for this branch yet.", "Bu sube icin henuz menu urunu yok.")}</p>
                         ) : (
                           <div className="list">
                             {branch.menuItems.map((item) => (
@@ -2233,17 +2341,17 @@ export default function AdminDashboardPage() {
                                     <h4>{item.name}</h4>
                                     <div className="badge-row">
                                       <span className={`badge ${item.isAvailable ? "badge-status-available" : "badge-danger"}`}>
-                                        {item.isAvailable ? "Available to order" : "Hidden from ordering"}
+                                        {item.isAvailable ? t("Available to order", "Siparise acik") : t("Hidden from ordering", "Siparise kapali")}
                                       </span>
-                                      <span className="badge badge-neutral">{item.category?.name ?? "Uncategorized"}</span>
+                                      <span className="badge badge-neutral">{item.category?.name ?? t("Uncategorized", "Kategorisiz")}</span>
                                     </div>
                                   </div>
                                   <AdminActions>
                                     <button type="button" className="secondary" onClick={() => startItemEdit(item)}>
-                                      {editingItemId === item.id ? "Editing" : "Edit"}
+                                      {editingItemId === item.id ? t("Editing", "Duzenleniyor") : t("Edit", "Duzenle")}
                                     </button>
                                     <button type="button" className="warn" onClick={() => void handleDeleteItem(item)}>
-                                      Delete
+                                      {t("Delete", "Sil")}
                                     </button>
                                   </AdminActions>
                                 </div>
@@ -2260,10 +2368,10 @@ export default function AdminDashboardPage() {
                                     {item.description ? (
                                       <p className="helper-text">{item.description}</p>
                                     ) : (
-                                      <p className="helper-text">No description provided yet.</p>
+                                      <p className="helper-text">{t("No description provided yet.", "Henuz aciklama eklenmedi.")}</p>
                                     )}
                                     <p className="helper-text">
-                                      {item.imageUrl ? "Image attached to customer menu." : "No image attached yet."}
+                                      {item.imageUrl ? t("Image attached to customer menu.", "Gorsel musteri menusune baglandi.") : t("No image attached yet.", "Henuz gorsel eklenmedi.")}
                                     </p>
                                   </div>
                                 </div>
@@ -2274,22 +2382,22 @@ export default function AdminDashboardPage() {
                                     <span className="detail-value">{formatTryCurrency(item.price)}</span>
                                   </div>
                                   <div className="detail-card">
-                                    <span className="detail-label">Sort order</span>
+                                    <span className="detail-label">{t("Sort order", "Siralama")}</span>
                                     <span className="detail-value">{item.sortOrder}</span>
                                   </div>
                                   <div className="detail-card">
-                                    <span className="detail-label">Category</span>
-                                    <span className="detail-value">{item.category?.name ?? "Uncategorized"}</span>
+                                    <span className="detail-label">{t("Category", "Kategori")}</span>
+                                    <span className="detail-value">{item.category?.name ?? t("Uncategorized", "Kategorisiz")}</span>
                                   </div>
                                   <div className="detail-card">
-                                    <span className="detail-label">Image</span>
-                                    <span className="detail-value">{item.imageUrl ? "Ready" : "Missing"}</span>
+                                    <span className="detail-label">{t("Image", "Gorsel")}</span>
+                                    <span className="detail-value">{item.imageUrl ? t("Ready", "Hazir") : t("Missing", "Eksik")}</span>
                                   </div>
                                 </div>
 
                                 {editingItemId === item.id ? (
                                   <form className="grid-2 helper-panel" onSubmit={handleUpdateItem}>
-                                    <AdminField label="Name">
+                                    <AdminField label={t("Name", "Ad")}>
                                       <input
                                         value={itemEditForm.name}
                                         onChange={(event) =>
@@ -2298,14 +2406,14 @@ export default function AdminDashboardPage() {
                                         required
                                       />
                                     </AdminField>
-                                    <AdminField label="Category">
+                                    <AdminField label={t("Category", "Kategori")}>
                                       <select
                                         value={itemEditForm.categoryId}
                                         onChange={(event) =>
                                           setItemEditForm((prev) => ({ ...prev, categoryId: event.target.value }))
                                         }
                                       >
-                                        <option value="">Uncategorized</option>
+                                        <option value="">{t("Uncategorized", "Kategorisiz")}</option>
                                         {selectableCategoriesForEditItem.map((category) => (
                                           <option key={category.id} value={category.id}>
                                             {category.name}
@@ -2313,7 +2421,7 @@ export default function AdminDashboardPage() {
                                         ))}
                                       </select>
                                     </AdminField>
-                                    <AdminField label="Description">
+                                    <AdminField label={t("Description", "Aciklama")}>
                                       <textarea
                                         value={itemEditForm.description}
                                         onChange={(event) =>
@@ -2321,17 +2429,17 @@ export default function AdminDashboardPage() {
                                         }
                                       />
                                     </AdminField>
-                                    <AdminField label="Image URL">
+                                    <AdminField label={t("Image URL", "Gorsel URL")}>
                                       <input
                                         type="url"
                                         value={itemEditForm.imageUrl}
                                         onChange={(event) =>
                                           setItemEditForm((prev) => ({ ...prev, imageUrl: event.target.value }))
                                         }
-                                        placeholder="https://example.com/item.jpg"
+                                        placeholder={t("https://example.com/item.jpg", "https://example.com/item.jpg")}
                                       />
                                     </AdminField>
-                                    <AdminField label="Price (TRY)">
+                                    <AdminField label={t("Price (TRY)", "Fiyat (TRY)")}>
                                       <input
                                         inputMode="decimal"
                                         value={itemEditForm.price}
@@ -2350,10 +2458,10 @@ export default function AdminDashboardPage() {
                                         required
                                       />
                                       {editItemPricePreview !== null ? (
-                                        <span className="helper-text">Preview: {formatTryCurrency(editItemPricePreview)}</span>
+                                        <span className="helper-text">{t("Preview", "Onizleme")}: {formatTryCurrency(editItemPricePreview)}</span>
                                       ) : null}
                                     </AdminField>
-                                    <AdminField label="Sort order">
+                                    <AdminField label={t("Sort order", "Siralama")}>
                                       <input
                                         type="number"
                                         min={0}
@@ -2364,7 +2472,7 @@ export default function AdminDashboardPage() {
                                         }
                                       />
                                     </AdminField>
-                                    <AdminField label="Availability">
+                                    <AdminField label={t("Availability", "Durum")}>
                                       <select
                                         value={itemEditForm.isAvailable}
                                         onChange={(event) =>
@@ -2374,17 +2482,17 @@ export default function AdminDashboardPage() {
                                           }))
                                         }
                                       >
-                                        <option value="true">Available</option>
-                                        <option value="false">Unavailable</option>
+                                        <option value="true">{t("Available", "Aktif")}</option>
+                                        <option value="false">{t("Unavailable", "Pasif")}</option>
                                       </select>
                                     </AdminField>
                                     <p className="helper-text">
-                                      Changing availability keeps the item record but blocks new orders when off.
+                                      {t("Changing availability keeps the item record but blocks new orders when off.", "Durumu degistirmek urun kaydini korur ancak kapaliyken yeni siparisleri engeller.")}
                                     </p>
                                     <AdminActions>
-                                      <button type="submit">Save item</button>
+                                      <button type="submit">{t("Save item", "Urunu kaydet")}</button>
                                       <button type="button" className="secondary" onClick={() => setEditingItemId(null)}>
-                                        Cancel
+                                        {t("Cancel", "Iptal")}
                                       </button>
                                     </AdminActions>
                                   </form>

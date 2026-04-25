@@ -11,6 +11,7 @@ type PaymentShareStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "CANCELLED"
 
 type PaymentShare = {
   id: string;
+  guestId: string | null;
   payerLabel: string;
   amount: string;
   tip: string;
@@ -61,6 +62,30 @@ type Props = {
   initialStatus?: string;
   initialError?: string;
 };
+
+function normalizeTipAmount(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || !/^\d+\.\d{2}$/.test(trimmed)) {
+    return "0.00";
+  }
+
+  return trimmed;
+}
+
+function normalizeReturnedPaymentError(value: string): string {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (trimmed.startsWith("[{") || trimmed.includes('"code": "invalid_') || trimmed.includes('"path": ["tip"]')) {
+    return "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+  }
+
+  return trimmed;
+}
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("tr-TR");
@@ -120,7 +145,7 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
   const [state, setState] = useState<PaymentResultState | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
-  const [error, setError] = useState(initialError);
+  const [error, setError] = useState(normalizeReturnedPaymentError(initialError));
   const [message, setMessage] = useState(initialStatus === "failed" ? "Odeme basarisiz." : "");
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
@@ -182,7 +207,7 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ tip: share.tip || "0.00" })
+        body: JSON.stringify({ tip: normalizeTipAmount(share.tip) })
       });
       const json = (await response.json()) as StartPaymentResponse;
 
@@ -209,6 +234,12 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
   const tableCode = paymentSession?.session?.table?.code ?? "";
   const shouldReturnToGuestPayment = Boolean(paymentShare?.status === "PAID" && tableCode);
   const guestPaymentHref = tableCode ? `/guest/${encodeURIComponent(tableCode)}/payment` : "";
+  const retryGuestPaymentHref =
+    tableCode && paymentShare
+      ? `/guest/${encodeURIComponent(tableCode)}/payment?handoff=retry&step=payment${
+          paymentShare.guestId ? `&guestId=${encodeURIComponent(paymentShare.guestId)}` : ""
+        }&paymentStatus=failed`
+      : "";
 
   useEffect(() => {
     if (!shouldReturnToGuestPayment || !guestPaymentHref) {
@@ -217,6 +248,14 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
 
     router.replace(guestPaymentHref);
   }, [guestPaymentHref, router, shouldReturnToGuestPayment]);
+
+  useEffect(() => {
+    if (!retryGuestPaymentHref || !paymentShare || (paymentShare.status !== "FAILED" && paymentShare.status !== "CANCELLED")) {
+      return;
+    }
+
+    router.replace(retryGuestPaymentHref);
+  }, [paymentShare, retryGuestPaymentHref, router]);
 
   return (
     <div className="stack-md">

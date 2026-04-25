@@ -34,22 +34,22 @@ export function LandingFooter() {
           </div>
 
           <div className="mp-footer-col">
-            <h4>{t.footer.company.title}</h4>
+            <h4>{t.footer.demo.title}</h4>
             <ul>
-              {t.footer.company.items.map((item) => (
-                <li key={item}>
-                  <a href="#">{item}</a>
+              {t.footer.demo.items.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href}>{item.label}</a>
                 </li>
               ))}
             </ul>
           </div>
 
           <div className="mp-footer-col">
-            <h4>{t.footer.legal.title}</h4>
+            <h4>{t.footer.panels.title}</h4>
             <ul>
-              {t.footer.legal.items.map((item) => (
-                <li key={item}>
-                  <a href="#">{item}</a>
+              {t.footer.panels.items.map((item) => (
+                <li key={item.href}>
+                  <a href={item.href}>{item.label}</a>
                 </li>
               ))}
             </ul>

@@ -9,8 +9,10 @@ import {
   CtaSection,
   DashboardsSection,
   FeaturesSection,
+  HighlightsSection,
   HowItWorksSection,
-  PaymentProvidersSection
+  PaymentProvidersSection,
+  ReasonsSection
 } from "@/components/landing/landing-sections";
 import { RevealOnScroll } from "@/components/landing/reveal-on-scroll";
 
@@ -36,7 +38,9 @@ export default function LandingPage() {
         <MobileScrollVideo />
 
         <main>
+          <HighlightsSection />
           <FeaturesSection />
+          <ReasonsSection />
           <HowItWorksSection />
           <DashboardsSection />
           <PaymentProvidersSection />

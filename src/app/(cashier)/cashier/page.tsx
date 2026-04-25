@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
 
@@ -818,6 +819,7 @@ function buildCurrentReceipt(
 }
 
 export default function CashierDashboardPage() {
+  const { locale, t } = useDashboardLanguage();
   const [sessions, setSessions] = useState<OpenSession[]>([]);
   const [receipts, setReceipts] = useState<CashierReceipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1243,16 +1245,66 @@ export default function CashierDashboardPage() {
     }),
     [receiptArchiveReceipts]
   );
+  const paymentCompletionRate =
+    paymentSummary && paymentSummary.totalAmount > 0
+      ? (paymentSummary.paidAmount / paymentSummary.totalAmount) * 100
+      : 0;
+  const localizedSplitModeLabel = (mode: InvoiceSplitMode) =>
+    locale === "tr"
+      ? mode === "FULL_BY_ONE"
+        ? "Tek kisi tum hesap"
+        : mode === "BY_GUEST_ITEMS"
+          ? "Misafir urunlerine gore"
+          : "Esit bolme"
+      : splitModeLabel(mode);
+  const localizedSplitModeDescription = (mode: InvoiceSplitMode) =>
+    locale === "tr"
+      ? mode === "FULL_BY_ONE"
+        ? "Tum hesap tek bir misafire atanir."
+        : mode === "BY_GUEST_ITEMS"
+          ? "Her misafir sadece kendi siparis ettigi urunleri oder."
+          : "Toplam hesap masadaki misafirler arasinda esit bolunur."
+      : splitModeDescription(mode);
+  const localizedSplitModeHelper = (mode: InvoiceSplitMode) =>
+    locale === "tr"
+      ? mode === "FULL_BY_ONE"
+        ? "Tek bir kisi kart veya nakitle tum hesabi odediginde en uygunudur."
+        : mode === "BY_GUEST_ITEMS"
+          ? "Her misafirin kendi urunlerini odedigi akislarda en uygunudur."
+          : "Gruplar esit paylasim istediginde hizli cikis icin en uygunudur."
+      : splitModeHelper(mode);
+  const localizedStatusLabel = (value: string) => {
+    if (locale !== "tr") return formatStatusLabel(value);
+    if (value === "OPEN") return "Acik";
+    if (value === "PARTIALLY_PAID") return "Kismen odendi";
+    if (value === "PAID") return "Odendi";
+    if (value === "FAILED") return "Basarisiz";
+    if (value === "EXPIRED") return "Suresi doldu";
+    if (value === "UNPAID") return "Odenmedi";
+    if (value === "PENDING") return "Beklemede";
+    if (value === "CANCELLED") return "Iptal edildi";
+    return value;
+  };
+  const localizedProviderLabel = (provider: string) => {
+    if (locale !== "tr") return paymentProviderLabel(provider);
+    if (provider === "CASH_DESK") return "Kasa";
+    if (provider === "CARD_POS") return "Kart POS";
+    if (provider === "MOCK_ONLINE_LINK") return "Online odeme linki";
+    return localizedStatusLabel(provider);
+  };
 
   return (
     <div className="cashier-page stack-md">
       <section className="panel dashboard-hero cashier-hero stack-md">
         <div className="section-head cashier-hero-head">
           <div className="dashboard-hero-copy">
-            <p className="section-kicker">Billing desk</p>
-            <h2>Cashier settlement desk</h2>
+            <p className="section-kicker">{t("Billing desk", "Tahsilat masasi")}</p>
+            <h2>{t("Cashier settlement desk", "Kasiyer tahsilat masasi")}</h2>
             <p className="panel-subtitle">
-              Calculate split invoices, prepare payment shares, and complete settlement per payer from one clear screen.
+              {t(
+                "Calculate split invoices, prepare payment shares, and complete settlement per payer from one clear screen.",
+                "Bolunmus faturalari hesaplayin, odeme paylarini hazirlayin ve her odeyen icin tahsilati tek ekrandan tamamlayin."
+              )}
             </p>
           </div>
           <button
@@ -1262,38 +1314,126 @@ export default function CashierDashboardPage() {
               loadData();
             }}
           >
-            Refresh
+            {t("Refresh", "Yenile")}
           </button>
         </div>
 
         <div className="dashboard-stat-grid cashier-stat-grid">
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Open sessions</p>
+            <p className="dashboard-stat-label">{t("Open sessions", "Acik oturumlar")}</p>
             <p className="dashboard-stat-value">{sessions.length}</p>
-            <p className="dashboard-stat-note">Tables waiting for checkout.</p>
+            <p className="dashboard-stat-note">{t("Tables waiting for checkout.", "Odeme icin bekleyen masalar.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Guests in house</p>
+            <p className="dashboard-stat-label">{t("Guests in house", "Icerideki misafirler")}</p>
             <p className="dashboard-stat-value">{totalGuests}</p>
-            <p className="dashboard-stat-note">Joined diners across active tables.</p>
+            <p className="dashboard-stat-note">{t("Joined diners across active tables.", "Aktif masalardaki katilan misafirler.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Selected table</p>
+            <p className="dashboard-stat-label">{t("Selected table", "Secili masa")}</p>
             <p className="dashboard-stat-value">{selectedSession ? selectedSession.table.name : "-"}</p>
             <p className="dashboard-stat-note">
-              {selectedSession ? formatSessionSummary(selectedSession) : "Choose an active session to begin."}
+              {selectedSession ? formatSessionSummary(selectedSession) : t("Choose an active session to begin.", "Baslamak icin aktif bir oturum secin.")}
             </p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Split mode</p>
-            <p className="dashboard-stat-value">{splitModeLabel(form.splitMode)}</p>
-            <p className="dashboard-stat-note">{splitModeDescription(form.splitMode)}</p>
+            <p className="dashboard-stat-label">{t("Split mode", "Bolme modu")}</p>
+            <p className="dashboard-stat-value">{localizedSplitModeLabel(form.splitMode)}</p>
+            <p className="dashboard-stat-note">{localizedSplitModeDescription(form.splitMode)}</p>
           </article>
         </div>
 
         <div className="status-stack">
-          {loading ? <p className="status-banner is-neutral">Loading open checks.</p> : null}
+          {loading ? <p className="status-banner is-neutral">{t("Loading open checks.", "Acik hesaplar yukleniyor.")}</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
+        </div>
+      </section>
+
+      <section className="panel dashboard-briefing-panel cashier-briefing-panel">
+        <div className="section-head">
+          <div className="section-copy">
+            <p className="section-kicker">{t("Checkout script", "Odeme akisi")}</p>
+            <h3>{t("Turn settlement into the strongest part of the client demo", "Tahsilati musteri demosunun en guclu bolumune donusturun")}</h3>
+            <p className="panel-subtitle">
+              {t(
+                "Use this screen as the commercial payoff: choose the live table, calculate the split, then collect each share while the receipt archive updates in real time.",
+                "Bu ekrani ticari kapanis olarak kullanin: canli masayi secin, bolmeyi hesaplayin, sonra fis arsivi gercek zamanli guncellenirken her payi tahsil edin."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-story-grid dashboard-story-grid--three">
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">01</span>
+            <h4>{t("Pick the open table", "Acik masayi secin")}</h4>
+            <p>
+              {selectedSession
+                ? t(
+                    `${selectedSession.branch.name} / Table ${selectedSession.table.name} has ${selectedSession.guests.length} guest(s) ready for settlement.`,
+                    `${selectedSession.branch.name} / Masa ${selectedSession.table.name} icin ${selectedSession.guests.length} misafir tahsilata hazir.`
+                  )
+                : t("Select one of the live sessions to start the checkout story.", "Odeme hikayesini baslatmak icin canli oturumlardan birini secin.")}
+            </p>
+            <span className="dashboard-story-meta">{t("This links the cashier view directly to the live floor session.", "Bu, kasiyer ekranini dogrudan canli salon oturumuna baglar.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">02</span>
+            <h4>{t("Explain the split clearly", "Bolmeyi net bicimde aciklayin")}</h4>
+            <p>
+              {invoice
+                ? t(
+                    `${localizedSplitModeLabel(invoice.splitMode)} is calculated at ${formatTryCurrency(invoice.total)} across ${invoice.splits.length} payment share(s).`,
+                    `${localizedSplitModeLabel(invoice.splitMode)} modu ${formatTryCurrency(invoice.total)} toplam ve ${invoice.splits.length} odeme payi ile hesaplandi.`
+                  )
+                : t(`${localizedSplitModeLabel(form.splitMode)} is selected and ready to calculate on demand.`, `${localizedSplitModeLabel(form.splitMode)} secili ve istenince hesaplanmaya hazir.`)}
+            </p>
+            <span className="dashboard-story-meta">{t("The customer sees both operational speed and billing flexibility.", "Musteri hem operasyon hizini hem de fatura esnekligini gorur.")}</span>
+          </article>
+          <article className="dashboard-story-card">
+            <span className="dashboard-story-step">03</span>
+            <h4>{t("Collect and close", "Tahsil et ve kapat")}</h4>
+            <p>
+              {paymentSummary
+                ? t(
+                    `${percentageFormatter.format(paymentCompletionRate)}% of the total is already collected, with ${paymentSummary.unpaidShareCount} share(s) still open.`,
+                    `Toplamin %${percentageFormatter.format(paymentCompletionRate)} kismi zaten tahsil edildi ve ${paymentSummary.unpaidShareCount} pay hala acik.`
+                  )
+                : t("Create payment shares to start cash, card, or online-link collection from this same screen.", "Nakit, kart veya online link tahsilatini bu ekrandan baslatmak icin odeme paylari olusturun.")}
+            </p>
+            <span className="dashboard-story-meta">{t("The receipt archive becomes the proof that payment completed.", "Fis arsivi, odemenin tamamlandiginin kaniti haline gelir.")}</span>
+          </article>
+        </div>
+
+        <div className="dashboard-pulse-strip">
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Selected table", "Secili masa")}</span>
+            <strong className="dashboard-pulse-value">{selectedSession ? t(`Table ${selectedSession.table.name}`, `Masa ${selectedSession.table.name}`) : t("Choose session", "Oturum secin")}</strong>
+            <span className="dashboard-pulse-meta">
+              {selectedSession ? formatSessionSummary(selectedSession) : t("Use the quick table chips to begin.", "Baslamak icin hizli masa secimlerini kullanin.")}
+            </span>
+          </article>
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Invoice total", "Fatura toplami")}</span>
+            <strong className="dashboard-pulse-value">{invoice ? formatTryCurrency(invoice.total) : "-"}</strong>
+            <span className="dashboard-pulse-meta">
+              {invoice ? t(`${invoice.lines.length} line(s) and ${invoice.splits.length} share(s)`, `${invoice.lines.length} satir ve ${invoice.splits.length} odeme payi`) : t("Calculated totals appear here after the first step.", "Hesaplanan toplamlar ilk adimdan sonra burada gorunur.")}
+            </span>
+          </article>
+          <article className="dashboard-pulse-card">
+            <span className="dashboard-pulse-label">{t("Collection progress", "Tahsilat ilerlemesi")}</span>
+            <strong className="dashboard-pulse-value">
+              {paymentSummary ? formatTryCurrency(paymentSummary.paidAmount) : formatTryCurrency(receiptSummary.collectedAmount)}
+            </strong>
+            <span className="dashboard-pulse-meta">
+              {paymentSummary
+                ? t(
+                    `${paymentSummary.unpaidShareCount} unpaid, ${paymentSummary.pendingShareCount} pending, ${paymentSummary.failedShareCount} failed`,
+                    `${paymentSummary.unpaidShareCount} odenmemis, ${paymentSummary.pendingShareCount} beklemede, ${paymentSummary.failedShareCount} basarisiz`
+                  )
+                : t(`${receiptSummary.count} settled receipt(s) already archived.`, `${receiptSummary.count} tamamlanmis fis zaten arsivde.`)}
+            </span>
+          </article>
         </div>
       </section>
 
@@ -1332,7 +1472,7 @@ export default function CashierDashboardPage() {
             onChange={(event) => setForm((prev) => ({ ...prev, sessionId: event.target.value }))}
             required
           >
-            <option value="">Select session</option>
+            <option value="">{t("Select session", "Oturum secin")}</option>
             {sessions.map((session) => (
               <option key={session.id} value={session.id}>
                 {formatSessionLabel(session)}
@@ -1345,21 +1485,21 @@ export default function CashierDashboardPage() {
           <div className="selection-summary stack-md">
             <div className="badge-row">
               <span className="badge badge-outline">{selectedSession.branch.name}</span>
-              <span className="badge badge-neutral">Table {selectedSession.table.name}</span>
-              <span className="badge badge-status-open">{selectedSession.guests.length} guests joined</span>
+              <span className="badge badge-neutral">{t(`Table ${selectedSession.table.name}`, `Masa ${selectedSession.table.name}`)}</span>
+              <span className="badge badge-status-open">{t(`${selectedSession.guests.length} guests joined`, `${selectedSession.guests.length} misafir katildi`)}</span>
               {selectedSession.readyToCloseAt ? (
-                <span className="badge badge-status-paid-payment">Ready to close</span>
+                <span className="badge badge-status-paid-payment">{t("Ready to close", "Kapatmaya hazir")}</span>
               ) : null}
             </div>
             <p className="helper-text">
               {formatSessionSummary(selectedSession)}
-              {selectedSession.readyToCloseAt ? ` | Ready at: ${formatDateTime(selectedSession.readyToCloseAt)}` : ""}
+              {selectedSession.readyToCloseAt ? t(` | Ready at: ${formatDateTime(selectedSession.readyToCloseAt)}`, ` | Hazir olma: ${formatDateTime(selectedSession.readyToCloseAt)}`) : ""}
             </p>
           </div>
         ) : null}
 
         <label>
-          Split mode
+          {t("Split mode", "Bolme modu")}
           <select
             value={form.splitMode}
             onChange={(event) =>
@@ -1370,26 +1510,26 @@ export default function CashierDashboardPage() {
               }))
             }
           >
-            <option value="BY_GUEST_ITEMS">By guest items</option>
-            <option value="EQUAL">Equal split</option>
-            <option value="FULL_BY_ONE">Full bill (one guest)</option>
+            <option value="BY_GUEST_ITEMS">{locale === "tr" ? "Misafir urunlerine gore" : "By guest items"}</option>
+            <option value="EQUAL">{locale === "tr" ? "Esit bolme" : "Equal split"}</option>
+            <option value="FULL_BY_ONE">{locale === "tr" ? "Tum hesap (tek misafir)" : "Full bill (one guest)"}</option>
           </select>
         </label>
 
         <div className="helper-panel stack-md">
-          <p className="helper-text">{splitModeDescription(form.splitMode)}</p>
-          <p className="meta">{splitModeHelper(form.splitMode)}</p>
+          <p className="helper-text">{localizedSplitModeDescription(form.splitMode)}</p>
+          <p className="meta">{localizedSplitModeHelper(form.splitMode)}</p>
         </div>
 
         {form.splitMode === "FULL_BY_ONE" ? (
           <label>
-            Paying guest
+            {t("Paying guest", "Odeyen misafir")}
             <select
               value={form.payerGuestId}
               onChange={(event) => setForm((prev) => ({ ...prev, payerGuestId: event.target.value }))}
               required
             >
-              <option value="">Select guest</option>
+              <option value="">{t("Select guest", "Misafir secin")}</option>
               {selectedSession?.guests.map((guest) => (
                 <option key={guest.id} value={guest.id}>
                   {guest.displayName}
@@ -1400,66 +1540,65 @@ export default function CashierDashboardPage() {
         ) : null}
 
         <button type="submit" disabled={isCalculating || !form.sessionId || !selectedSession}>
-          {isCalculating ? "Calculating..." : "Calculate check"}
+          {isCalculating ? t("Calculating...", "Hesaplaniyor...") : t("Calculate check", "Hesabi hesapla")}
         </button>
         {invoiceError ? <p className="status-banner is-error">{invoiceError}</p> : null}
       </form>
 
       {invoice ? (
         <section className="panel stack-md invoice-result-panel">
-          {isCalculating ? <p className="status-banner is-neutral">Refreshing check summary.</p> : null}
+          {isCalculating ? <p className="status-banner is-neutral">{t("Refreshing check summary.", "Hesap ozeti yenileniyor.")}</p> : null}
 
           <div className="section-head">
             <div className="section-copy">
-              <p className="section-kicker">Check</p>
+              <p className="section-kicker">{t("Check", "Hesap")}</p>
               <h3>{formatInvoiceNumber(invoice.id, invoice.createdAt)}</h3>
-              <p className="panel-subtitle">The check summary stays visible during payment preparation.</p>
+              <p className="panel-subtitle">{t("The check summary stays visible during payment preparation.", "Odeme hazirligi sirasinda hesap ozeti gorunur kalir.")}</p>
             </div>
-            <span className="badge badge-outline">{splitModeLabel(invoice.splitMode)}</span>
+            <span className="badge badge-outline">{localizedSplitModeLabel(invoice.splitMode)}</span>
           </div>
 
           <div className="invoice-total-card">
-            <p className="dashboard-stat-label">Total check</p>
+            <p className="dashboard-stat-label">{t("Total check", "Toplam hesap")}</p>
             <p className="invoice-total-value">{formatTryCurrency(invoice.total)}</p>
             <p className="dashboard-stat-note">
-              {invoice.splits.length} payment share(s), {invoice.lines.length} line item(s).
+              {t(`${invoice.splits.length} payment share(s), ${invoice.lines.length} line item(s).`, `${invoice.splits.length} odeme payi, ${invoice.lines.length} satir urun.`)}
             </p>
           </div>
 
           <div className="detail-grid">
             <div className="detail-card">
-              <span className="detail-label">Split mode</span>
-              <span className="detail-value">{splitModeLabel(invoice.splitMode)}</span>
+              <span className="detail-label">{t("Split mode", "Bolme modu")}</span>
+              <span className="detail-value">{localizedSplitModeLabel(invoice.splitMode)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Average per person</span>
+              <span className="detail-label">{t("Average per person", "Kisi basi ortalama")}</span>
               <span className="detail-value">{formatTryCurrency(invoiceAverageShare)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Assigned amount</span>
+              <span className="detail-label">{t("Assigned amount", "Atanan tutar")}</span>
               <span className="detail-value">{formatTryCurrency(invoiceSplitTotal)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Unassigned amount</span>
+              <span className="detail-label">{t("Unassigned amount", "Atanmayan tutar")}</span>
               <span className="detail-value">{formatTryCurrency(invoiceUnassignedAmount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Calculated at</span>
+              <span className="detail-label">{t("Calculated at", "Hesaplama saati")}</span>
               <span className="detail-value">{formatDateTime(invoice.createdAt)}</span>
             </div>
           </div>
 
           <div className="prepare-payment-panel stack-md">
             <div className="section-copy">
-              <h4>{isPaymentSessionSettled ? "Payment complete" : "Prepare payments"}</h4>
+              <h4>{isPaymentSessionSettled ? t("Payment complete", "Odeme tamamlandi") : t("Prepare payments", "Odemeleri hazirla")}</h4>
               {isPaymentSessionSettled ? (
                 <p className="helper-text">
-                  This table has been fully paid. The settled receipt is the remaining cashier record for export.
+                  {t("This table has been fully paid. The settled receipt is the remaining cashier record for export.", "Bu masa tamamen odendi. Tamamlanan fis, disa aktarma icin kalan kasiyer kaydidir.")}
                 </p>
               ) : (
                 <p className="helper-text">
-                  Create payment shares after the check is calculated. Cash, card, and online-link actions can all be
-                  managed from this screen for TRY payments.
+                  {t("Create payment shares after the check is calculated. Cash, card, and online-link actions can all be managed from this screen for TRY payments.", "Hesap hesaplandiktan sonra odeme paylarini olusturun. Nakit, kart ve online link islemleri TRY odemeleri icin bu ekrandan yonetilir.")}
                 </p>
               )}
             </div>
@@ -1469,18 +1608,18 @@ export default function CashierDashboardPage() {
                 {settledReceipt ? (
                   <>
                     <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(settledReceipt)}>
-                      Download receipt
+                      {t("Download receipt", "Fisi indir")}
                     </button>
                     <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(settledReceipt)}>
-                      Print receipt
+                      {t("Print receipt", "Fisi yazdir")}
                     </button>
                     <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(settledReceipt)}>
-                      Export Excel
+                      {t("Export Excel", "Excel aktar")}
                     </button>
                   </>
                 ) : (
                   <button type="button" className="ticket-action-btn" onClick={() => loadData({ silent: true })}>
-                    Refresh receipts
+                    {t("Refresh receipts", "Fisleri yenile")}
                   </button>
                 )}
               </div>
@@ -1492,7 +1631,7 @@ export default function CashierDashboardPage() {
                   onClick={handlePreparePayment}
                   disabled={isPreparingPayment}
                 >
-                  {isPreparingPayment ? "Preparing..." : "Create payment shares"}
+                  {isPreparingPayment ? t("Preparing...", "Hazirlaniyor...") : t("Create payment shares", "Odeme paylarini olustur")}
                 </button>
               </div>
             )}
@@ -1505,52 +1644,51 @@ export default function CashierDashboardPage() {
             <div className="settlement-desk stack-md">
               <div className="section-head">
                 <div className="section-copy">
-                  <p className="section-kicker">Payment tracking</p>
-                  <h4>Payment shares</h4>
-                  <p className="helper-text">Start collection for each share, complete pending ones, and monitor the remaining amount.</p>
+                  <p className="section-kicker">{t("Payment tracking", "Odeme takibi")}</p>
+                  <h4>{t("Payment shares", "Odeme paylari")}</h4>
+                  <p className="helper-text">{t("Start collection for each share, complete pending ones, and monitor the remaining amount.", "Her pay icin tahsilati baslatin, bekleyenleri tamamlayin ve kalan tutari izleyin.")}</p>
                 </div>
                 <span className={`badge ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
-                  {formatStatusLabel(paymentSession.status)}
+                  {localizedStatusLabel(paymentSession.status)}
                 </span>
               </div>
 
               {paymentSession.session?.readyToCloseAt ? (
                 <p className="status-banner is-success">
-                  Table {paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} is ready to close. Time:{" "}
-                  {formatDateTime(paymentSession.session.readyToCloseAt)}.
+                  {t(`Table ${paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} is ready to close. Time: ${formatDateTime(paymentSession.session.readyToCloseAt)}.`, `Masa ${paymentSession.session.table?.name ?? selectedSession?.table.name ?? ""} kapatmaya hazir. Saat: ${formatDateTime(paymentSession.session.readyToCloseAt)}.`)}
                 </p>
               ) : null}
 
               {paymentSummary ? (
                 <div className="grid-4 checkout-summary-grid">
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Total amount</p>
+                    <p className="dashboard-stat-label">{t("Total amount", "Toplam tutar")}</p>
                     <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.totalAmount)}</p>
-                    <p className="dashboard-stat-note">Total TRY amount to collect.</p>
+                    <p className="dashboard-stat-note">{t("Total TRY amount to collect.", "Tahsil edilecek toplam TRY tutari.")}</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Paid amount</p>
+                    <p className="dashboard-stat-label">{t("Paid amount", "Odenen tutar")}</p>
                     <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.paidAmount)}</p>
-                    <p className="dashboard-stat-note">Collected payment shares.</p>
+                    <p className="dashboard-stat-note">{t("Collected payment shares.", "Tahsil edilen odeme paylari.")}</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Remaining amount</p>
+                    <p className="dashboard-stat-label">{t("Remaining amount", "Kalan tutar")}</p>
                     <p className="dashboard-stat-value">{formatTryCurrency(paymentSummary.remainingAmount)}</p>
-                    <p className="dashboard-stat-note">TRY balance still waiting for collection.</p>
+                    <p className="dashboard-stat-note">{t("TRY balance still waiting for collection.", "Hala tahsilat bekleyen TRY bakiyesi.")}</p>
                   </article>
                   <article className="dashboard-stat-card checkout-summary-card">
-                    <p className="dashboard-stat-label">Open shares</p>
+                    <p className="dashboard-stat-label">{t("Open shares", "Acik paylar")}</p>
                     <p className="dashboard-stat-value">{paymentSummary.unpaidShareCount}</p>
                     <p className="dashboard-stat-note">
-                      Pending {paymentSummary.pendingShareCount} | Failed {paymentSummary.failedShareCount}
+                      {t(`Pending ${paymentSummary.pendingShareCount} | Failed ${paymentSummary.failedShareCount}`, `Bekleyen ${paymentSummary.pendingShareCount} | Basarisiz ${paymentSummary.failedShareCount}`)}
                     </p>
                   </article>
                 </div>
               ) : null}
 
               <div className="section-copy">
-                <h4>Generated payment shares</h4>
-                <p className="helper-text">Each card shows payer, amount, payment status, and cashier actions.</p>
+                <h4>{t("Generated payment shares", "Olusan odeme paylari")}</h4>
+                <p className="helper-text">{t("Each card shows payer, amount, payment status, and cashier actions.", "Her kartta odeyen, tutar, odeme durumu ve kasiyer aksiyonlari gorunur.")}</p>
               </div>
 
               <div className="checkout-share-grid">
@@ -1566,30 +1704,30 @@ export default function CashierDashboardPage() {
                       <div className="checkout-share-head">
                         <div className="checkout-share-copy">
                           <p className="checkout-share-payer">{share.payerLabel}</p>
-                          <p className="meta">{share.guest ? `Guest: ${share.guest.displayName}` : "Table-level payer"}</p>
+                          <p className="meta">{share.guest ? t(`Guest: ${share.guest.displayName}`, `Misafir: ${share.guest.displayName}`) : t("Table-level payer", "Masa duzeyi odeyen")}</p>
                         </div>
                         <p className="checkout-share-amount">{formatTryCurrency(share.amount)}</p>
                       </div>
 
                       <div className="badge-row">
                         <span className={`badge ${paymentShareStatusBadgeClass(share.status)}`}>
-                          {formatStatusLabel(share.status)}
+                          {localizedStatusLabel(share.status)}
                         </span>
-                        {share.provider ? <span className="badge badge-outline">{paymentProviderLabel(share.provider)}</span> : null}
-                        {Number(share.tip) > 0 ? <span className="badge badge-neutral">Tip {formatTryCurrency(share.tip)}</span> : null}
-                        {share.paidAt ? <span className="badge badge-neutral">Paid {formatShortTime(share.paidAt)}</span> : null}
+                        {share.provider ? <span className="badge badge-outline">{localizedProviderLabel(share.provider)}</span> : null}
+                        {Number(share.tip) > 0 ? <span className="badge badge-neutral">{t("Tip", "Bahsis")} {formatTryCurrency(share.tip)}</span> : null}
+                        {share.paidAt ? <span className="badge badge-neutral">{t("Paid", "Odendi")} {formatShortTime(share.paidAt)}</span> : null}
                       </div>
 
                       {share.paymentUrl ? (
                         <p className="helper-text">
-                          Online payment link is ready:{" "}
+                          {t("Online payment link is ready:", "Online odeme linki hazir:")}{" "}
                           <a className="checkout-link" href={share.paymentUrl} target="_blank" rel="noreferrer">
-                            Open payment page
+                            {t("Open payment page", "Odeme sayfasini ac")}
                           </a>
                         </p>
                       ) : null}
 
-                      {share.paidAt ? <p className="meta">Completed at: {formatDateTime(share.paidAt)}</p> : null}
+                      {share.paidAt ? <p className="meta">{t("Completed at", "Tamamlanma saati")}: {formatDateTime(share.paidAt)}</p> : null}
 
                       {canStartPayment ? (
                         <div className="ticket-actions">
@@ -1599,7 +1737,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "PAY_BY_CASH")}
                             disabled={actionLocked || isPaid}
                           >
-                            {isShareActionRunning(share.id, "PAY_BY_CASH") ? "Starting cash..." : "Collect cash"}
+                            {isShareActionRunning(share.id, "PAY_BY_CASH") ? t("Starting cash...", "Nakit baslatiliyor...") : t("Collect cash", "Nakit tahsil et")}
                           </button>
                           <button
                             type="button"
@@ -1607,7 +1745,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "PAY_BY_CARD")}
                             disabled={actionLocked || isPaid}
                           >
-                            {isShareActionRunning(share.id, "PAY_BY_CARD") ? "Starting card..." : "Collect card"}
+                            {isShareActionRunning(share.id, "PAY_BY_CARD") ? t("Starting card...", "Kart baslatiliyor...") : t("Collect card", "Kart tahsil et")}
                           </button>
                           <button
                             type="button"
@@ -1616,8 +1754,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked || isPaid}
                           >
                             {isShareActionRunning(share.id, "SEND_ONLINE_LINK")
-                              ? "Sending link..."
-                              : "Send payment link"}
+                              ? t("Sending link...", "Link gonderiliyor...")
+                              : t("Send payment link", "Odeme linki gonder")}
                           </button>
                         </div>
                       ) : null}
@@ -1631,8 +1769,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked}
                           >
                             {isShareActionRunning(share.id, "COMPLETE_PENDING_PAYMENT")
-                              ? "Completing..."
-                              : "Complete payment"}
+                              ? t("Completing...", "Tamamlaniyor...")
+                              : t("Complete payment", "Odemeyi tamamla")}
                           </button>
                           <button
                             type="button"
@@ -1640,7 +1778,7 @@ export default function CashierDashboardPage() {
                             onClick={() => handleShareAction(share.id, "MARK_PAYMENT_FAILED")}
                             disabled={actionLocked}
                           >
-                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED") ? "Updating..." : "Mark as failed"}
+                            {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED") ? t("Updating...", "Guncelleniyor...") : t("Mark as failed", "Basarisiz olarak isaretle")}
                           </button>
                         </div>
                       ) : null}
@@ -1654,8 +1792,8 @@ export default function CashierDashboardPage() {
                             disabled={actionLocked}
                           >
                             {isShareActionRunning(share.id, "MARK_PAYMENT_FAILED")
-                              ? "Updating..."
-                              : "Mark mock failure"}
+                              ? t("Updating...", "Guncelleniyor...")
+                              : t("Mark mock failure", "Test hatasi olarak isaretle")}
                           </button>
                         </div>
                       ) : null}
@@ -1670,8 +1808,8 @@ export default function CashierDashboardPage() {
           <div className="grid-2">
             <div>
               <div className="section-copy">
-                <h4>Guest payment shares</h4>
-                <p className="helper-text">Review share distribution before collecting payments.</p>
+                <h4>{t("Guest payment shares", "Misafir odeme paylari")}</h4>
+                <p className="helper-text">{t("Review share distribution before collecting payments.", "Tahsilat oncesinde pay dagilimini inceleyin.")}</p>
               </div>
               <div className="split-grid">
                 {invoice.splits.map((split) => {
@@ -1690,14 +1828,14 @@ export default function CashierDashboardPage() {
                       <p>
                         <strong>{formatTryCurrency(split.amount)}</strong>
                       </p>
-                      <p className="meta">{formatPercentage(sharePercent)} of total check</p>
+                      <p className="meta">{t(`${formatPercentage(sharePercent)} of total check`, `Toplam hesabin ${formatPercentage(sharePercent)} kadari`)}</p>
                       {guestBreakdown ? (
                         <p className="meta">
-                          Ordered items: {guestBreakdown.itemCount} item(s), {formatTryCurrency(guestBreakdown.orderedTotal)}
+                          {t(`Ordered items: ${guestBreakdown.itemCount} item(s), ${formatTryCurrency(guestBreakdown.orderedTotal)}`, `Siparis urunleri: ${guestBreakdown.itemCount} urun, ${formatTryCurrency(guestBreakdown.orderedTotal)}`)}
                         </p>
                       ) : null}
                       {shareDiffersFromOwnItems ? (
-                        <p className="meta">Share amount differs from ordered-item subtotal because split mode is not by guest items.</p>
+                        <p className="meta">{t("Share amount differs from ordered-item subtotal because split mode is not by guest items.", "Pay tutari, bolme modu misafir urunlerine gore olmadigi icin siparis alt toplami ile farklidir.")}</p>
                       ) : null}
                     </article>
                   );
@@ -1707,8 +1845,8 @@ export default function CashierDashboardPage() {
 
             <div>
               <div className="section-copy">
-                <h4>Check line items</h4>
-                <p className="helper-text">Items that make up the total check.</p>
+                <h4>{t("Check line items", "Hesap satirlari")}</h4>
+                <p className="helper-text">{t("Items that make up the total check.", "Toplam hesabi olusturan urunler.")}</p>
               </div>
               <div className="list">
                 {invoice.lines.map((line) => (
@@ -1721,10 +1859,10 @@ export default function CashierDashboardPage() {
                     </div>
                     {line.unitPrice ? (
                       <p className="meta">
-                        Qty {resolveInvoiceLineQuantity(line)} x {formatTryCurrency(line.unitPrice)}
+                        {t("Qty", "Adet")} {resolveInvoiceLineQuantity(line)} x {formatTryCurrency(line.unitPrice)}
                       </p>
                     ) : null}
-                    <p className="meta">{line.guest ? `Assigned: ${line.guest.displayName}` : "Shared line item"}</p>
+                    <p className="meta">{line.guest ? t(`Assigned: ${line.guest.displayName}`, `Atanan: ${line.guest.displayName}`) : t("Shared line item", "Paylasilan satir")}</p>
                   </div>
                 ))}
               </div>
@@ -1734,61 +1872,61 @@ export default function CashierDashboardPage() {
         </section>
       ) : (
         <section className="panel">
-          <p className="empty empty-state">No check has been calculated yet. Start by selecting an open session and split mode.</p>
+          <p className="empty empty-state">{t("No check has been calculated yet. Start by selecting an open session and split mode.", "Henuz hesap hesaplanmadi. Acik oturum ve bolme modunu secerek baslayin.")}</p>
         </section>
       )}
 
       <section className="panel stack-md receipt-archive-panel">
         <div className="section-head">
           <div className="section-copy">
-            <p className="section-kicker">Receipt archive</p>
-            <h3>Settled receipts</h3>
-            <p className="panel-subtitle">Paid checks stay available here after the table closes.</p>
+            <p className="section-kicker">{t("Receipt archive", "Fis arsivi")}</p>
+            <h3>{t("Settled receipts", "Tamamlanan fisler")}</h3>
+            <p className="panel-subtitle">{t("Paid checks stay available here after the table closes.", "Odenen hesaplar masa kapandiktan sonra burada gorunur kalir.")}</p>
           </div>
           <div className="ticket-actions receipt-archive-actions">
             <button type="button" className="ticket-action-btn" onClick={handleExportAllReceipts} disabled={receiptArchiveReceipts.length === 0}>
-              Export all Excel
+              {t("Export all Excel", "Tumunu Excel aktar")}
             </button>
             {settledReceipt ? (
               <>
                 <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(settledReceipt)}>
-                  Print receipt
+                  {t("Print receipt", "Fisi yazdir")}
                 </button>
                 <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(settledReceipt)}>
-                  Download receipt
+                  {t("Download receipt", "Fisi indir")}
                 </button>
                 <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(settledReceipt)}>
-                  Export receipt
+                  {t("Export receipt", "Fisi aktar")}
                 </button>
               </>
             ) : null}
             <button type="button" className="ticket-action-btn" onClick={() => loadData()}>
-              Refresh
+              {t("Refresh", "Yenile")}
             </button>
           </div>
         </div>
 
         <div className="dashboard-stat-grid">
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Receipts</p>
+            <p className="dashboard-stat-label">{t("Receipts", "Fisler")}</p>
             <p className="dashboard-stat-value">{receiptSummary.count}</p>
-            <p className="dashboard-stat-note">Fully settled checks.</p>
+            <p className="dashboard-stat-note">{t("Fully settled checks.", "Tamamen tamamlanan hesaplar.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Collected</p>
+            <p className="dashboard-stat-label">{t("Collected", "Tahsil edilen")}</p>
             <p className="dashboard-stat-value">{formatTryCurrency(receiptSummary.collectedAmount)}</p>
-            <p className="dashboard-stat-note">Payments plus tips.</p>
+            <p className="dashboard-stat-note">{t("Payments plus tips.", "Odemeler ve bahsisler.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Tips</p>
+            <p className="dashboard-stat-label">{t("Tips", "Bahsisler")}</p>
             <p className="dashboard-stat-value">{formatTryCurrency(receiptSummary.tipAmount)}</p>
-            <p className="dashboard-stat-note">Tip total in archive.</p>
+            <p className="dashboard-stat-note">{t("Tip total in archive.", "Arsivdeki toplam bahsis.")}</p>
           </article>
           <article className="dashboard-stat-card">
-            <p className="dashboard-stat-label">Last paid</p>
+            <p className="dashboard-stat-label">{t("Last paid", "Son odeme")}</p>
             <p className="dashboard-stat-value">{receiptSummary.lastPaidAt ? formatShortTime(receiptSummary.lastPaidAt) : "-"}</p>
             <p className="dashboard-stat-note">
-              {receiptSummary.lastPaidAt ? formatDateTime(receiptSummary.lastPaidAt) : "No receipt yet."}
+              {receiptSummary.lastPaidAt ? formatDateTime(receiptSummary.lastPaidAt) : t("No receipt yet.", "Henuz fis yok.")}
             </p>
           </article>
         </div>
@@ -1799,14 +1937,14 @@ export default function CashierDashboardPage() {
         </div>
 
         {receiptTableGroups.length > 0 ? (
-          <div className="table-filter-bar" role="tablist" aria-label="Filter receipts by table">
+          <div className="table-filter-bar" role="tablist" aria-label={t("Filter receipts by table", "Fisleri masaya gore filtrele")}>
             <button
               type="button"
               className={`table-filter-chip${receiptTableFilter === ALL_TABLES_KEY ? " is-active" : ""}`}
               onClick={() => setReceiptTableFilter(ALL_TABLES_KEY)}
               aria-pressed={receiptTableFilter === ALL_TABLES_KEY}
             >
-              <span>All tables</span>
+              <span>{t("All tables", "Tum masalar")}</span>
               <span className="table-filter-chip-count">{receiptArchiveReceipts.length}</span>
             </button>
             {receiptTableGroups.map((group) => {
@@ -1821,7 +1959,7 @@ export default function CashierDashboardPage() {
                   aria-pressed={isActive}
                   title={`${group.branchName} - Table ${group.tableName}`}
                 >
-                  <span>Table {group.tableName}</span>
+                  <span>{t(`Table ${group.tableName}`, `Masa ${group.tableName}`)}</span>
                   <span className="table-filter-chip-count">{group.count}</span>
                 </button>
               );
@@ -1830,9 +1968,9 @@ export default function CashierDashboardPage() {
         ) : null}
 
         {receiptArchiveReceipts.length === 0 ? (
-          <p className="empty empty-state">No settled receipts yet. Completed payments will appear here after checkout.</p>
+          <p className="empty empty-state">{t("No settled receipts yet. Completed payments will appear here after checkout.", "Henuz tamamlanan fis yok. Tamamlanan odemeler odemeden sonra burada gorunecek.")}</p>
         ) : filteredReceipts.length === 0 ? (
-          <p className="empty empty-state">No receipts for this table yet.</p>
+          <p className="empty empty-state">{t("No receipts for this table yet.", "Bu masa icin henuz fis yok.")}</p>
         ) : (
           <div className="receipt-list">
             {filteredReceipts.map((receipt) => {
@@ -1846,71 +1984,71 @@ export default function CashierDashboardPage() {
                     <div className="entity-title">
                       <h4>{receiptNumber}</h4>
                       <p className="entity-summary">
-                        {receipt.branch?.name ?? "Branch"} | Table {receipt.table?.name ?? "-"} | {formatDateTime(receipt.paidAt)}
+                        {receipt.branch?.name ?? t("Branch", "Sube")} | {t(`Table ${receipt.table?.name ?? "-"}`, `Masa ${receipt.table?.name ?? "-"}`)} | {formatDateTime(receipt.paidAt)}
                       </p>
                     </div>
                     <span className="badge badge-outline">{formatTryCurrency(receipt.collectedAmount)}</span>
                   </div>
 
                   <div className="badge-row">
-                    <span className={`badge ${paymentSessionStatusBadgeClass(receipt.status)}`}>{formatStatusLabel(receipt.status)}</span>
-                    <span className="badge badge-neutral">{splitModeLabel(receipt.splitMode)}</span>
+                    <span className={`badge ${paymentSessionStatusBadgeClass(receipt.status)}`}>{localizedStatusLabel(receipt.status)}</span>
+                    <span className="badge badge-neutral">{localizedSplitModeLabel(receipt.splitMode)}</span>
                     <span className="badge badge-neutral">
-                      {paidShareCount}/{receipt.shares.length} paid shares
+                      {t(`${paidShareCount}/${receipt.shares.length} paid shares`, `${paidShareCount}/${receipt.shares.length} odendi`)}
                     </span>
                     {receipt.table?.code ? <span className="badge badge-outline">{receipt.table.code}</span> : null}
                   </div>
 
                   <div className="detail-grid">
                     <div className="detail-card">
-                      <span className="detail-label">Subtotal</span>
+                      <span className="detail-label">{t("Subtotal", "Ara toplam")}</span>
                       <span className="detail-value">{formatTryCurrency(receipt.total)}</span>
                     </div>
                     <div className="detail-card">
-                      <span className="detail-label">Tips</span>
+                      <span className="detail-label">{t("Tips", "Bahsisler")}</span>
                       <span className="detail-value">{formatTryCurrency(receipt.tipAmount)}</span>
                     </div>
                     <div className="detail-card">
-                      <span className="detail-label">Collected</span>
+                      <span className="detail-label">{t("Collected", "Tahsil edilen")}</span>
                       <span className="detail-value">{formatTryCurrency(receipt.collectedAmount)}</span>
                     </div>
                     <div className="detail-card">
-                      <span className="detail-label">Guests</span>
+                      <span className="detail-label">{t("Guests", "Misafirler")}</span>
                       <span className="detail-value">{receipt.guests.length}</span>
                     </div>
                     <div className="detail-card">
-                      <span className="detail-label">Items</span>
+                      <span className="detail-label">{t("Items", "Urunler")}</span>
                       <span className="detail-value">{receipt.lines.length}</span>
                     </div>
                     <div className="detail-card">
-                      <span className="detail-label">Payments</span>
+                      <span className="detail-label">{t("Payments", "Odemeler")}</span>
                       <span className="detail-value">{receipt.payments.length}</span>
                     </div>
                   </div>
 
                   <div className="ticket-actions">
                     <button type="button" className="ticket-action-btn" onClick={() => handleDownloadPaperReceipt(receipt)}>
-                      Download receipt
+                      {t("Download receipt", "Fisi indir")}
                     </button>
                     <button type="button" className="ticket-action-btn" onClick={() => handlePrintPaperReceipt(receipt)}>
-                      Print receipt
+                      {t("Print receipt", "Fisi yazdir")}
                     </button>
                     <button type="button" className="ticket-action-btn" onClick={() => handleExportReceipt(receipt)}>
-                      Export Excel
+                      {t("Export Excel", "Excel aktar")}
                     </button>
                     <button
                       type="button"
                       className="ticket-action-btn"
                       onClick={() => setExpandedReceiptId(isExpanded ? null : receipt.id)}
                     >
-                      {isExpanded ? "Hide receipt" : "View receipt"}
+                      {isExpanded ? t("Hide receipt", "Fisi gizle") : t("View receipt", "Fisi goruntule")}
                     </button>
                   </div>
 
                   {isExpanded ? (
                     <div className="receipt-details">
                       <div className="receipt-detail-column">
-                        <h4>Items</h4>
+                        <h4>{t("Items", "Urunler")}</h4>
                         <div className="receipt-row-list">
                           {receipt.lines.map((line) => (
                             <div key={line.id} className="receipt-row">
@@ -1918,7 +2056,7 @@ export default function CashierDashboardPage() {
                                 <strong>{line.itemName ?? line.label}</strong>
                                 <p className="meta">
                                   {line.guestName ? `${line.guestName} | ` : ""}
-                                  Qty {line.quantity ?? 1}
+                                  {t("Qty", "Adet")} {line.quantity ?? 1}
                                   {line.unitPrice ? ` x ${formatTryCurrency(line.unitPrice)}` : ""}
                                 </p>
                               </div>
@@ -1929,18 +2067,18 @@ export default function CashierDashboardPage() {
                       </div>
 
                       <div className="receipt-detail-column">
-                        <h4>Payments</h4>
+                        <h4>{t("Payments", "Odemeler")}</h4>
                         <div className="receipt-row-list">
                           {receipt.shares.map((share) => (
                             <div key={share.id} className="receipt-row">
                               <div>
                                 <strong>{share.payerLabel}</strong>
                                 <p className="meta">
-                                  {share.provider ? paymentProviderLabel(share.provider) : "Payment"} |{" "}
-                                  {formatStatusLabel(share.status)}
+                                  {share.provider ? localizedProviderLabel(share.provider) : t("Payment", "Odeme")} |{" "}
+                                  {localizedStatusLabel(share.status)}
                                   {share.providerPaymentId ? ` | ${share.providerPaymentId}` : ""}
                                 </p>
-                                {Number(share.tip) > 0 ? <p className="meta">Tip {formatTryCurrency(share.tip)}</p> : null}
+                                {Number(share.tip) > 0 ? <p className="meta">{t("Tip", "Bahsis")} {formatTryCurrency(share.tip)}</p> : null}
                                 {share.paidAt ? <p className="meta">{formatDateTime(share.paidAt)}</p> : null}
                               </div>
                               <strong>{formatTryCurrency(share.totalCharged)}</strong>
