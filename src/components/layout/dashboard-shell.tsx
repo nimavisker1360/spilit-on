@@ -137,6 +137,16 @@ export function DashboardShell({ children, role }: Props) {
   };
 
   useEffect(() => {
+    document.body.classList.remove("mp-scroll-locked");
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    document.body.style.height = "";
+    document.body.style.minHeight = "";
+    document.body.style.touchAction = "";
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
 

@@ -41,7 +41,10 @@ export function HeroVideoSequence() {
 
     // Safety: never trap users for more than 15s.
     const fallback = window.setTimeout(unlock, 15000);
-    return () => window.clearTimeout(fallback);
+    return () => {
+      window.clearTimeout(fallback);
+      unlock();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
