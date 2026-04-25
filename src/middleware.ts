@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { isDemoAuthEnabled } from "@/lib/demo-auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -31,6 +32,11 @@ function isPublicPath(pathname: string): boolean {
 
 export default auth((req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
+  const demoAuthEnabled = isDemoAuthEnabled();
+
+  if (demoAuthEnabled && (pathname === "/login" || pathname === "/signup")) {
+    return NextResponse.redirect(new URL("/admin", req.url));
+  }
 
   if (isPublicPath(pathname)) return NextResponse.next();
 
@@ -39,6 +45,10 @@ export default auth((req: NextRequest & { auth: unknown }) => {
       user?: { id?: string };
     };
   }).auth;
+
+  if (demoAuthEnabled) {
+    return NextResponse.next();
+  }
 
   if (!session?.user?.id) {
     const loginUrl = new URL("/login", req.url);
