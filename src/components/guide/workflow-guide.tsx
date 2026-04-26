@@ -15,6 +15,7 @@ type Props = {
   isSatisfied: boolean;
   lockScroll?: boolean;
   maxPanelWidth?: number;
+  preferredPlacement?: "auto" | "top" | "bottom" | "left" | "right";
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   onConfirm: () => void;
@@ -49,6 +50,7 @@ export function WorkflowGuide({
   isSatisfied,
   lockScroll = true,
   maxPanelWidth = 420,
+  preferredPlacement = "auto",
   secondaryActionLabel,
   onSecondaryAction,
   onConfirm,
@@ -177,36 +179,43 @@ export function WorkflowGuide({
       viewportHeight - effectivePanelHeight - GUIDE_BOTTOM_OFFSET
     );
 
-    if (roomRight >= width + GUIDE_GAP) {
-      return {
-        width,
-        left: targetRect.right + GUIDE_GAP,
-        top
-      };
-    }
+    const placements =
+      preferredPlacement === "auto"
+        ? ["right", "left", "bottom", "top"]
+        : [preferredPlacement, "right", "left", "bottom", "top"];
 
-    if (roomLeft >= width + GUIDE_GAP) {
-      return {
-        width,
-        left: targetRect.left - width - GUIDE_GAP,
-        top
-      };
-    }
+    for (const placement of placements) {
+      if (placement === "right" && roomRight >= width + GUIDE_GAP) {
+        return {
+          width,
+          left: targetRect.right + GUIDE_GAP,
+          top
+        };
+      }
 
-    if (roomBelow >= effectivePanelHeight + GUIDE_GAP) {
-      return {
-        width,
-        left,
-        top: targetRect.bottom + GUIDE_GAP
-      };
-    }
+      if (placement === "left" && roomLeft >= width + GUIDE_GAP) {
+        return {
+          width,
+          left: targetRect.left - width - GUIDE_GAP,
+          top
+        };
+      }
 
-    if (roomAbove >= effectivePanelHeight + GUIDE_GAP) {
-      return {
-        width,
-        left,
-        top: targetRect.top - effectivePanelHeight - GUIDE_GAP
-      };
+      if (placement === "bottom" && roomBelow >= effectivePanelHeight + GUIDE_GAP) {
+        return {
+          width,
+          left,
+          top: targetRect.bottom + GUIDE_GAP
+        };
+      }
+
+      if (placement === "top" && roomAbove >= effectivePanelHeight + GUIDE_GAP) {
+        return {
+          width,
+          left,
+          top: targetRect.top - effectivePanelHeight - GUIDE_GAP
+        };
+      }
     }
 
     if (targetRect.height >= effectivePanelHeight + 48) {

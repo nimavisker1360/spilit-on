@@ -839,6 +839,7 @@ export default function WaiterDashboardPage() {
           skipLabel={waiterGuideConfig.skipLabel}
           isSatisfied={isGuideStepSatisfied}
           lockScroll={guideStep !== "waiter-item"}
+          preferredPlacement={guideStep === "waiter-item" ? "top" : "auto"}
           onConfirm={() => {
             if (guideStep === "waiter-kitchen") {
               goToNextGuideStep("waiter-kitchen");
