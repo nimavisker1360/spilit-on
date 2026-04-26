@@ -3,9 +3,17 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
+import { WorkflowGuide } from "@/components/guide/workflow-guide";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
+import {
+  advanceWorkflowGuideStep,
+  isWorkflowGuideDone,
+  readWorkflowGuideStep,
+  type WorkflowGuideStepKey,
+  WORKFLOW_GUIDE_STEPS
+} from "@/lib/workflow-guide";
 
 type Guest = {
   id: string;
@@ -840,6 +848,8 @@ export default function CashierDashboardPage() {
     shareId: string;
     action: CashierPaymentShareAction;
   } | null>(null);
+  const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
+  const [isGuideInitialized, setIsGuideInitialized] = useState(false);
 
   const [form, setForm] = useState({
     sessionId: "",
@@ -1098,6 +1108,7 @@ export default function CashierDashboardPage() {
       }
 
       setInvoice(json.data);
+      setGuideStep((currentStep) => (currentStep === "cashier-calculate" ? advanceWorkflowGuideStep(currentStep) : currentStep));
     } catch (calcError) {
       setInvoiceError(calcError instanceof Error ? calcError.message : "Invoice calculation failed");
     } finally {
@@ -1137,6 +1148,7 @@ export default function CashierDashboardPage() {
           ? "Payment shares are ready. You can start collection for each share and complete pending ones."
           : "An existing payment session for this check was loaded."
       );
+      setGuideStep((currentStep) => (currentStep === "cashier-prepare" ? advanceWorkflowGuideStep(currentStep) : currentStep));
     } catch (prepareError) {
       setPaymentSessionError(prepareError instanceof Error ? prepareError.message : "Preparing payment shares failed.");
     } finally {
@@ -1171,6 +1183,11 @@ export default function CashierDashboardPage() {
 
       setPaymentSession(json.data.paymentSession);
       setPaymentSessionNotice(json.data.message);
+      setGuideStep((currentStep) =>
+        currentStep === "cashier-collect" && json.data.paymentSession.status === "PAID"
+          ? advanceWorkflowGuideStep(currentStep)
+          : currentStep
+      );
       void loadData({ silent: true });
     } catch (actionError) {
       setPaymentSessionError(actionError instanceof Error ? actionError.message : "Payment share update failed.");
@@ -1342,8 +1359,103 @@ export default function CashierDashboardPage() {
     return localizedStatusLabel(provider);
   };
 
+  const isGuideStepSatisfied = useMemo(() => {
+    if (guideStep === "cashier-calculate") return Boolean(invoice);
+    if (guideStep === "cashier-prepare") return Boolean(paymentSession);
+    if (guideStep === "cashier-collect") return Boolean(paymentSession?.shares.some((share) => share.status === "PAID" || share.status === "PENDING"));
+    if (guideStep === "cashier-finish") return Boolean(settledReceipt);
+    return false;
+  }, [guideStep, invoice, paymentSession, settledReceipt]);
+
+  useEffect(() => {
+    if (isGuideInitialized || loading || typeof window === "undefined") {
+      return;
+    }
+
+    if (isWorkflowGuideDone()) {
+      setGuideStep(null);
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    const storedStep = readWorkflowGuideStep();
+
+    if (storedStep === "kitchen-cashier") {
+      setGuideStep(advanceWorkflowGuideStep("kitchen-cashier"));
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    if (
+      storedStep === "cashier-calculate" ||
+      storedStep === "cashier-prepare" ||
+      storedStep === "cashier-collect" ||
+      storedStep === "cashier-finish"
+    ) {
+      setGuideStep(storedStep);
+    } else {
+      setGuideStep(null);
+    }
+
+    setIsGuideInitialized(true);
+  }, [isGuideInitialized, loading]);
+
+  const cashierGuideConfig =
+    guideStep === "cashier-calculate"
+      ? {
+          targetId: "workflow-cashier-calculate",
+          title: t("Calculate the check", "Hesabi hesapla"),
+          description: t("Choose the session and split mode, then calculate the check.", "Oturumu ve bolme modunu secin, sonra hesabi hesaplayin."),
+          confirmLabel: t("Check already calculated", "Hesap zaten hesaplandi"),
+          skipLabel: t("Skip this step", "Bu adimi gec")
+        }
+      : guideStep === "cashier-prepare"
+        ? {
+            targetId: "workflow-cashier-prepare",
+            title: t("Create payment shares", "Odeme paylarini olustur"),
+            description: t("Prepare the payment shares so each payer can be collected separately.", "Her odeyenden ayri tahsilat yapabilmek icin odeme paylarini hazirlayin."),
+            confirmLabel: t("Shares already exist", "Paylar zaten var"),
+            skipLabel: t("Skip this step", "Bu adimi gec")
+          }
+        : guideStep === "cashier-collect"
+          ? {
+              targetId: "workflow-cashier-collect",
+              title: t("Collect the payment", "Odemeyi tahsil et"),
+              description: t("Use cash, card, or link on one share and register the payment result.", "Bir pay uzerinde nakit, kart veya link kullanip odeme sonucunu kaydedin."),
+              confirmLabel: t("A payment was already collected", "Bir odeme zaten tahsil edildi"),
+              skipLabel: t("Skip this step", "Bu adimi gec")
+            }
+          : guideStep === "cashier-finish"
+            ? {
+                targetId: "workflow-cashier-finish",
+                title: t("Finish in the receipt archive", "Fis arsivinde tamamla"),
+                description: t("The final proof of completion is the settled receipt in the archive.", "Tamamlanmanin son kaniti arsivdeki kapanmis fistir."),
+                confirmLabel: t("Finish onboarding", "Onboardingi bitir"),
+                skipLabel: t("Skip this step", "Bu adimi gec")
+              }
+            : null;
+
   return (
     <div className="cashier-page stack-md">
+      {guideStep && cashierGuideConfig ? (
+        <WorkflowGuide
+          stepIndex={WORKFLOW_GUIDE_STEPS.indexOf(guideStep)}
+          totalSteps={WORKFLOW_GUIDE_STEPS.length}
+          targetId={cashierGuideConfig.targetId}
+          title={cashierGuideConfig.title}
+          description={cashierGuideConfig.description}
+          confirmLabel={cashierGuideConfig.confirmLabel}
+          skipLabel={cashierGuideConfig.skipLabel}
+          isSatisfied={isGuideStepSatisfied}
+          onConfirm={() => {
+            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+          }}
+          onSkip={() => {
+            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+          }}
+        />
+      ) : null}
+
       <section className="panel dashboard-hero cashier-hero stack-md">
         <div className="section-head cashier-hero-head">
           <div className="dashboard-hero-copy">
@@ -1487,7 +1599,7 @@ export default function CashierDashboardPage() {
         </div>
       </section>
 
-      <form className="form-card stack-md cashier-check-form" onSubmit={handleCalculate}>
+      <form className="form-card stack-md cashier-check-form" onSubmit={handleCalculate} data-workflow-guide-id="workflow-cashier-calculate">
         <div className="section-copy">
           <h3>Calculate check</h3>
           <p className="helper-text">Prepare the check summary before creating payment shares.</p>
@@ -1644,7 +1756,7 @@ export default function CashierDashboardPage() {
             </div>
           </div>
 
-          <div className="prepare-payment-panel stack-md">
+          <div className="prepare-payment-panel stack-md" data-workflow-guide-id="workflow-cashier-prepare">
             <div className="section-copy">
               <h4>{isPaymentSessionSettled ? t("Payment complete", "Odeme tamamlandi") : t("Prepare payments", "Odemeleri hazirla")}</h4>
               {isPaymentSessionSettled ? (
@@ -1696,7 +1808,7 @@ export default function CashierDashboardPage() {
           {paymentSessionError ? <p className="status-banner is-error">{paymentSessionError}</p> : null}
 
           {paymentSession && !isPaymentSessionSettled ? (
-            <div className="settlement-desk stack-md">
+            <div className="settlement-desk stack-md" data-workflow-guide-id="workflow-cashier-collect">
               <div className="section-head">
                 <div className="section-copy">
                   <p className="section-kicker">{t("Payment tracking", "Odeme takibi")}</p>
@@ -1931,7 +2043,7 @@ export default function CashierDashboardPage() {
         </section>
       )}
 
-      <section className="panel stack-md receipt-archive-panel">
+      <section className="panel stack-md receipt-archive-panel" data-workflow-guide-id="workflow-cashier-finish">
         <div className="section-head">
           <div className="section-copy">
             <p className="section-kicker">{t("Receipt archive", "Fis arsivi")}</p>

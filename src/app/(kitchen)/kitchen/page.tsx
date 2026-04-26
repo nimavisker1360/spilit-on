@@ -2,8 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { WorkflowGuide } from "@/components/guide/workflow-guide";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
+import {
+  advanceWorkflowGuideStep,
+  isWorkflowGuideDone,
+  readWorkflowGuideStep,
+  type WorkflowGuideStepKey,
+  WORKFLOW_GUIDE_STEPS,
+  writeWorkflowGuideStep
+} from "@/lib/workflow-guide";
 
 const ALL_TABLES_KEY = "__all_tables__";
 
@@ -166,6 +175,8 @@ export default function KitchenDashboardPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeTableFilter, setActiveTableFilter] = useState<string>(ALL_TABLES_KEY);
+  const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
+  const [isGuideInitialized, setIsGuideInitialized] = useState(false);
 
   const tableGroups = useMemo(() => {
     const grouped = new Map<
@@ -244,6 +255,24 @@ export default function KitchenDashboardPage() {
 
     try {
       await patchStatus(orderItemId, status);
+      if (status === "IN_PROGRESS") {
+        setGuideStep((currentStep) => (currentStep === "kitchen-start-prep" ? advanceWorkflowGuideStep(currentStep) : currentStep));
+      }
+      if (status === "READY") {
+        setGuideStep((currentStep) => (currentStep === "kitchen-mark-ready" ? advanceWorkflowGuideStep(currentStep) : currentStep));
+      }
+      if (status === "SERVED") {
+        setGuideStep((currentStep) => {
+          if (currentStep !== "kitchen-mark-served") {
+            return currentStep;
+          }
+
+          writeWorkflowGuideStep("cashier-calculate");
+          window.location.assign("/cashier");
+          return "cashier-calculate";
+        });
+        return;
+      }
       await loadTickets();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Update failed");
@@ -326,9 +355,133 @@ export default function KitchenDashboardPage() {
           : status === "SERVED"
             ? t("Served", "Servis edildi")
             : t("Void", "Iptal");
+  const isGuideStepSatisfied = useMemo(() => {
+    if (guideStep === "kitchen-start-prep") return inProgressCount > 0 || readyCount > 0 || servedCount > 0;
+    if (guideStep === "kitchen-mark-ready") return readyCount > 0 || servedCount > 0;
+    if (guideStep === "kitchen-mark-served") return servedCount > 0;
+    if (guideStep === "kitchen-cashier") return true;
+    return false;
+  }, [guideStep, inProgressCount, readyCount, servedCount]);
+
+  useEffect(() => {
+    if (isGuideInitialized || loading || typeof window === "undefined") {
+      return;
+    }
+
+    if (isWorkflowGuideDone()) {
+      setGuideStep(null);
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    const storedStep = readWorkflowGuideStep();
+
+    if (storedStep === "waiter-kitchen") {
+      setGuideStep(advanceWorkflowGuideStep("waiter-kitchen"));
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    if (storedStep === "kitchen-cashier") {
+      writeWorkflowGuideStep("cashier-calculate");
+      window.location.assign("/cashier");
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    if (
+      storedStep === "kitchen-start-prep" ||
+      storedStep === "kitchen-mark-ready" ||
+      storedStep === "kitchen-mark-served"
+    ) {
+      setGuideStep(storedStep);
+    } else {
+      setGuideStep(null);
+    }
+
+    setIsGuideInitialized(true);
+  }, [isGuideInitialized, loading]);
+
+  const kitchenGuideConfig =
+    guideStep === "kitchen-start-prep"
+      ? {
+          targetId: "workflow-kitchen-waiting",
+          title: t("Start preparation", "Hazirlamayi baslat"),
+          description: t("Move a waiting ticket into prep.", "Bekleyen bir fisi hazirlama asamasina tasiyin."),
+          confirmLabel: t("Prep already started", "Hazirlama zaten basladi"),
+          skipLabel: t("Skip this step", "Bu adimi gec")
+        }
+      : guideStep === "kitchen-mark-ready"
+        ? {
+            targetId: "workflow-kitchen-in-progress",
+            title: t("Mark the ticket ready", "Fisi hazir olarak isaretle"),
+            description: t("Move one item from prep into ready.", "Bir urunu hazirlama asamasindan hazira tasiyin."),
+            confirmLabel: t("An item is already ready", "Bir urun zaten hazir"),
+            skipLabel: t("Skip this step", "Bu adimi gec")
+          }
+        : guideStep === "kitchen-mark-served"
+          ? {
+              targetId: "workflow-kitchen-ready",
+              title: t("Mark the item served", "Urunu servis edildi olarak isaretle"),
+              description: t("Mark a ready item as served to close the kitchen loop.", "Mutfak dongusunu tamamlamak icin hazir bir urunu servis edildi olarak isaretleyin."),
+              confirmLabel: t("An item is already served", "Bir urun zaten servis edildi"),
+              skipLabel: t("Skip this step", "Bu adimi gec")
+            }
+          : guideStep === "kitchen-cashier"
+            ? {
+                targetId: "workflow-nav-cashier",
+                title: t("Go to cashier", "Kasiyer ekranina gec"),
+                description: t("Continue in cashier to calculate the check and collect payment.", "Hesabi hesaplamak ve odemeyi almak icin kasiyerde devam edin."),
+                confirmLabel: t("Open cashier screen", "Kasiyer ekranini ac"),
+                skipLabel: t("Skip this step", "Bu adimi gec")
+              }
+            : null;
 
   return (
     <div className="kitchen-page stack-md">
+      {guideStep && kitchenGuideConfig ? (
+        <WorkflowGuide
+          stepIndex={WORKFLOW_GUIDE_STEPS.indexOf(guideStep)}
+          totalSteps={WORKFLOW_GUIDE_STEPS.length}
+          targetId={kitchenGuideConfig.targetId}
+          title={kitchenGuideConfig.title}
+          description={kitchenGuideConfig.description}
+          confirmLabel={kitchenGuideConfig.confirmLabel}
+          skipLabel={kitchenGuideConfig.skipLabel}
+          isSatisfied={isGuideStepSatisfied}
+          onConfirm={() => {
+            if (guideStep === "kitchen-mark-served") {
+              writeWorkflowGuideStep("cashier-calculate");
+              window.location.assign("/cashier");
+              return;
+            }
+
+            if (guideStep === "kitchen-cashier") {
+              setGuideStep((currentStep) => (currentStep === "kitchen-cashier" ? advanceWorkflowGuideStep(currentStep) : currentStep));
+              window.location.assign("/cashier");
+              return;
+            }
+
+            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+          }}
+          onSkip={() => {
+            if (guideStep === "kitchen-mark-served") {
+              writeWorkflowGuideStep("cashier-calculate");
+              window.location.assign("/cashier");
+              return;
+            }
+
+            if (guideStep === "kitchen-cashier") {
+              setGuideStep((currentStep) => (currentStep === "kitchen-cashier" ? advanceWorkflowGuideStep(currentStep) : currentStep));
+              window.location.assign("/cashier");
+              return;
+            }
+
+            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+          }}
+        />
+      ) : null}
+
       <section className="panel dashboard-hero kitchen-hero stack-md">
         <div className="section-head kitchen-hero-head">
           <div className="dashboard-hero-copy">
@@ -495,7 +648,19 @@ export default function KitchenDashboardPage() {
           const laneTickets = filteredTickets.filter((ticket) => ticket.status === lane.status);
 
           return (
-            <article key={lane.status} className="panel ticket-lane">
+            <article
+              key={lane.status}
+              className="panel ticket-lane"
+              data-workflow-guide-id={
+                lane.status === "PENDING"
+                  ? "workflow-kitchen-waiting"
+                  : lane.status === "IN_PROGRESS"
+                    ? "workflow-kitchen-in-progress"
+                    : lane.status === "READY"
+                      ? "workflow-kitchen-ready"
+                      : undefined
+              }
+            >
               <div className="ticket-lane-head">
                 <div className="ticket-lane-copy">
                   <h3>{localizedLaneTitle(lane.title)}</h3>

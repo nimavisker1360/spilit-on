@@ -2,9 +2,18 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { WorkflowGuide } from "@/components/guide/workflow-guide";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
+import {
+  advanceWorkflowGuideStep,
+  isWorkflowGuideDone,
+  readWorkflowGuideStep,
+  type WorkflowGuideStepKey,
+  WORKFLOW_GUIDE_STEPS,
+  writeWorkflowGuideStep
+} from "@/lib/workflow-guide";
 
 type TableRef = {
   id: string;
@@ -311,6 +320,9 @@ export default function WaiterDashboardPage() {
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState("");
   const [sessionGuestFocus, setSessionGuestFocus] = useState<Record<string, string>>({});
   const [activeTableFilter, setActiveTableFilter] = useState<string>(ALL_TABLES_KEY);
+  const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
+  const [isGuideInitialized, setIsGuideInitialized] = useState(false);
+  const [isGuestJoinGuideDismissed, setIsGuestJoinGuideDismissed] = useState(false);
 
   const [orderForm, setOrderForm] = useState({
     sessionId: "",
@@ -504,6 +516,7 @@ export default function WaiterDashboardPage() {
     try {
       const response = await postJson<{ data: { created: boolean } }>("/api/sessions/open", openForm);
       setMessage(response.data.created ? "Table session opened." : "Table already had an open session.");
+      goToNextGuideStep("waiter-open-session");
       await loadData();
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : "Open session failed");
@@ -544,6 +557,7 @@ export default function WaiterDashboardPage() {
       setMessage(
         `Sent ${itemForOrder?.name ?? "item"} x${quantity} for ${guestForOrder?.displayName ?? "guest"}.`
       );
+      goToNextGuideStep("waiter-send-order");
       setSessionGuestFocus((prev) => ({ ...prev, [submittedSessionId]: submittedGuestId }));
       setOrderForm((prev) => ({ ...prev, quantity: "1" }));
       await loadData();
@@ -614,9 +628,196 @@ export default function WaiterDashboardPage() {
             ? t("Ready", "Hazir")
             : t("Pending", "Bekliyor");
   const localizedOrderSource = (source: OrderSource) => (source === "CUSTOMER" ? t("CUSTOMER", "MUSTERI") : t("WAITER", "GARSON"));
+  const isGuideStepSatisfied = useMemo(() => {
+    if (guideStep === "waiter-open-session") return sessions.length > 0;
+    if (guideStep === "waiter-guest-join") return sessions.some((session) => session.guests.length > 0);
+    if (guideStep === "waiter-guest") return Boolean(orderForm.guestId);
+    if (guideStep === "waiter-item") return Boolean(orderForm.menuItemId);
+    if (guideStep === "waiter-send-order") return selectedSession ? selectedSession.orders.length > 0 : false;
+    if (guideStep === "waiter-kitchen") return true;
+    return false;
+  }, [guideStep, orderForm.guestId, orderForm.menuItemId, selectedSession, sessions]);
+
+  useEffect(() => {
+    if (isGuideInitialized || loading || typeof window === "undefined") {
+      return;
+    }
+
+    if (isWorkflowGuideDone()) {
+      setGuideStep(null);
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    const storedStep = readWorkflowGuideStep();
+
+    if (storedStep === "admin-waiter") {
+      setGuideStep(advanceWorkflowGuideStep("admin-waiter"));
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    if (
+      storedStep === "waiter-open-session" ||
+      storedStep === "waiter-guest-join" ||
+      storedStep === "waiter-guest" ||
+      storedStep === "waiter-item" ||
+      storedStep === "waiter-send-order" ||
+      storedStep === "waiter-kitchen"
+    ) {
+      if (storedStep === "waiter-guest") {
+        writeWorkflowGuideStep("waiter-item");
+        setGuideStep("waiter-item");
+      } else {
+        setGuideStep(storedStep);
+      }
+    } else {
+      setGuideStep(null);
+    }
+
+    setIsGuideInitialized(true);
+  }, [isGuideInitialized, loading]);
+
+  const goToNextGuideStep = (completedStep: WorkflowGuideStepKey) => {
+    setGuideStep((currentStep) => {
+      if (currentStep !== completedStep) {
+        return currentStep;
+      }
+
+      return advanceWorkflowGuideStep(completedStep);
+    });
+  };
+
+  useEffect(() => {
+    if (guideStep !== "waiter-open-session" || sessions.length === 0) {
+      return;
+    }
+
+    setGuideStep((currentStep) =>
+      currentStep === "waiter-open-session" ? advanceWorkflowGuideStep(currentStep) : currentStep
+    );
+  }, [guideStep, sessions.length]);
+
+  useEffect(() => {
+    if (guideStep !== "waiter-guest-join") {
+      setIsGuestJoinGuideDismissed(false);
+      return;
+    }
+
+    if (isGuideStepSatisfied) {
+      setIsGuestJoinGuideDismissed(false);
+      writeWorkflowGuideStep("waiter-item");
+      setGuideStep((currentStep) => (currentStep === "waiter-guest-join" ? "waiter-item" : currentStep));
+    }
+  }, [guideStep, isGuideStepSatisfied]);
+
+  useEffect(() => {
+    if (guideStep !== "waiter-guest" || !orderForm.guestId) {
+      return;
+    }
+
+    setGuideStep((currentStep) =>
+      currentStep === "waiter-guest" ? advanceWorkflowGuideStep(currentStep) : currentStep
+    );
+  }, [guideStep, orderForm.guestId]);
+
+  const waiterGuideConfig =
+    guideStep === "waiter-open-session"
+      ? {
+          targetId: "workflow-waiter-open-session",
+          title: t("Open the table session", "Masa oturumunu ac"),
+          description: t(
+            "Use this form to open the table before guests join and orders are sent.",
+            "Misafirler katilmadan ve siparisler gonderilmeden once bu form ile masa oturumunu acin."
+          ),
+          confirmLabel: t("This table is already open", "Bu masa zaten acik"),
+          skipLabel: t("Skip this step", "Bu adimi gec")
+        }
+      : guideStep === "waiter-guest-join"
+        ? {
+            targetId: "workflow-waiter-live",
+            title: t("Ask guests to join from their phones", "Misafirlerin telefondan katilmasini sagla"),
+            description: t(
+              "Before choosing food, guests should join the table from the phone flow.",
+              "Yemek secmeden once misafirler telefon akisi uzerinden masaya katilmalidir."
+            ),
+            confirmLabel: t("Guests joined, continue", "Misafirler katildi, devam et"),
+            skipLabel: t("Skip this step", "Bu adimi gec")
+          }
+        : guideStep === "waiter-item"
+            ? {
+                targetId: "workflow-waiter-menu",
+                title: t("Choose the food item", "Yemek urununu sec"),
+                description: t(
+                  "After guests join from the phone, choose the right guest and then pick the food item from the menu list.",
+                  "Misafirler telefondan katildiktan sonra dogru misafiri secin ve sonra menu listesinden yemek urununu secin."
+                ),
+                confirmLabel: t("Item is selected", "Urun secildi"),
+                skipLabel: t("Skip this step", "Bu adimi gec")
+              }
+            : guideStep === "waiter-send-order"
+              ? {
+                  targetId: "workflow-waiter-send",
+                  title: t("Set quantity and send the order", "Adedi belirle ve siparisi gonder"),
+                  description: t(
+                    "Adjust the quantity here and send the item to the kitchen.",
+                    "Burada adedi ayarlayin ve urunu mutfaga gonderin."
+                  ),
+                  confirmLabel: t("An order already exists", "Siparis zaten var"),
+                  skipLabel: t("Skip this step", "Bu adimi gec")
+                }
+              : guideStep === "waiter-kitchen"
+                ? {
+                    targetId: "workflow-nav-kitchen",
+                    title: t("Go to the kitchen board", "Mutfak ekranina gec"),
+                    description: t(
+                      "The waiter part is done. Continue in the kitchen to move the ticket through prep.",
+                      "Garson kismi tamamlandi. Fisi hazirlama asamalarinda ilerletmek icin mutfakta devam edin."
+                    ),
+                    confirmLabel: t("Open kitchen board", "Mutfak ekranini ac"),
+                    skipLabel: t("Skip this step", "Bu adimi gec")
+                  }
+                : null;
 
   return (
     <div className="waiter-page stack-md">
+      {guideStep && waiterGuideConfig && !(guideStep === "waiter-guest-join" && isGuestJoinGuideDismissed) ? (
+        <WorkflowGuide
+          stepIndex={WORKFLOW_GUIDE_STEPS.indexOf(guideStep)}
+          totalSteps={WORKFLOW_GUIDE_STEPS.length}
+          targetId={waiterGuideConfig.targetId}
+          title={waiterGuideConfig.title}
+          description={waiterGuideConfig.description}
+          confirmLabel={waiterGuideConfig.confirmLabel}
+          skipLabel={waiterGuideConfig.skipLabel}
+          isSatisfied={isGuideStepSatisfied}
+          lockScroll={guideStep !== "waiter-item"}
+          onConfirm={() => {
+            if (guideStep === "waiter-kitchen") {
+              goToNextGuideStep("waiter-kitchen");
+              window.location.assign("/kitchen");
+              return;
+            }
+
+            goToNextGuideStep(guideStep);
+          }}
+          onSkip={() => {
+            if (guideStep === "waiter-guest-join") {
+              setIsGuestJoinGuideDismissed(true);
+              return;
+            }
+
+            if (guideStep === "waiter-kitchen") {
+              goToNextGuideStep("waiter-kitchen");
+              window.location.assign("/kitchen");
+              return;
+            }
+
+            goToNextGuideStep(guideStep);
+          }}
+        />
+      ) : null}
+
       <section className="waiter-hero stack-md">
         <div className="section-head waiter-hero-head">
           <div className="dashboard-hero-copy">
@@ -768,7 +969,11 @@ export default function WaiterDashboardPage() {
         </div>
 
         <div className="waiter-actions-grid">
-          <form className="form-card stack-md waiter-open-session-card" onSubmit={handleOpenSession}>
+          <form
+            className="form-card stack-md waiter-open-session-card"
+            onSubmit={handleOpenSession}
+            data-workflow-guide-id="workflow-waiter-open-session"
+          >
             <div className="section-copy">
               <h3>{t("Open session", "Oturum ac")}</h3>
               <p className="helper-text">{t("Use this when guests arrive and the table has not been opened yet.", "Misafirler geldiyse ve masa henuz acilmadiysa bunu kullanin.")}</p>
@@ -839,7 +1044,7 @@ export default function WaiterDashboardPage() {
             </div>
 
             {selectedSession && selectedSession.guests.length > 0 ? (
-              <div className="waiter-step-section">
+              <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-guest">
                 <div className="waiter-step-header">
                   <span className="waiter-step-badge">2</span>
                   <div className="waiter-step-header-copy">
@@ -880,7 +1085,7 @@ export default function WaiterDashboardPage() {
               </div>
             ) : null}
 
-            <div className="waiter-step-section">
+            <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-menu">
               <div className="waiter-step-header">
                 <span className="waiter-step-badge">3</span>
                 <div className="waiter-step-header-copy">
@@ -946,7 +1151,7 @@ export default function WaiterDashboardPage() {
               ) : null}
             </div>
 
-            <div className="waiter-step-section">
+            <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-send">
               <div className="waiter-step-header">
                 <span className="waiter-step-badge">4</span>
                 <div className="waiter-step-header-copy">
@@ -1020,7 +1225,7 @@ export default function WaiterDashboardPage() {
         </div>
       </section>
 
-      <section className="waiter-live-section stack-md">
+      <section className="waiter-live-section stack-md" data-workflow-guide-id="workflow-waiter-live">
         <div className="section-head">
           <div className="section-copy">
             <p className="section-kicker">{t("Live floor", "Canli salon")}</p>

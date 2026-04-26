@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
 
 type PaymentSessionStatus = "OPEN" | "PARTIALLY_PAID" | "PAID" | "FAILED" | "EXPIRED";
@@ -73,7 +74,7 @@ function normalizeTipAmount(value: string | null | undefined): string {
   return trimmed;
 }
 
-function normalizeReturnedPaymentError(value: string): string {
+function normalizeReturnedPaymentError(value: string, locale: "tr" | "en"): string {
   const trimmed = value.trim();
 
   if (!trimmed) {
@@ -81,14 +82,10 @@ function normalizeReturnedPaymentError(value: string): string {
   }
 
   if (trimmed.startsWith("[{") || trimmed.includes('"code": "invalid_') || trimmed.includes('"path": ["tip"]')) {
-    return "Odeme tamamlanamadi. Lutfen tekrar deneyin.";
+    return locale === "tr" ? "Odeme tamamlanamadi. Lutfen tekrar deneyin." : "Payment could not be completed. Please try again.";
   }
 
   return trimmed;
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("tr-TR");
 }
 
 function statusBadgeClass(status: PaymentShareStatus) {
@@ -107,26 +104,6 @@ function statusBadgeClass(status: PaymentShareStatus) {
   return "badge-status-unpaid";
 }
 
-function statusLabel(status: PaymentShareStatus | PaymentSessionStatus) {
-  if (status === "PAID") {
-    return "Odeme basarili";
-  }
-
-  if (status === "PENDING") {
-    return "Odeme isleniyor";
-  }
-
-  if (status === "FAILED" || status === "CANCELLED") {
-    return "Odeme basarisiz";
-  }
-
-  if (status === "PARTIALLY_PAID") {
-    return "Kismi odendi";
-  }
-
-  return "Odenmedi";
-}
-
 async function fetchPaymentResult(paymentShareId: string): Promise<PaymentResultState> {
   const response = await fetch(`/api/payment-shares/${encodeURIComponent(paymentShareId)}/result`, {
     cache: "no-store"
@@ -141,12 +118,29 @@ async function fetchPaymentResult(paymentShareId: string): Promise<PaymentResult
 }
 
 export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initialError = "" }: Props) {
+  const { locale, t } = useDashboardLanguage();
   const router = useRouter();
   const [state, setState] = useState<PaymentResultState | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
-  const [error, setError] = useState(normalizeReturnedPaymentError(initialError));
-  const [message, setMessage] = useState(initialStatus === "failed" ? "Odeme basarisiz." : "");
+  const [error, setError] = useState(normalizeReturnedPaymentError(initialError, locale));
+  const [message, setMessage] = useState(initialStatus === "failed" ? t("Payment failed.", "Odeme basarisiz.") : "");
+  const formatDateTime = useCallback((value: string) => new Date(value).toLocaleString(locale === "tr" ? "tr-TR" : "en-US"), [locale]);
+  const statusLabel = useCallback(
+    (status: PaymentShareStatus | PaymentSessionStatus) => {
+      if (status === "PAID") return t("Payment successful", "Odeme basarili");
+      if (status === "PENDING") return t("Payment processing", "Odeme isleniyor");
+      if (status === "FAILED" || status === "CANCELLED") return t("Payment failed", "Odeme basarisiz");
+      if (status === "PARTIALLY_PAID") return t("Partially paid", "Kismen odendi");
+      return t("Unpaid", "Odenmedi");
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    setError(normalizeReturnedPaymentError(initialError, locale));
+    setMessage(initialStatus === "failed" ? t("Payment failed.", "Odeme basarisiz.") : "");
+  }, [initialError, initialStatus, locale, t]);
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) {
@@ -158,21 +152,25 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
       setState(result);
 
       if (result.paymentShare.status === "PAID") {
-        setMessage(result.paymentSession.status === "PAID" ? "Odeme basarili. Hesap kapandi." : "Odeme basarili.");
+        setMessage(
+          result.paymentSession.status === "PAID"
+            ? t("Payment successful. Bill closed.", "Odeme basarili. Hesap kapandi.")
+            : t("Payment successful.", "Odeme basarili.")
+        );
         setError("");
       } else if (result.paymentShare.status === "FAILED" || result.paymentShare.status === "CANCELLED") {
-        setMessage("Odeme basarisiz.");
+        setMessage(t("Payment failed.", "Odeme basarisiz."));
       } else if (result.paymentShare.status === "PENDING") {
-        setMessage("Odeme isleniyor.");
+        setMessage(t("Payment processing.", "Odeme isleniyor."));
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Odeme sonucu alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : t("Payment result could not be loaded.", "Odeme sonucu alinamadi."));
     } finally {
       if (!options?.silent) {
         setLoading(false);
       }
     }
-  }, [paymentShareId]);
+  }, [paymentShareId, t]);
 
   useEffect(() => {
     void load();
@@ -199,7 +197,7 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
 
     setRetrying(true);
     setError("");
-    setMessage("Odeme isleniyor.");
+    setMessage(t("Payment processing.", "Odeme isleniyor."));
 
     try {
       const response = await fetch(`/api/payment-shares/${encodeURIComponent(paymentShareId)}/pay`, {
@@ -212,12 +210,12 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
       const json = (await response.json()) as StartPaymentResponse;
 
       if (!response.ok || !json.data?.paymentPageUrl) {
-        throw new Error(json.error || "Kart odemesi baslatilamadi.");
+        throw new Error(json.error || t("Card payment could not be started.", "Kart odemesi baslatilamadi."));
       }
 
       window.location.assign(json.data.paymentPageUrl);
     } catch (retryError) {
-      setError(retryError instanceof Error ? retryError.message : "Kart odemesi baslatilamadi.");
+      setError(retryError instanceof Error ? retryError.message : t("Card payment could not be started.", "Kart odemesi baslatilamadi."));
       setRetrying(false);
     }
   }
@@ -266,20 +264,22 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
             <h2>
               {paymentShare?.status === "PAID"
                 ? paymentSession?.status === "PAID"
-                  ? "Hesap kapandi"
-                  : "Odeme basarili"
+                  ? t("Bill closed", "Hesap kapandi")
+                  : t("Payment successful", "Odeme basarili")
                 : paymentShare?.status === "PENDING"
-                  ? "Odeme isleniyor"
-                  : "Odeme basarisiz"}
+                  ? t("Payment processing", "Odeme isleniyor")
+                  : t("Payment failed", "Odeme basarisiz")}
             </h2>
             <p className="panel-subtitle">
-              {paymentSession?.session?.table ? `Masa ${paymentSession.session.table.name}` : "Odeme sonucu"} guncelleniyor.
+              {paymentSession?.session?.table
+                ? t(`Table ${paymentSession.session.table.name} is updating.`, `Masa ${paymentSession.session.table.name} guncelleniyor.`)
+                : t("Payment result is updating.", "Odeme sonucu guncelleniyor.")}
             </p>
           </div>
         </div>
 
         <div className="status-stack">
-          {loading ? <p className="status-banner is-neutral">Odeme isleniyor.</p> : null}
+          {loading ? <p className="status-banner is-neutral">{t("Payment processing.", "Odeme isleniyor.")}</p> : null}
           {message ? <p className="status-banner is-success">{message}</p> : null}
           {error ? <p className="status-banner is-error">{error}</p> : null}
         </div>
@@ -290,40 +290,40 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
           <div className="section-head">
             <div className="section-copy">
               <h3>{paymentShare.payerLabel}</h3>
-              <p className="helper-text">Kart odemesi sonucu backend tarafinda dogrulandi.</p>
+              <p className="helper-text">{t("The card payment result was verified by the backend.", "Kart odemesi sonucu backend tarafinda dogrulandi.")}</p>
             </div>
             <span className={`badge ${statusBadgeClass(paymentShare.status)}`}>{statusLabel(paymentShare.status)}</span>
           </div>
 
           <div className="detail-grid">
             <div className="detail-card">
-              <span className="detail-label">Pay tutari</span>
+              <span className="detail-label">{t("Base share", "Pay tutari")}</span>
               <span className="detail-value">{formatTryCurrency(paymentShare.amount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Bahsis</span>
+              <span className="detail-label">{t("Tip", "Bahsis")}</span>
               <span className="detail-value">{formatTryCurrency(paymentShare.tip)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Toplam odeme</span>
+              <span className="detail-label">{t("Total payment", "Toplam odeme")}</span>
               <span className="detail-value">{formatTryCurrency(totalCharge)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Kalan tutar</span>
+              <span className="detail-label">{t("Remaining amount", "Kalan tutar")}</span>
               <span className="detail-value">{formatTryCurrency(paymentSession.remainingAmount)}</span>
             </div>
             <div className="detail-card">
-              <span className="detail-label">Hesap durumu</span>
-              <span className="detail-value">{paymentSession.status === "PAID" ? "Hesap kapandi" : statusLabel(paymentSession.status)}</span>
+              <span className="detail-label">{t("Bill status", "Hesap durumu")}</span>
+              <span className="detail-value">{paymentSession.status === "PAID" ? t("Bill closed", "Hesap kapandi") : statusLabel(paymentSession.status)}</span>
             </div>
           </div>
 
-          {paymentShare.paidAt ? <p className="meta">Odendi {formatDateTime(paymentShare.paidAt)}</p> : null}
+          {paymentShare.paidAt ? <p className="meta">{t("Paid", "Odendi")} {formatDateTime(paymentShare.paidAt)}</p> : null}
 
           {paymentShare.status === "FAILED" || paymentShare.status === "CANCELLED" ? (
             <div className="ticket-actions">
               <button type="button" className="ticket-action-btn" onClick={() => void retryPayment()} disabled={retrying}>
-                {retrying ? "Odeme isleniyor" : "Tekrar dene"}
+                {retrying ? t("Payment processing", "Odeme isleniyor") : t("Try again", "Tekrar dene")}
               </button>
             </div>
           ) : null}
@@ -331,7 +331,7 @@ export function IyzicoPaymentResult({ paymentShareId, initialStatus = "", initia
           {tableCode ? (
             <div className="ticket-actions">
               <Link className="checkout-link" href={guestPaymentHref}>
-                Hesaba geri don
+                {t("Back to bill", "Hesaba geri don")}
               </Link>
             </div>
           ) : null}

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { InstallAppButton } from "@/components/install-app-button";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS, ROLE_LAYOUT_META } from "@/lib/navigation";
+import { resetWorkflowGuide } from "@/lib/workflow-guide";
 import type { AppRole } from "@/types";
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -109,6 +110,8 @@ function FlagEN() {
 export function DashboardShell({ children, role }: Props) {
   const pathname = usePathname();
   const { locale, setLocale, t } = useDashboardLanguage();
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const adminDelayTimersRef = useRef<number[]>([]);
   const layoutMeta = ROLE_LAYOUT_META[role];
   const navLabels: Record<string, string> = {
     "/": t("Home", "Ana Sayfa"),
@@ -150,8 +153,102 @@ export function DashboardShell({ children, role }: Props) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
 
+  useEffect(() => {
+    if (role !== "admin") {
+      return;
+    }
+
+    const shellElement = shellRef.current;
+
+    if (!shellElement) {
+      return;
+    }
+
+    const clearTimers = () => {
+      for (const timerId of adminDelayTimersRef.current) {
+        window.clearTimeout(timerId);
+      }
+
+      adminDelayTimersRef.current = [];
+    };
+
+    const handleAdminButtonClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      if (typeof event.button === "number" && event.button !== 0) {
+        return;
+      }
+
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+
+      const button = event.target.closest("button");
+
+      if (!(button instanceof HTMLButtonElement) || !shellElement.contains(button)) {
+        return;
+      }
+
+      if (button.disabled || button.dataset.adminDelayBypass === "true" || button.dataset.adminLoading === "true") {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      button.dataset.adminLoading = "true";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+
+      const resumeActionTimer = window.setTimeout(() => {
+        if (!button.isConnected) {
+          return;
+        }
+
+        button.dataset.adminDelayBypass = "true";
+        button.disabled = false;
+
+        if (button.type === "submit" && button.form) {
+          button.form.requestSubmit(button);
+        } else {
+          button.click();
+        }
+
+        const finishTimer = window.setTimeout(() => {
+          if (!button.isConnected) {
+            return;
+          }
+
+          delete button.dataset.adminDelayBypass;
+          delete button.dataset.adminLoading;
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
+        }, 0);
+
+        adminDelayTimersRef.current.push(finishTimer);
+      }, 2000);
+
+      adminDelayTimersRef.current.push(resumeActionTimer);
+    };
+
+    shellElement.addEventListener("click", handleAdminButtonClick, true);
+
+    return () => {
+      shellElement.removeEventListener("click", handleAdminButtonClick, true);
+      clearTimers();
+    };
+  }, [role]);
+
+  const handleResetGuide = () => {
+    resetWorkflowGuide("admin-restaurant");
+    window.location.assign("/admin");
+  };
+
   return (
-    <div className={`dashboard-shell dashboard-shell--${role}`}>
+    <div ref={shellRef} className={`dashboard-shell dashboard-shell--${role}`}>
       <aside className="dashboard-sidebar">
         <div className="sidebar-brand">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -182,6 +279,15 @@ export function DashboardShell({ children, role }: Props) {
                 href={link.href}
                 className={`sidebar-nav-link${isActive ? " is-active" : ""}`}
                 aria-current={isActive ? "page" : undefined}
+                data-workflow-guide-id={
+                  link.href === "/waiter"
+                    ? "workflow-nav-waiter"
+                    : link.href === "/kitchen"
+                      ? "workflow-nav-kitchen"
+                      : link.href === "/cashier"
+                        ? "workflow-nav-cashier"
+                        : undefined
+                }
               >
                 <span className="sidebar-nav-icon">{NAV_ICONS[link.href]}</span>
                 <span>{navLabels[link.href] ?? link.label}</span>
@@ -206,6 +312,9 @@ export function DashboardShell({ children, role }: Props) {
             </div>
           </div>
           <div className="dashboard-topbar-actions">
+            <button type="button" className="dashboard-guide-trigger secondary" onClick={handleResetGuide}>
+              {t("Reset guide", "Kilavuzu sifirla")}
+            </button>
             <div className="mp-lang-switcher" role="group" aria-label={t("Dashboard language", "Panel dili")}>
               <button
                 type="button"

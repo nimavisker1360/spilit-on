@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { centsToDecimalString, formatTryCurrency, toCents } from "@/lib/currency";
 import {
   clearGuestIdentity,
@@ -178,6 +179,17 @@ type SplitPreviewRow = {
   shareStatus?: PaymentShareStatus;
   isYou?: boolean;
 };
+
+function buildGuestQrOpenedStorageKey(tableCode: string) {
+  return `guest-qr-opened:${tableCode.trim().toUpperCase()}`;
+}
+
+async function notifyGuestQrOpened(tableCode: string) {
+  await fetch(`/api/guest/${encodeURIComponent(tableCode)}/opened`, {
+    method: "POST",
+    cache: "no-store"
+  });
+}
 
 const TIP_PRESET_RATES = [0, 0.07, 0.1, 0.15] as const;
 const HOST_ROLE_LABEL = "Host";
@@ -547,6 +559,7 @@ export function GuestPaymentEntry({
   initialPaymentStatus = "",
   initialPaymentError = ""
 }: Props) {
+  const { locale, t } = useDashboardLanguage();
   const [state, setState] = useState<GuestPaymentEntryState | null>(null);
   const [identity, setIdentity] = useState<GuestIdentityState | null>(() =>
     initialGuestId.trim()
@@ -571,6 +584,83 @@ export function GuestPaymentEntry({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("card");
   const [payingShareId, setPayingShareId] = useState<string | null>(null);
   const [pendingGuestNavigation, setPendingGuestNavigation] = useState<PendingGuestNavigation | null>(null);
+  const localeCode = locale === "tr" ? "tr-TR" : "en-US";
+  const hostRoleLabel = t("Host", "Host");
+  const guestRoleLabel = t("Guest", "Misafir");
+  const checkoutSteps = useMemo<Array<{ id: CheckoutStep; label: string }>>(
+    () => [
+      { id: "bill", label: t("Bill", "Hesap") },
+      { id: "split", label: t("Split", "Bol") },
+      { id: "tip", label: t("Tip", "Bahsis") },
+      { id: "payment", label: t("Payment", "Odeme") }
+    ],
+    [t]
+  );
+  const splitChoices = useMemo<Array<{ id: SplitChoice; label: string; helper: string }>>(
+    () => [
+      { id: "equal", label: t("Equal", "Esit"), helper: t("Everyone pays the same amount.", "Herkes ayni tutari oder.") },
+      { id: "items", label: t("By Items", "Urunlere gore"), helper: t("Each guest pays for what they ordered.", "Her misafir kendi siparis ettiklerini oder.") },
+      { id: "custom", label: t("Custom", "Hazir pay"), helper: t("Use the prepared custom shares.", "Hazirlanan ozel paylari kullanin.") }
+    ],
+    [t]
+  );
+  const paymentMethods = useMemo<Array<{ id: PaymentMethod; label: string; helper: string }>>(
+    () => [{ id: "card", label: t("Pay by card", "Kart ile ode"), helper: t("iyzico secure payment page", "iyzico guvenli odeme sayfasi") }],
+    [t]
+  );
+  const formatDateTimeValue = useCallback((value: string) => new Date(value).toLocaleString(localeCode), [localeCode]);
+  const formatSplitModeLabelValue = useCallback(
+    (mode: SplitMode) => {
+      if (mode === "FULL_BY_ONE") return t("Full bill", "Tum hesap");
+      if (mode === "BY_GUEST_ITEMS") return t("By guest items", "Misafir urunlerine gore");
+      return t("Equal split", "Esit bolme");
+    },
+    [t]
+  );
+  const formatPaymentStatusValue = useCallback(
+    (value: string) => {
+      if (value === "OPEN") return t("Open", "Acik");
+      if (value === "PARTIALLY_PAID") return t("Partially paid", "Kismen odendi");
+      if (value === "PAID") return t("Paid", "Odendi");
+      if (value === "FAILED") return t("Payment failed", "Odeme basarisiz");
+      if (value === "EXPIRED") return t("Expired", "Suresi doldu");
+      if (value === "UNPAID") return t("Unpaid", "Odenmedi");
+      if (value === "PENDING") return t("Payment processing", "Odeme isleniyor");
+      if (value === "CANCELLED") return t("Cancelled", "Iptal edildi");
+      return value;
+    },
+    [t]
+  );
+  const formatTipPresetLabelValue = useCallback((rate: number) => (rate === 0 ? t("No tip", "Bahsis yok") : `${Math.round(rate * 100)}%`), [t]);
+  const paymentMethodLabelValue = useCallback(
+    (share: GuestPaymentEntryShare | null, activeShareId: string | null) => {
+      if (activeShareId === share?.id) {
+        return t("Payment processing", "Odeme isleniyor");
+      }
+
+      if (hasPendingPaymentLink(share)) {
+        return t("Continue payment", "Odemeye devam et");
+      }
+
+      return t("Pay by card", "Kart ile ode");
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storageKey = buildGuestQrOpenedStorageKey(tableCode);
+
+    if (window.sessionStorage.getItem(storageKey) === "true") {
+      return;
+    }
+
+    window.sessionStorage.setItem(storageKey, "true");
+    void notifyGuestQrOpened(tableCode);
+  }, [tableCode]);
   const [seenPaymentSessionId, setSeenPaymentSessionId] = useState<string | null>(null);
   const [handoffConsumed, setHandoffConsumed] = useState(false);
   const [returnStateApplied, setReturnStateApplied] = useState(false);
@@ -633,13 +723,13 @@ export function GuestPaymentEntry({
         persistIdentity(null);
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load payment details.");
+      setError(loadError instanceof Error ? loadError.message : t("Failed to load payment details.", "Odeme detaylari yuklenemedi."));
     } finally {
       if (!options?.silent) {
         setLoading(false);
       }
     }
-  }, [identity, persistIdentity, tableCode]);
+  }, [identity, persistIdentity, t, tableCode]);
 
   useEffect(() => {
     void load();
@@ -668,8 +758,8 @@ export function GuestPaymentEntry({
   );
   const hostGuestId = useMemo(() => state?.session?.guests[0]?.id ?? "", [state?.session?.guests]);
   const getGuestRoleLabel = useCallback(
-    (guestId: string | null | undefined) => (guestId && guestId === hostGuestId ? HOST_ROLE_LABEL : GUEST_ROLE_LABEL),
-    [hostGuestId]
+    (guestId: string | null | undefined) => (guestId && guestId === hostGuestId ? hostRoleLabel : guestRoleLabel),
+    [guestRoleLabel, hostGuestId, hostRoleLabel]
   );
   const getGuestRoleClassName = useCallback(
     (guestId: string | null | undefined) => `guest-checkout-role${guestId && guestId === hostGuestId ? " is-host" : ""}`,
@@ -699,7 +789,7 @@ export function GuestPaymentEntry({
     const groups = new Map<string, BillGroup>();
 
     paymentSession.invoiceLines.forEach((line) => {
-      const fallbackName = line.guestName?.trim() || "Shared items";
+      const fallbackName = line.guestName?.trim() || t("Shared items", "Paylasilan urunler");
       const key = line.guestId ?? `name:${fallbackName.toLocaleLowerCase("tr-TR")}`;
       const current =
         groups.get(key) ??
@@ -747,7 +837,7 @@ export function GuestPaymentEntry({
 
       return left.name.localeCompare(right.name, "tr-TR");
     });
-  }, [identifiedGuestId, paymentSession, state?.identifiedGuest]);
+  }, [identifiedGuestId, paymentSession, state?.identifiedGuest, t]);
 
   const actualPeopleCount = Math.max(1, billGroups.length || joinedGuestNames.length || paymentSession?.shares.length || 2);
 
@@ -789,7 +879,7 @@ export function GuestPaymentEntry({
         id: share.id,
         label: share.guestId === identifiedGuestId && state?.identifiedGuest ? state.identifiedGuest.displayName : share.payerLabel,
         amountCents: toCents(share.amount),
-        helper: formatPaymentStatus(share.status),
+        helper: formatPaymentStatusValue(share.status),
         shareStatus: share.status,
         isYou: share.guestId === identifiedGuestId
       }));
@@ -815,7 +905,7 @@ export function GuestPaymentEntry({
           id: group.key,
           label: group.guestId === identifiedGuestId && state?.identifiedGuest ? state.identifiedGuest.displayName : group.name,
           amountCents: group.subtotalCents,
-          helper: group.itemCount > 0 ? `${group.itemCount} item${group.itemCount === 1 ? "" : "s"}` : "Prepared share",
+          helper: group.itemCount > 0 ? t(`${group.itemCount} item${group.itemCount === 1 ? "" : "s"}`, `${group.itemCount} urun`) : t("Prepared share", "Hazirlanan pay"),
           shareStatus: share?.status,
           isYou: group.guestId === identifiedGuestId
         };
@@ -835,14 +925,14 @@ export function GuestPaymentEntry({
 
       return {
         id: payer?.id ?? `equal-${index}`,
-        label: payer?.name ?? (index === 0 && state?.identifiedGuest ? state.identifiedGuest.displayName : `Guest ${index + 1}`),
+        label: payer?.name ?? (index === 0 && state?.identifiedGuest ? state.identifiedGuest.displayName : t(`Guest ${index + 1}`, `Misafir ${index + 1}`)),
         amountCents: splitCentsEvenly(totalCents, count, index),
-        helper: "Equal share",
+        helper: t("Equal share", "Esit pay"),
         shareStatus: share?.status,
         isYou
       };
     });
-  }, [billGroups, equalPeopleCount, identifiedGuestId, paymentSession, selectedSplitChoice, state?.identifiedGuest, state?.session?.guests]);
+  }, [billGroups, equalPeopleCount, identifiedGuestId, paymentSession, selectedSplitChoice, state?.identifiedGuest, state?.session?.guests, t, formatPaymentStatusValue]);
   const selectedTipAmount = useMemo(
     () => resolveTipAmount(paymentShare?.amount ?? null, selectedTipRate),
     [paymentShare?.amount, selectedTipRate]
@@ -850,7 +940,7 @@ export function GuestPaymentEntry({
   const selectedTipCents = toCents(selectedTipAmount);
   const paymentBaseCents = paymentShare ? toCents(paymentShare.amount) : 0;
   const paymentTotalCents = paymentBaseCents + selectedTipCents;
-  const currentStepIndex = CHECKOUT_STEPS.findIndex((step) => step.id === checkoutStep);
+  const currentStepIndex = checkoutSteps.findIndex((step) => step.id === checkoutStep);
   const myShareDiffersFromItems = Boolean(
     myShare && identifiedGuestId && Math.abs(toCents(myShare.amount) - myInvoiceSubtotalCents) > 1
   );
@@ -893,7 +983,7 @@ export function GuestPaymentEntry({
     }
 
     if (initialPaymentStatus.toLowerCase() === "failed") {
-      setMessage("Odeme basarisiz. Lutfen tekrar deneyin.");
+      setMessage(t("Payment failed. Please try again.", "Odeme basarisiz. Lutfen tekrar deneyin."));
     }
 
     if (normalizedError) {
@@ -911,7 +1001,8 @@ export function GuestPaymentEntry({
     isCheckoutClosed,
     paymentSession,
     paymentShare,
-    returnStateApplied
+    returnStateApplied,
+    t
   ]);
 
   useEffect(() => {
@@ -950,7 +1041,7 @@ export function GuestPaymentEntry({
       guestId: nextPayableGuestCandidate.id,
       step: "split"
     });
-    setMessage(`Next payer: ${nextPayableGuestCandidate.displayName}.`);
+    setMessage(t(`Next payer: ${nextPayableGuestCandidate.displayName}.`, `Siradaki odeyecek kisi: ${nextPayableGuestCandidate.displayName}.`));
     setError("");
     persistIdentity({
       guestId: nextPayableGuestCandidate.id,
@@ -965,7 +1056,8 @@ export function GuestPaymentEntry({
     nextPayableGuestCandidate,
     paymentSession,
     persistIdentity,
-    state?.session
+    state?.session,
+    t
   ]);
 
   async function handlePayShare(share: GuestPaymentEntryShare | null, fallback: string) {
@@ -977,12 +1069,12 @@ export function GuestPaymentEntry({
     }
 
     if (isCheckoutClosed || share.status === "PAID") {
-      setMessage("Odeme basarili.");
+      setMessage(t("Payment successful.", "Odeme basarili."));
       return;
     }
 
     if (!isSharePayable(share.status) && !hasPendingPaymentLink(share)) {
-      setMessage("Odeme isleniyor.");
+      setMessage(t("Payment processing.", "Odeme isleniyor."));
       return;
     }
 
@@ -1001,10 +1093,10 @@ export function GuestPaymentEntry({
         return;
       }
 
-      setMessage(result.message || "Odeme isleniyor.");
+      setMessage(result.message || t("Payment processing.", "Odeme isleniyor."));
       await load({ silent: true });
     } catch (payError) {
-      setError(payError instanceof Error ? payError.message : "Odeme basarisiz.");
+      setError(payError instanceof Error ? payError.message : t("Payment failed.", "Odeme basarisiz."));
     } finally {
       setPayingShareId(null);
     }
@@ -1014,7 +1106,7 @@ export function GuestPaymentEntry({
     setMessage("");
 
     if (!paymentSession) {
-      setMessage("Restoran henuz bu hesabi odemeye acmadi.");
+      setMessage(t("The restaurant has not opened this bill for payment yet.", "Restoran henuz bu hesabi odemeye acmadi."));
       return;
     }
 
@@ -1023,15 +1115,15 @@ export function GuestPaymentEntry({
 
   function handlePaymentMethod(method: PaymentMethod) {
     setSelectedPaymentMethod(method);
-    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Odeme payiniz henuz hazir degil.");
+    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? t("Your payment share is not ready yet.", "Odeme payiniz henuz hazir degil."));
   }
 
   function handleContinueToIyzico() {
-    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? "Odeme payiniz henuz hazir degil.");
+    void handlePayShare(paymentShare, mapping.payMyShareDisabledReason ?? t("Your payment share is not ready yet.", "Odeme payiniz henuz hazir degil."));
   }
 
   function handlePayFullBill() {
-    void handlePayShare(fullBillShare, "Tum hesabi odeme secenegi bu hesap icin kullanilamaz.");
+    void handlePayShare(fullBillShare, t("The full bill option is not available for this bill.", "Tum hesabi odeme secenegi bu hesap icin kullanilamaz."));
   }
 
   function handleSelectGuest(candidate: GuestPaymentEntryGuestCandidate, options?: { continueToPayment?: boolean }) {
@@ -1039,7 +1131,7 @@ export function GuestPaymentEntry({
       return;
     }
 
-    setMessage(`${candidate.displayName} selected. Loading your share.`);
+    setMessage(t(`${candidate.displayName} selected. Loading your share.`, `${candidate.displayName} secildi. Payiniz yukleniyor.`));
     setError("");
     setJoinName("");
     setShowAddGuestForm(false);
@@ -1061,7 +1153,7 @@ export function GuestPaymentEntry({
     persistIdentity(null);
     setJoinName("");
     setShowAddGuestForm(false);
-    setMessage("Select or enter the correct guest name to continue.");
+    setMessage(t("Select or enter the correct guest name to continue.", "Devam etmek icin dogru misafir adini secin veya girin."));
   }
 
   function handleAddGuestClick() {
@@ -1079,7 +1171,7 @@ export function GuestPaymentEntry({
 
   function handleNextGuestPayment() {
     if (!nextPayableGuestCandidate) {
-      setMessage("No unpaid guest share is ready yet.");
+      setMessage(t("No unpaid guest share is ready yet.", "Henuz hazir bekleyen odenmemis bir misafir payi yok."));
       return;
     }
 
@@ -1096,7 +1188,7 @@ export function GuestPaymentEntry({
     const requestedName = normalizeGuestName(joinName);
 
     if (!requestedName) {
-      setError("Enter your name to connect this phone to the bill.");
+      setError(t("Enter your name to connect this phone to the bill.", "Bu telefonu hesaba baglamak icin adinizi girin."));
       return;
     }
 
@@ -1121,7 +1213,7 @@ export function GuestPaymentEntry({
           guestId: reusableGuest.id,
           step: "split"
         });
-        setMessage(`Continuing as ${reusableGuest.displayName}.`);
+        setMessage(t(`Continuing as ${reusableGuest.displayName}.`, `${reusableGuest.displayName} olarak devam ediliyor.`));
         return;
       }
 
@@ -1138,9 +1230,13 @@ export function GuestPaymentEntry({
         guestId: result.guest.id,
         step: "split"
       });
-      setMessage(`${result.created ? "Joined" : "Continuing"} as ${result.guest.displayName}.`);
+      setMessage(
+        result.created
+          ? t(`Joined as ${result.guest.displayName}.`, `${result.guest.displayName} olarak katilindi.`)
+          : t(`Continuing as ${result.guest.displayName}.`, `${result.guest.displayName} olarak devam ediliyor.`)
+      );
     } catch (joinError) {
-      setError(joinError instanceof Error ? joinError.message : "Failed to join this bill.");
+      setError(joinError instanceof Error ? joinError.message : t("Failed to join this bill.", "Bu hesaba katilinamadi."));
     } finally {
       setJoining(false);
     }
@@ -1159,10 +1255,10 @@ export function GuestPaymentEntry({
           const isPaidCandidate = isPaidStatus(candidate.shareStatus);
           const candidateRoleLabel = getGuestRoleLabel(candidate.id);
           const candidateShareMeta = candidate.hasPaymentShare
-            ? `${candidateRoleLabel} | ${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatus(candidate.shareStatus) : "Ready"}`
+            ? `${candidateRoleLabel} | ${candidate.shareAmount ? formatTryCurrency(candidate.shareAmount) : "-"} | ${candidate.shareStatus ? formatPaymentStatusValue(candidate.shareStatus) : t("Ready", "Hazir")}`
             : paymentSession
-              ? `${candidateRoleLabel} | No active share found`
-              : `${candidateRoleLabel} | Share is being prepared`;
+              ? `${candidateRoleLabel} | ${t("No active share found", "Aktif pay bulunamadi")}`
+              : `${candidateRoleLabel} | ${t("Share is being prepared", "Pay hazirlaniyor")}`;
 
           return (
             <button
@@ -1191,8 +1287,8 @@ export function GuestPaymentEntry({
     return (
       <div className="guest-checkout-joined-guests">
         <div className="guest-checkout-joined-guests-head">
-          <span>Guests</span>
-          <small>{state?.session?.guests.length ?? mapping.candidates.length} joined</small>
+          <span>{t("Guests", "Misafirler")}</span>
+          <small>{t(`${state?.session?.guests.length ?? mapping.candidates.length} joined`, `${state?.session?.guests.length ?? mapping.candidates.length} kisi katildi`)}</small>
         </div>
         {renderGuestSelector(options)}
       </div>
@@ -1216,21 +1312,21 @@ export function GuestPaymentEntry({
                   type="text"
                   value={joinName}
                   onChange={(event) => setJoinName(event.target.value)}
-                  placeholder="Guest name"
+                  placeholder={t("Guest name", "Misafir adi")}
                   autoComplete="name"
                 />
                 <button type="submit" disabled={joining || !state.session}>
-                  {joining ? "Adding..." : "Add"}
+                  {joining ? t("Adding...", "Ekleniyor...") : t("Add", "Ekle")}
                 </button>
               </form>
               <button type="button" className="guest-checkout-text-btn" onClick={handleCancelAddGuest}>
-                Cancel
+                {t("Cancel", "Iptal")}
               </button>
             </div>
           ) : (
             <div className="guest-checkout-add-guest-row">
               <button type="button" className="guest-checkout-text-btn" onClick={handleAddGuestClick}>
-                Add guest
+                {t("Add guest", "Misafir ekle")}
               </button>
             </div>
           )}
@@ -1238,7 +1334,7 @@ export function GuestPaymentEntry({
             <div className="guest-checkout-person">
               <span className="guest-checkout-avatar">{getGuestInitials(state.identifiedGuest.displayName)}</span>
               <span>
-                <small>Paying as</small>
+                <small>{t("Paying as", "Odeyen")}</small>
                 <strong className="guest-checkout-name-line">
                   <span>{state.identifiedGuest.displayName}</span>
                   <span className={getGuestRoleClassName(state.identifiedGuest.id)}>{getGuestRoleLabel(state.identifiedGuest.id)}</span>
@@ -1248,31 +1344,31 @@ export function GuestPaymentEntry({
             <div className="guest-checkout-identity-meta">
               {myShare ? (
                 <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(myShare.status)}`}>
-                  {formatTryCurrency(myShare.amount)} | {formatPaymentStatus(myShare.status)}
+                  {formatTryCurrency(myShare.amount)} | {formatPaymentStatusValue(myShare.status)}
                 </span>
               ) : (
-                <span className="guest-checkout-pill is-muted">No share yet</span>
+                <span className="guest-checkout-pill is-muted">{t("No share yet", "Henuz pay yok")}</span>
               )}
-              {mapping.matchSource ? <small>Matched by {formatMatchSource(mapping.matchSource)}</small> : null}
+              {mapping.matchSource ? <small>{t("Matched by", "Eslesen")} {formatMatchSource(mapping.matchSource)}</small> : null}
             </div>
             <div className="guest-checkout-identity-actions">
               <button type="button" className="guest-checkout-text-btn" onClick={handleResetGuest}>
-                Change
+                {t("Change", "Degistir")}
               </button>
             </div>
             {currentSharePaid ? (
               <div className="guest-checkout-handoff">
                 <div>
-                  <strong>{state.identifiedGuest.displayName} paid.</strong>
+                  <strong>{t(`${state.identifiedGuest.displayName} paid.`, `${state.identifiedGuest.displayName} odedi.`)}</strong>
                   <small>
                     {nextPayableGuestCandidate
-                      ? `Next payable share: ${nextPayableGuestCandidate.displayName}`
-                      : "No other unpaid share is ready yet."}
+                      ? t(`Next payable share: ${nextPayableGuestCandidate.displayName}`, `Siradaki odenebilir pay: ${nextPayableGuestCandidate.displayName}`)
+                      : t("No other unpaid share is ready yet.", "Hazir baska bir odenmemis pay yok.")}
                   </small>
                 </div>
                 {nextPayableGuestCandidate ? (
                   <button type="button" onClick={handleNextGuestPayment}>
-                    Pay next
+                    {t("Pay next", "Sonrakini ode")}
                   </button>
                 ) : null}
               </div>
@@ -1286,19 +1382,19 @@ export function GuestPaymentEntry({
     return (
       <div className="guest-checkout-join-card">
         <div>
-          <h3>Connect this phone</h3>
-          <p>{mapping.message ?? "Enter the guest name that should pay from this phone."}</p>
+          <h3>{t("Connect this phone", "Bu telefonu bagla")}</h3>
+          <p>{mapping.message ?? t("Enter the guest name that should pay from this phone.", "Bu telefondan odeyecek misafir adini girin.")}</p>
         </div>
         <form className="guest-checkout-join-form" onSubmit={handleJoin}>
           <input
             type="text"
             value={joinName}
             onChange={(event) => setJoinName(event.target.value)}
-            placeholder="Your name"
+            placeholder={t("Your name", "Adiniz")}
             autoComplete="name"
           />
           <button type="submit" disabled={joining || !state.session}>
-            {joining ? "Connecting..." : "Connect"}
+            {joining ? t("Connecting...", "Baglaniyor...") : t("Connect", "Bagla")}
           </button>
         </form>
         {renderGuestSelector()}
@@ -1310,9 +1406,9 @@ export function GuestPaymentEntry({
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Live bill</span>
-          <h1>{state ? `Table ${state.table.name}` : "Table bill"}</h1>
-          <p>{state ? `Table ${state.table.name}` : "Table bill"}</p>
+          <span>{t("Live bill", "Canli hesap")}</span>
+          <h1>{state ? t(`Table ${state.table.name}`, `Masa ${state.table.name}`) : t("Table bill", "Masa hesabi")}</h1>
+          <p>{state ? t(`Table ${state.table.name}`, `Masa ${state.table.name}`) : t("Table bill", "Masa hesabi")}</p>
         </div>
 
         {renderIdentityCard()}
@@ -1330,13 +1426,13 @@ export function GuestPaymentEntry({
                 <div className="guest-person-bill-head">
                   <span className="guest-person-bill-avatar">{getGuestInitials(group.name)}</span>
                   <div>
-                    <h3>{isYou ? "You" : group.name}</h3>
-                    <p>{group.itemCount > 0 ? `${group.itemCount} ordered item${group.itemCount === 1 ? "" : "s"}` : "Prepared share"}</p>
+                    <h3>{isYou ? t("You", "Siz") : group.name}</h3>
+                    <p>{group.itemCount > 0 ? t(`${group.itemCount} ordered item${group.itemCount === 1 ? "" : "s"}`, `${group.itemCount} urun siparis edildi`) : t("Prepared share", "Hazirlanan pay")}</p>
                   </div>
                   <div className="guest-checkout-identity-meta">
                     {shareForGroup ? (
                       <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(shareForGroup.status)}`}>
-                        {formatPaymentStatus(shareForGroup.status)}
+                        {formatPaymentStatusValue(shareForGroup.status)}
                       </span>
                     ) : null}
                     <strong>{formatCents(group.subtotalCents)}</strong>
@@ -1353,62 +1449,62 @@ export function GuestPaymentEntry({
                       <strong>{formatTryCurrency(line.amount)}</strong>
                     </div>
                   ))}
-                  {group.lines.length === 0 ? <p>Payment share prepared by the restaurant.</p> : null}
-                  {!showBreakdown && group.lines.length > 2 ? <p>{group.lines.length - 2} more item(s)</p> : null}
+                  {group.lines.length === 0 ? <p>{t("Payment share prepared by the restaurant.", "Odeme payi restoran tarafindan hazirlandi.")}</p> : null}
+                  {!showBreakdown && group.lines.length > 2 ? <p>{t(`${group.lines.length - 2} more item(s)`, `${group.lines.length - 2} urun daha`)}</p> : null}
                 </div>
               </article>
             );
           })}
-          {billGroups.length === 0 ? <p className="guest-checkout-empty">No bill lines found for this table yet.</p> : null}
+          {billGroups.length === 0 ? <p className="guest-checkout-empty">{t("No bill lines found for this table yet.", "Bu masa icin henuz hesap satiri bulunamadi.")}</p> : null}
         </div>
 
         {billGroups.some((group) => group.lines.length > 2) ? (
           <button type="button" className="guest-checkout-secondary-action" onClick={() => setShowBreakdown((current) => !current)}>
-            {showBreakdown ? "Show compact bill" : "Show all items"}
+            {showBreakdown ? t("Show compact bill", "Kisa hesabi goster") : t("Show all items", "Tum urunleri goster")}
           </button>
         ) : null}
 
         <div className="guest-checkout-total-card">
           <div>
-            <span>Subtotal</span>
+            <span>{t("Subtotal", "Ara toplam")}</span>
             <strong>{formatCents(billLineSubtotalCents)}</strong>
           </div>
           <div>
-            <span>Service</span>
+            <span>{t("Service", "Servis")}</span>
             <strong>{formatCents(billServiceCents)}</strong>
           </div>
           <div className="is-total">
-            <span>Total</span>
+            <span>{t("Total", "Toplam")}</span>
             <strong>{formatCents(billTotalCents)}</strong>
           </div>
           {paymentSession ? (
             <div>
-              <span>Kalan tutar</span>
+              <span>{t("Remaining amount", "Kalan tutar")}</span>
               <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
             </div>
           ) : null}
         </div>
 
         <button type="button" className="guest-checkout-primary-action" onClick={() => handleContinue("split")} disabled={!paymentSession}>
-          Split the Bill
+          {t("Split the bill", "Hesabi bol")}
         </button>
       </section>
     );
   }
 
   function renderSplitStep() {
-    const activeSplit = SPLIT_CHOICES.find((choice) => choice.id === selectedSplitChoice) ?? SPLIT_CHOICES[0];
+    const activeSplit = splitChoices.find((choice) => choice.id === selectedSplitChoice) ?? splitChoices[0];
 
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Split the bill</span>
-          <h1>Choose split</h1>
+          <span>{t("Split the bill", "Hesabi bol")}</span>
+          <h1>{t("Choose split", "Bolme yontemi secin")}</h1>
           <p>{activeSplit.helper}</p>
         </div>
 
-        <div className="guest-split-tabs" role="tablist" aria-label="Split method">
-          {SPLIT_CHOICES.map((choice) => (
+        <div className="guest-split-tabs" role="tablist" aria-label={t("Split method", "Bolme yontemi")}>
+          {splitChoices.map((choice) => (
             <button
               key={choice.id}
               type="button"
@@ -1422,7 +1518,7 @@ export function GuestPaymentEntry({
 
         {selectedSplitChoice === "equal" ? (
           <div className="guest-split-people">
-            <span>Number of people</span>
+            <span>{t("Number of people", "Kisi sayisi")}</span>
             <div>
               <button type="button" onClick={() => setEqualPeopleCount((current) => Math.max(1, current - 1))}>
                 -
@@ -1438,23 +1534,23 @@ export function GuestPaymentEntry({
         {!hasPayablePaymentShare ? renderIdentityCard() : null}
 
         <div className="guest-split-list">
-          <p className="guest-checkout-label">Each person pays</p>
+          <p className="guest-checkout-label">{t("Each person pays", "Kisi basi odeme")}</p>
           {splitPreviewRows.map((row, index) => (
             <article
               key={`${row.id}-${index}`}
               className={`guest-split-row${row.isYou ? " is-you" : ""}${isPaidStatus(row.shareStatus) ? " is-paid" : ""}`}
             >
               <div>
-                <span className="guest-split-avatar">{getGuestInitials(row.isYou ? "You" : row.label)}</span>
+                <span className="guest-split-avatar">{getGuestInitials(row.isYou ? t("You", "Siz") : row.label)}</span>
                 <span>
-                  <strong>{row.isYou ? "You" : row.label}</strong>
+                  <strong>{row.isYou ? t("You", "Siz") : row.label}</strong>
                   <small>{row.helper}</small>
                 </span>
               </div>
               <div className="guest-checkout-identity-meta">
                 {row.shareStatus ? (
                   <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(row.shareStatus)}`}>
-                    {formatPaymentStatus(row.shareStatus)}
+                    {formatPaymentStatusValue(row.shareStatus)}
                   </span>
                 ) : null}
                 <strong>{formatCents(row.amountCents)}</strong>
@@ -1465,14 +1561,14 @@ export function GuestPaymentEntry({
 
         <div className="guest-checkout-total-card is-slim">
           <div className="is-total">
-            <span>Total</span>
+            <span>{t("Total", "Toplam")}</span>
             <strong>{formatCents(billTotalCents)}</strong>
           </div>
         </div>
 
         <div className="guest-step-actions">
           <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("bill")}>
-            Back
+            {t("Back", "Geri")}
           </button>
           <button
             type="button"
@@ -1480,7 +1576,7 @@ export function GuestPaymentEntry({
             onClick={() => handleContinue("tip")}
             disabled={!hasPayablePaymentShare}
           >
-            Continue to Tip
+            {t("Continue to tip", "Bahsise devam et")}
           </button>
         </div>
       </section>
@@ -1491,9 +1587,9 @@ export function GuestPaymentEntry({
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Add a tip</span>
-          <h1>Tip your waiter</h1>
-          <p>{paymentShare ? `Based on ${formatTryCurrency(paymentShare.amount)}` : "Choose a tip after your share is ready."}</p>
+          <span>{t("Add a tip", "Bahsis ekle")}</span>
+          <h1>{t("Tip your waiter", "Garsona bahsis verin")}</h1>
+          <p>{paymentShare ? t(`Based on ${formatTryCurrency(paymentShare.amount)}`, `${formatTryCurrency(paymentShare.amount)} uzerinden`) : t("Choose a tip after your share is ready.", "Payiniz hazir olduktan sonra bahsis secin.")}</p>
         </div>
 
         {!hasPayablePaymentShare ? renderIdentityCard() : null}
@@ -1511,8 +1607,8 @@ export function GuestPaymentEntry({
                 onClick={() => setSelectedTipRate(rate)}
                 disabled={!hasPayablePaymentShare}
               >
-                <span>{formatTipPresetLabel(rate)}</span>
-                <strong>{rate === 0 ? "No extra charge" : formatTryCurrency(tipAmount)}</strong>
+                <span>{formatTipPresetLabelValue(rate)}</span>
+                <strong>{rate === 0 ? t("No extra charge", "Ek ucret yok") : formatTryCurrency(tipAmount)}</strong>
               </button>
             );
           })}
@@ -1520,22 +1616,22 @@ export function GuestPaymentEntry({
 
         <div className="guest-checkout-total-card">
           <div>
-            <span>Your share</span>
+            <span>{t("Your share", "Sizin payiniz")}</span>
             <strong>{formatCents(paymentBaseCents)}</strong>
           </div>
           <div>
-            <span>Tip</span>
+            <span>{t("Tip", "Bahsis")}</span>
             <strong>{formatCents(selectedTipCents)}</strong>
           </div>
           <div className="is-total">
-            <span>Total with tip</span>
+            <span>{t("Total with tip", "Bahsis dahil toplam")}</span>
             <strong>{formatCents(paymentTotalCents)}</strong>
           </div>
         </div>
 
         <div className="guest-step-actions">
           <button type="button" className="guest-checkout-secondary-action" onClick={() => setCheckoutStep("split")}>
-            Back
+            {t("Back", "Geri")}
           </button>
           <button
             type="button"
@@ -1543,7 +1639,7 @@ export function GuestPaymentEntry({
             onClick={() => handleContinue("payment")}
             disabled={!hasPayablePaymentShare}
           >
-            Odemeye devam et
+            {t("Continue to payment", "Odemeye devam et")}
           </button>
         </div>
       </section>
@@ -1553,57 +1649,57 @@ export function GuestPaymentEntry({
   function renderPaymentStep() {
     const paymentDisabled = !canOpenPaymentShare(paymentShare) || isCheckoutClosed || Boolean(payingShareId);
     const paymentDisabledReason = !paymentShare
-      ? "Connect this phone to a guest before payment."
+      ? t("Connect this phone to a guest before payment.", "Odemeden once bu telefonu bir misafire baglayin.")
       : isCheckoutClosed
-        ? "This bill is already closed."
+        ? t("This bill is already closed.", "Bu hesap zaten kapandi.")
         : !canOpenPaymentShare(paymentShare)
-          ? mapping.payMyShareDisabledReason ?? "This share is not ready for online payment."
+          ? mapping.payMyShareDisabledReason ?? t("This share is not ready for online payment.", "Bu pay online odeme icin henuz hazir degil.")
           : "";
 
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Odeme</span>
+          <span>{t("Payment", "Odeme")}</span>
           <h1>{formatCents(paymentTotalCents)}</h1>
-          <p>{paymentShare ? paymentShare.payerLabel : "Connect your name before payment."}</p>
+          <p>{paymentShare ? paymentShare.payerLabel : t("Connect your name before payment.", "Odemeden once adinizi baglayin.")}</p>
         </div>
 
         <div className="guest-payment-summary">
           <div>
-            <span>Base share</span>
+            <span>{t("Base share", "Ana pay")}</span>
             <strong>{formatCents(paymentBaseCents)}</strong>
           </div>
           <div>
-            <span>Tip</span>
+            <span>{t("Tip", "Bahsis")}</span>
             <strong>{formatCents(selectedTipCents)}</strong>
           </div>
           <div>
-            <span>Status</span>
-            <strong>{paymentShare ? formatPaymentStatus(paymentShare.status) : "Hazir degil"}</strong>
+            <span>{t("Status", "Durum")}</span>
+            <strong>{paymentShare ? formatPaymentStatusValue(paymentShare.status) : t("Not ready", "Hazir degil")}</strong>
           </div>
         </div>
 
         {myShareDiffersFromItems ? (
-          <p className="guest-checkout-note">Your payable share differs from your item subtotal because the prepared split is not by items.</p>
+          <p className="guest-checkout-note">{t("Your payable share differs from your item subtotal because the prepared split is not by items.", "Hazirlanan bolme urunlere gore olmadigi icin odeyeceginiz pay urun ara toplaminizdan farklidir.")}</p>
         ) : null}
 
         <div className="guest-iyzico-handoff">
           <div className="guest-iyzico-brand">
             <span>iy</span>
             <div>
-              <strong>iyzico secure payment</strong>
-              <small>You will leave this page for the card screen, then return automatically.</small>
+              <strong>{t("iyzico secure payment", "iyzico guvenli odeme")}</strong>
+              <small>{t("You will leave this page for the card screen, then return automatically.", "Kart ekrani icin bu sayfadan ayrilacak, sonra otomatik doneceksiniz.")}</small>
             </div>
           </div>
           <div className="guest-iyzico-steps">
-            <span className="is-done">Share ready</span>
-            <span className={paymentShare ? "is-active" : ""}>Redirect</span>
-            <span>Result sync</span>
+            <span className="is-done">{t("Share ready", "Pay hazir")}</span>
+            <span className={paymentShare ? "is-active" : ""}>{t("Redirect", "Yonlendirme")}</span>
+            <span>{t("Result sync", "Sonuc senkronu")}</span>
           </div>
         </div>
 
         <div className="guest-payment-methods">
-          {PAYMENT_METHODS.map((method) => (
+          {paymentMethods.map((method) => (
             <button
               key={method.id}
               type="button"
@@ -1611,7 +1707,7 @@ export function GuestPaymentEntry({
               onClick={() => handlePaymentMethod(method.id)}
               disabled={paymentDisabled}
             >
-              <span>{selectedPaymentMethod === method.id ? paymentMethodLabel(paymentShare, payingShareId) : method.label}</span>
+              <span>{selectedPaymentMethod === method.id ? paymentMethodLabelValue(paymentShare, payingShareId) : method.label}</span>
               <small>{method.helper}</small>
             </button>
           ))}
@@ -1619,10 +1715,10 @@ export function GuestPaymentEntry({
 
         <button type="button" className="guest-checkout-primary-action" onClick={handleContinueToIyzico} disabled={paymentDisabled}>
           {payingShareId === paymentShare?.id
-            ? "Opening iyzico..."
+            ? t("Opening iyzico...", "iyzico aciliyor...")
             : hasPendingPaymentLink(paymentShare)
-              ? "Continue iyzico payment"
-              : "Pay with iyzico"}
+              ? t("Continue iyzico payment", "iyzico odemesine devam et")
+              : t("Pay with iyzico", "iyzico ile ode")}
         </button>
         {paymentDisabledReason ? <p className="guest-checkout-note is-warning">{paymentDisabledReason}</p> : null}
 
@@ -1633,7 +1729,11 @@ export function GuestPaymentEntry({
             onClick={handlePayFullBill}
             disabled={!canOpenPaymentShare(fullBillShare) || isCheckoutClosed || Boolean(payingShareId)}
           >
-            {payingShareId === fullBillShare.id ? "Odeme isleniyor" : hasPendingPaymentLink(fullBillShare) ? "Tum hesap odemesine devam et" : "Tum hesabi ode"}
+            {payingShareId === fullBillShare.id
+              ? t("Payment processing", "Odeme isleniyor")
+              : hasPendingPaymentLink(fullBillShare)
+                ? t("Continue full bill payment", "Tum hesap odemesine devam et")
+                : t("Pay full bill", "Tum hesabi ode")}
           </button>
         ) : null}
 
@@ -1649,42 +1749,42 @@ export function GuestPaymentEntry({
     return (
       <section className="guest-checkout-screen">
         <div className="guest-checkout-title">
-          <span>Odeme basarili</span>
-          <h1>{state?.session?.closedAt ? "Hesap kapandi" : "Odeme alindi"}</h1>
-          <p>{state?.session?.closedAt ? `Kapandi ${formatDateTime(state.session.closedAt)}` : "Odeme paylari guncellendi."}</p>
+          <span>{t("Payment successful", "Odeme basarili")}</span>
+          <h1>{state?.session?.closedAt ? t("Bill closed", "Hesap kapandi") : t("Payment received", "Odeme alindi")}</h1>
+          <p>{state?.session?.closedAt ? t(`Closed ${formatDateTimeValue(state.session.closedAt)}`, `Kapandi ${formatDateTimeValue(state.session.closedAt)}`) : t("Payment shares were updated.", "Odeme paylari guncellendi.")}</p>
         </div>
 
         <div className="guest-checkout-total-card">
           <div>
-            <span>Total</span>
+            <span>{t("Total", "Toplam")}</span>
             <strong>{formatTryCurrency(paymentSession.totalAmount)}</strong>
           </div>
           <div>
-            <span>Paid</span>
+            <span>{t("Paid", "Odendi")}</span>
             <strong>{formatTryCurrency(paymentSession.paidAmount)}</strong>
           </div>
           <div className="is-total">
-            <span>Kalan tutar</span>
+            <span>{t("Remaining amount", "Kalan tutar")}</span>
             <strong>{formatTryCurrency(paymentSession.remainingAmount)}</strong>
           </div>
         </div>
 
         <div className="guest-split-list">
-          <p className="guest-checkout-label">Payment shares</p>
+          <p className="guest-checkout-label">{t("Payment shares", "Odeme paylari")}</p>
           {paymentSession.shares.map((share) => (
             <article
               key={share.id}
               className={`guest-split-row${share.guestId === identifiedGuestId ? " is-you" : ""}${isPaidStatus(share.status) ? " is-paid" : ""}`}
             >
               <div>
-                <span className="guest-split-avatar">{getGuestInitials(share.guestId === identifiedGuestId ? "You" : share.payerLabel)}</span>
+                <span className="guest-split-avatar">{getGuestInitials(share.guestId === identifiedGuestId ? t("You", "Siz") : share.payerLabel)}</span>
                 <span>
-                  <strong>{share.guestId === identifiedGuestId ? "You" : share.payerLabel}</strong>
-                  <small>{share.paidAt ? `Odendi ${formatDateTime(share.paidAt)}` : formatPaymentStatus(share.status)}</small>
+                  <strong>{share.guestId === identifiedGuestId ? t("You", "Siz") : share.payerLabel}</strong>
+                  <small>{share.paidAt ? t(`Paid ${formatDateTimeValue(share.paidAt)}`, `Odendi ${formatDateTimeValue(share.paidAt)}`) : formatPaymentStatusValue(share.status)}</small>
                 </span>
               </div>
               <span className={`guest-checkout-pill ${paymentShareStatusBadgeClass(share.status)}`}>
-                {formatPaymentStatus(share.status)}
+                {formatPaymentStatusValue(share.status)}
               </span>
             </article>
           ))}
@@ -1698,27 +1798,27 @@ export function GuestPaymentEntry({
       <section className="guest-checkout-phone">
         <header className="guest-checkout-header">
           <div>
-            <strong>{state ? `Table ${state.table.name}` : "Split payment"}</strong>
+            <strong>{state ? t(`Table ${state.table.name}`, `Masa ${state.table.name}`) : t("Split payment", "Bolunmus odeme")}</strong>
             {state?.session && paymentSession ? (
               <small>
-                {formatSplitModeLabel(paymentSession.splitMode)} | Opened {formatDateTime(state.session.openedAt)}
+                {formatSplitModeLabelValue(paymentSession.splitMode)} | {t("Opened", "Acildi")} {formatDateTimeValue(state.session.openedAt)}
               </small>
             ) : null}
           </div>
           <div className="guest-checkout-header-actions">
             {paymentSession ? (
               <>
-                <span className="guest-checkout-pill is-muted">Kalan tutar {formatTryCurrency(paymentSession.remainingAmount)}</span>
+                <span className="guest-checkout-pill is-muted">{t("Remaining amount", "Kalan tutar")} {formatTryCurrency(paymentSession.remainingAmount)}</span>
                 <span className={`guest-checkout-pill ${paymentSessionStatusBadgeClass(paymentSession.status)}`}>
-                  {formatPaymentStatus(paymentSession.status)}
+                  {formatPaymentStatusValue(paymentSession.status)}
                 </span>
               </>
             ) : null}
           </div>
         </header>
 
-        <nav className="guest-checkout-progress" aria-label="Checkout steps">
-          {CHECKOUT_STEPS.map((step, index) => (
+        <nav className="guest-checkout-progress" aria-label={t("Checkout steps", "Odeme adimlari")}>
+          {checkoutSteps.map((step, index) => (
             <button
               key={step.id}
               type="button"
@@ -1733,7 +1833,7 @@ export function GuestPaymentEntry({
         </nav>
 
         <div className="guest-checkout-status-stack">
-          {loading ? <p className="guest-checkout-status is-neutral">Loading payment details.</p> : null}
+          {loading ? <p className="guest-checkout-status is-neutral">{t("Loading payment details.", "Odeme detaylari yukleniyor.")}</p> : null}
           {error ? <p className="guest-checkout-status is-error">{error}</p> : null}
           {message ? <p className="guest-checkout-status is-neutral">{message}</p> : null}
         </div>
@@ -1752,12 +1852,12 @@ export function GuestPaymentEntry({
         ) : (
           <section className="guest-checkout-screen">
             <div className="guest-checkout-title">
-              <span>Bill</span>
-              <h1>{state?.session ? "Bill is being prepared" : "No live bill yet"}</h1>
+              <span>{t("Bill", "Hesap")}</span>
+              <h1>{state?.session ? t("Bill is being prepared", "Hesap hazirlaniyor") : t("No live bill yet", "Henuz canli hesap yok")}</h1>
               <p>
                 {state?.session
-                  ? "As soon as the restaurant sends the check from the POS, split options and payment will appear here."
-                  : "Ask staff to open the table and send the bill from the POS."}
+                  ? t("As soon as the restaurant sends the check from the POS, split options and payment will appear here.", "Restoran hesabi POS'tan gonderdigi anda bolme secenekleri ve odeme burada gorunecek.")
+                  : t("Ask staff to open the table and send the bill from the POS.", "Personelden masayi acmasini ve hesabi POS'tan gondermesini isteyin.")}
               </p>
             </div>
             {renderIdentityCard()}

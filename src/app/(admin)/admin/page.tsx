@@ -6,8 +6,18 @@ import Image from "next/image";
 import * as XLSX from "xlsx";
 
 import { AdminActions, AdminField, AdminFormCard } from "@/components/admin/admin-form";
+import { WorkflowGuide } from "@/components/guide/workflow-guide";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
+import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
+import {
+  advanceWorkflowGuideStep,
+  isWorkflowGuideDone,
+  readWorkflowGuideStep,
+  type WorkflowGuideStepKey,
+  WORKFLOW_GUIDE_STEPS,
+  writeWorkflowGuideStep
+} from "@/lib/workflow-guide";
 import { getClientPublicAppBaseUrl, getPublicAppBaseUrl, getTablePublicUrl } from "@/lib/public-url";
 
 type SessionSummary = {
@@ -523,6 +533,10 @@ export default function AdminDashboardPage() {
     sortOrder: "1",
     isAvailable: "true" as AvailabilityValue
   });
+  const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
+  const [isGuideInitialized, setIsGuideInitialized] = useState(false);
+  const [requestedFocusTarget, setRequestedFocusTarget] = useState<string | null>(null);
+  const [requestedFocusBranchId, setRequestedFocusBranchId] = useState<string | null>(null);
 
   const branches = useMemo<BranchListRow[]>(() => {
     return snapshot.flatMap((restaurant) =>
@@ -569,15 +583,86 @@ export default function AdminDashboardPage() {
   }, [branches]);
 
   const isAllBranchesSelected = activeBranchFilter === ALL_BRANCHES_KEY;
+  const currentRestaurant = snapshot[0] ?? null;
+  const isRestaurantGuideSatisfied = currentRestaurant !== null && currentRestaurant.name.trim().length >= 2;
+  const isBranchGuideSatisfied = branches.length > 0;
+  const isTableGuideSatisfied = tables.length > 0;
+  const isMenuGuideSatisfied = menuItems.length > 0;
 
   useEffect(() => {
     setPublicBaseUrl(getClientPublicAppBaseUrl());
   }, []);
 
+  const goToNextGuideStep = useCallback((completedStep: WorkflowGuideStepKey) => {
+    setGuideStep((currentStep) => {
+      if (currentStep !== completedStep) {
+        return currentStep;
+      }
+
+      const nextStep = advanceWorkflowGuideStep(completedStep);
+      return nextStep;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isGuideInitialized || isLoading || typeof window === "undefined") {
+      return;
+    }
+
+    const isDone = isWorkflowGuideDone();
+    const storedStep = readWorkflowGuideStep();
+
+    if (isDone) {
+      setGuideStep(null);
+      setIsGuideInitialized(true);
+      return;
+    }
+
+    const nextStep =
+      storedStep !== null
+        ? storedStep
+        : "admin-restaurant";
+
+    if (
+      nextStep === "admin-restaurant" ||
+      nextStep === "admin-branch" ||
+      nextStep === "admin-table" ||
+      nextStep === "admin-menu" ||
+      nextStep === "admin-qr" ||
+      nextStep === "admin-waiter"
+    ) {
+      setGuideStep(nextStep);
+      writeWorkflowGuideStep(nextStep);
+    } else {
+      setGuideStep(null);
+    }
+
+    setIsGuideInitialized(true);
+  }, [isGuideInitialized, isLoading]);
+
+  const isGuideStepSatisfied = useMemo(() => {
+    if (guideStep === "admin-restaurant") return isRestaurantGuideSatisfied;
+    if (guideStep === "admin-branch") return isBranchGuideSatisfied;
+    if (guideStep === "admin-table") return isTableGuideSatisfied;
+    if (guideStep === "admin-menu") return isMenuGuideSatisfied;
+    if (guideStep === "admin-qr") return tables.some((table) => Boolean(table.publicToken));
+    if (guideStep === "admin-waiter") return true;
+    return false;
+  }, [guideStep, isBranchGuideSatisfied, isMenuGuideSatisfied, isRestaurantGuideSatisfied, isTableGuideSatisfied, tables]);
+
   const filteredBranches = useMemo<BranchListRow[]>(() => {
     if (isAllBranchesSelected) return branches;
     return branches.filter((branch) => branch.id === activeBranchFilter);
   }, [branches, activeBranchFilter, isAllBranchesSelected]);
+
+  const firstGuideQrTableId = useMemo(() => {
+    const branchTables = filteredBranches.flatMap((branch) => branch.tables);
+    return branchTables.find((table) => Boolean(table.publicToken))?.id ?? branchTables[0]?.id ?? null;
+  }, [filteredBranches]);
+
+  const firstGuideQrBranchId = useMemo(() => {
+    return branches.find((branch) => branch.tables.some((table) => Boolean(table.publicToken)))?.id ?? branches[0]?.id ?? null;
+  }, [branches]);
 
   useEffect(() => {
     if (isAllBranchesSelected) return;
@@ -585,6 +670,63 @@ export default function AdminDashboardPage() {
       setActiveBranchFilter(ALL_BRANCHES_KEY);
     }
   }, [branches, activeBranchFilter, isAllBranchesSelected]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const focusTarget = new URLSearchParams(window.location.search).get("focus");
+    setRequestedFocusTarget(focusTarget);
+  }, []);
+
+  useEffect(() => {
+    if (requestedFocusTarget !== "workflow-admin-qr") {
+      return;
+    }
+
+    const focusBranchId =
+      requestedFocusBranchId && branches.some((branch) => branch.id === requestedFocusBranchId)
+        ? requestedFocusBranchId
+        : firstGuideQrBranchId;
+
+    if (!focusBranchId) {
+      return;
+    }
+
+    if (activeBranchFilter !== focusBranchId) {
+      setActiveBranchFilter(focusBranchId);
+    }
+  }, [activeBranchFilter, branches, firstGuideQrBranchId, requestedFocusBranchId, requestedFocusTarget]);
+
+  useEffect(() => {
+    if (!requestedFocusTarget || typeof window === "undefined") {
+      return;
+    }
+
+    const targetElement = document.querySelector(
+      `[data-workflow-guide-id="${requestedFocusTarget}"]`
+    ) as HTMLElement | null;
+
+    if (!targetElement) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      targetElement.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest"
+      });
+
+      const nextUrl = `${window.location.pathname}${window.location.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+      setRequestedFocusTarget(null);
+      setRequestedFocusBranchId(null);
+    }, 120);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [filteredBranches, requestedFocusTarget]);
 
   useEffect(() => {
     if (!importBranchId) {
@@ -768,6 +910,24 @@ export default function AdminDashboardPage() {
     void loadSnapshot();
   }, [loadSnapshot]);
 
+  useRealtimeEvents({
+    role: "admin",
+    onEvent: (event) => {
+      void loadSnapshot();
+
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      if (event.type !== "guest.qr-opened" || guideStep !== "admin-qr") {
+        return;
+      }
+
+      writeWorkflowGuideStep("waiter-open-session");
+      window.location.assign("/waiter");
+    }
+  });
+
   async function handleBootstrap() {
     setError("");
     setMessage("");
@@ -817,6 +977,7 @@ export default function AdminDashboardPage() {
         return next;
       });
       setMessage("Restaurant renamed.");
+      goToNextGuideStep("admin-restaurant");
       void loadSnapshot();
     } catch (renameError) {
       setError(renameError instanceof Error ? renameError.message : "Rename restaurant failed");
@@ -844,6 +1005,7 @@ export default function AdminDashboardPage() {
       });
 
       setMessage("Branch created.");
+      goToNextGuideStep("admin-branch");
       setBranchForm((prev) => ({
         ...prev,
         name: "",
@@ -871,8 +1033,11 @@ export default function AdminDashboardPage() {
       });
 
       setMessage("Table created.");
+      goToNextGuideStep("admin-table");
       setTableForm((prev) => ({ ...prev, name: "", capacity: "4" }));
       await loadSnapshot();
+      setRequestedFocusBranchId(null);
+      setRequestedFocusTarget("workflow-admin-menu");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Create table failed");
     }
@@ -1063,11 +1228,15 @@ export default function AdminDashboardPage() {
           `${result.updatedCount} urun guncellendi, ${result.categoriesCreatedCount} kategori olusturuldu.`;
       setMessage(nextMessage);
       setImportMessage(nextMessage);
+      goToNextGuideStep("admin-menu");
       setImportFileName("");
       setImportSourceColumns([]);
       setImportSourceRows([]);
       setImportColumnMapping(createEmptyImportColumnMapping());
       await loadSnapshot();
+      setActiveBranchFilter(importBranchId);
+      setRequestedFocusBranchId(importBranchId);
+      setRequestedFocusTarget("workflow-admin-qr");
     } catch (importError) {
       const nextError = importError instanceof Error ? importError.message : "Menu import basarisiz.";
       setError(nextError);
@@ -1398,8 +1567,110 @@ export default function AdminDashboardPage() {
     return label;
   };
 
+  const adminGuideConfig =
+    guideStep === "admin-restaurant"
+      ? {
+          targetId: "workflow-admin-restaurant",
+          title: t("Set the restaurant name", "Restoran adini belirle"),
+          description: t(
+            "Rename the restaurant here and save it. If the current name is already correct, confirm and continue.",
+            "Restoran adini burada guncelleyip kaydedin. Mevcut ad zaten dogruysa onaylayip devam edin."
+          ),
+          confirmLabel: t("This name is correct", "Bu ad dogru"),
+          skipLabel: t("Skip this step", "Bu adimi gec")
+        }
+      : guideStep === "admin-branch"
+        ? {
+            targetId: "workflow-admin-branch",
+            title: t("Create the branch", "Subeyi olustur"),
+            description: t(
+              "Complete this branch form and create the working location for the restaurant.",
+              "Bu sube formunu doldurun ve restoran icin calisma lokasyonunu olusturun."
+            ),
+            confirmLabel: t("This branch already exists", "Bu sube zaten hazir"),
+            skipLabel: t("Skip this step", "Bu adimi gec")
+          }
+        : guideStep === "admin-table"
+          ? {
+              targetId: "workflow-admin-table",
+              title: t("Create the table", "Masayi olustur"),
+              description: t(
+                "Create the table that will be used for the demo flow and payment journey.",
+                "Demo akisi ve odeme yolculugunda kullanilacak masayi olusturun."
+              ),
+              confirmLabel: t("This table already exists", "Bu masa zaten hazir"),
+              skipLabel: t("Skip this step", "Bu adimi gec")
+            }
+          : guideStep === "admin-menu"
+            ? {
+                targetId: "workflow-admin-menu",
+                title: t("Import the menu", "Menuyu ice aktar"),
+                description: t(
+                  "Select the branch, upload the Excel or CSV file, and finish the import.",
+                  "Subeyi secin, Excel veya CSV dosyasini yukleyin ve ice aktarmayi tamamlayin."
+                ),
+                confirmLabel: t("The menu is already ready", "Menu zaten hazir"),
+                skipLabel: t("Skip this step", "Bu adimi gec")
+              }
+            : guideStep === "admin-qr"
+              ? {
+                  targetId: "workflow-admin-qr",
+                  title: t("Show the table QR", "Masa QR kodunu goster"),
+                  description: t(
+                    "This is the QR that the customer scans on the table. Use it for the guest join step on mobile.",
+                    "Musterinin masada taradigi QR kod budur. Mobilde misafir katilim adiminda bunu kullanin."
+                  ),
+                  confirmLabel: t("QR is ready", "QR hazir"),
+                  skipLabel: t("Skip this step", "Bu adimi gec")
+                }
+              : guideStep === "admin-waiter"
+                ? {
+                    targetId: "workflow-nav-waiter",
+                    title: t("Go to the waiter section", "Garson ekranina gec"),
+                    description: t(
+                      "Move to the waiter screen to open the session, wait for the guest join, and place the order.",
+                      "Oturumu acmak, misafir katilimini beklemek ve siparisi girmek icin garson ekranina gecin."
+                    ),
+                    confirmLabel: t("Open waiter screen", "Garson ekranini ac"),
+                    skipLabel: t("Skip this step", "Bu adimi gec")
+                  }
+                : null;
+
   return (
     <div className="admin-page stack-md">
+      {guideStep && adminGuideConfig ? (
+        <WorkflowGuide
+          stepIndex={WORKFLOW_GUIDE_STEPS.indexOf(guideStep)}
+          totalSteps={WORKFLOW_GUIDE_STEPS.length}
+          targetId={adminGuideConfig.targetId}
+          title={adminGuideConfig.title}
+          description={adminGuideConfig.description}
+          confirmLabel={adminGuideConfig.confirmLabel}
+          skipLabel={adminGuideConfig.skipLabel}
+          isSatisfied={isGuideStepSatisfied}
+          lockScroll={guideStep !== "admin-menu" && guideStep !== "admin-qr"}
+          maxPanelWidth={guideStep === "admin-qr" ? 320 : 420}
+          onConfirm={() => {
+            if (guideStep === "admin-waiter") {
+              goToNextGuideStep("admin-waiter");
+              window.location.assign("/waiter");
+              return;
+            }
+
+            goToNextGuideStep(guideStep);
+          }}
+          onSkip={() => {
+            if (guideStep === "admin-waiter") {
+              goToNextGuideStep("admin-waiter");
+              window.location.assign("/waiter");
+              return;
+            }
+
+            goToNextGuideStep(guideStep);
+          }}
+        />
+      ) : null}
+
       <section className="admin-hero stack-md">
         <div className="section-head admin-hero-head">
           <div className="dashboard-hero-copy">
@@ -1552,49 +1823,53 @@ export default function AdminDashboardPage() {
               const isSaving = savingRestaurantId === restaurant.id;
 
               return (
-                <AdminFormCard
+                <div
                   key={restaurant.id}
-                  title={restaurant.name}
-                  description={t("Type a new restaurant name and save.", "Yeni restoran adini yazin ve kaydedin.")}
+                  data-workflow-guide-id={snapshot[0]?.id === restaurant.id ? "workflow-admin-restaurant" : undefined}
                 >
-                  <div className="stack-md">
-                    <AdminField label={t("Restaurant name", "Restoran adi")}>
-                      <input
-                        value={draftValue}
-                        onChange={(event) =>
-                          setRestaurantEdits((prev) => ({ ...prev, [restaurant.id]: event.target.value }))
-                        }
-                        placeholder={t("Type a restaurant name", "Bir restoran adi yazin")}
-                      />
-                    </AdminField>
-                    <div className="ticket-actions">
-                      <button
-                        type="button"
-                        className="ticket-action-btn"
-                        onClick={() => void handleRenameRestaurant(restaurant.id)}
-                        disabled={!isDirty || isSaving}
-                      >
-                        {isSaving ? t("Saving...", "Kaydediliyor...") : t("Save name", "Adi kaydet")}
-                      </button>
-                      {isDirty ? (
+                  <AdminFormCard
+                    title={restaurant.name}
+                    description={t("Type a new restaurant name and save.", "Yeni restoran adini yazin ve kaydedin.")}
+                  >
+                    <div className="stack-md">
+                      <AdminField label={t("Restaurant name", "Restoran adi")}>
+                        <input
+                          value={draftValue}
+                          onChange={(event) =>
+                            setRestaurantEdits((prev) => ({ ...prev, [restaurant.id]: event.target.value }))
+                          }
+                          placeholder={t("Type a restaurant name", "Bir restoran adi yazin")}
+                        />
+                      </AdminField>
+                      <div className="ticket-actions">
                         <button
                           type="button"
-                          className="ticket-action-btn secondary"
-                          onClick={() =>
-                            setRestaurantEdits((prev) => {
-                              const next = { ...prev };
-                              delete next[restaurant.id];
-                              return next;
-                            })
-                          }
-                          disabled={isSaving}
+                          className="ticket-action-btn"
+                          onClick={() => void handleRenameRestaurant(restaurant.id)}
+                          disabled={!isDirty || isSaving}
                         >
-                          {t("Cancel", "Iptal")}
+                          {isSaving ? t("Saving...", "Kaydediliyor...") : t("Save name", "Adi kaydet")}
                         </button>
-                      ) : null}
+                        {isDirty ? (
+                          <button
+                            type="button"
+                            className="ticket-action-btn secondary"
+                            onClick={() =>
+                              setRestaurantEdits((prev) => {
+                                const next = { ...prev };
+                                delete next[restaurant.id];
+                                return next;
+                              })
+                            }
+                            disabled={isSaving}
+                          >
+                            {t("Cancel", "Iptal")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </AdminFormCard>
+                  </AdminFormCard>
+                </div>
               );
             })}
           </div>
@@ -1611,97 +1886,101 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid-2">
-          <AdminFormCard title={t("Create branch", "Sube olustur")} description={t("Add an operating location under an existing restaurant.", "Mevcut restoran altina yeni bir lokasyon ekleyin.")}>
-          <form className="stack-md" onSubmit={handleCreateBranch}>
-            <AdminField label={t("Restaurant", "Restoran")}>
-              <select
-                value={branchForm.restaurantId}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
-                required
-              >
-                <option value="">{t("Select restaurant", "Restoran secin")}</option>
-                {snapshot.map((restaurant) => (
-                  <option key={restaurant.id} value={restaurant.id}>
-                    {restaurant.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
+          <div data-workflow-guide-id="workflow-admin-branch">
+            <AdminFormCard title={t("Create branch", "Sube olustur")} description={t("Add an operating location under an existing restaurant.", "Mevcut restoran altina yeni bir lokasyon ekleyin.")}>
+            <form className="stack-md" onSubmit={handleCreateBranch}>
+              <AdminField label={t("Restaurant", "Restoran")}>
+                <select
+                  value={branchForm.restaurantId}
+                  onChange={(event) => setBranchForm((prev) => ({ ...prev, restaurantId: event.target.value }))}
+                  required
+                >
+                  <option value="">{t("Select restaurant", "Restoran secin")}</option>
+                  {snapshot.map((restaurant) => (
+                    <option key={restaurant.id} value={restaurant.id}>
+                      {restaurant.name}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
 
-            <AdminField label={t("Branch name", "Sube adi")}>
-              <input
-                value={branchForm.name}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, name: event.target.value }))}
-                required
-              />
-            </AdminField>
+              <AdminField label={t("Branch name", "Sube adi")}>
+                <input
+                  value={branchForm.name}
+                  onChange={(event) => setBranchForm((prev) => ({ ...prev, name: event.target.value }))}
+                  required
+                />
+              </AdminField>
 
-            <AdminField label={t("Slug", "Slug")}>
-              <input
-                value={branchForm.slug}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, slug: event.target.value }))}
-                placeholder={t("auto if empty", "Bos birakilirsa otomatik")}
-              />
-            </AdminField>
+              <AdminField label={t("Slug", "Slug")}>
+                <input
+                  value={branchForm.slug}
+                  onChange={(event) => setBranchForm((prev) => ({ ...prev, slug: event.target.value }))}
+                  placeholder={t("auto if empty", "Bos birakilirsa otomatik")}
+                />
+              </AdminField>
 
-            <AdminField label={t("Location", "Konum")}>
-              <input
-                value={branchForm.location}
-                onChange={(event) => setBranchForm((prev) => ({ ...prev, location: event.target.value }))}
-              />
-            </AdminField>
+              <AdminField label={t("Location", "Konum")}>
+                <input
+                  value={branchForm.location}
+                  onChange={(event) => setBranchForm((prev) => ({ ...prev, location: event.target.value }))}
+                />
+              </AdminField>
 
-            <p className="helper-text">{t("Leave slug empty to generate a safe public identifier automatically.", "Guvenli genel tanimlayicinin otomatik uretilmesi icin slug alanini bos birakin.")}</p>
+              <p className="helper-text">{t("Leave slug empty to generate a safe public identifier automatically.", "Guvenli genel tanimlayicinin otomatik uretilmesi icin slug alanini bos birakin.")}</p>
 
-            <AdminActions>
-              <button type="submit">{t("Create branch", "Sube olustur")}</button>
-            </AdminActions>
-          </form>
-          </AdminFormCard>
+              <AdminActions>
+                <button type="submit">{t("Create branch", "Sube olustur")}</button>
+              </AdminActions>
+            </form>
+            </AdminFormCard>
+          </div>
 
-          <AdminFormCard title={t("Create table", "Masa olustur")} description={t("Create a table with automatic code and customer QR token.", "Otomatik kod ve musteri QR token'i ile masa olusturun.")}>
-          <form className="stack-md" onSubmit={handleCreateTable}>
-            <AdminField label={t("Branch", "Sube")}>
-              <select
-                value={tableForm.branchId}
-                onChange={(event) => setTableForm((prev) => ({ ...prev, branchId: event.target.value }))}
-                required
-              >
-                <option value="">{t("Select branch", "Sube secin")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
+          <div data-workflow-guide-id="workflow-admin-table">
+            <AdminFormCard title={t("Create table", "Masa olustur")} description={t("Create a table with automatic code and customer QR token.", "Otomatik kod ve musteri QR token'i ile masa olusturun.")}>
+            <form className="stack-md" onSubmit={handleCreateTable}>
+              <AdminField label={t("Branch", "Sube")}>
+                <select
+                  value={tableForm.branchId}
+                  onChange={(event) => setTableForm((prev) => ({ ...prev, branchId: event.target.value }))}
+                  required
+                >
+                  <option value="">{t("Select branch", "Sube secin")}</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
 
-            <AdminField label={t("Table name", "Masa adi")}>
-              <input
-                value={tableForm.name}
-                onChange={(event) => setTableForm((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder={t("T1", "T1")}
-                required
-              />
-            </AdminField>
+              <AdminField label={t("Table name", "Masa adi")}>
+                <input
+                  value={tableForm.name}
+                  onChange={(event) => setTableForm((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder={t("T1", "T1")}
+                  required
+                />
+              </AdminField>
 
-            <AdminField label={t("Capacity", "Kapasite")}>
-              <input
-                type="number"
-                min={1}
-                value={tableForm.capacity}
-                onChange={(event) => setTableForm((prev) => ({ ...prev, capacity: event.target.value }))}
-                required
-              />
-            </AdminField>
+              <AdminField label={t("Capacity", "Kapasite")}>
+                <input
+                  type="number"
+                  min={1}
+                  value={tableForm.capacity}
+                  onChange={(event) => setTableForm((prev) => ({ ...prev, capacity: event.target.value }))}
+                  required
+                />
+              </AdminField>
 
-            <p className="helper-text">{t("Each table is linked to a unique code and QR destination automatically.", "Her masa otomatik olarak benzersiz bir kod ve QR hedefi ile baglanir.")}</p>
+              <p className="helper-text">{t("Each table is linked to a unique code and QR destination automatically.", "Her masa otomatik olarak benzersiz bir kod ve QR hedefi ile baglanir.")}</p>
 
-            <AdminActions>
-              <button type="submit">{t("Create table", "Masa olustur")}</button>
-            </AdminActions>
-          </form>
-          </AdminFormCard>
+              <AdminActions>
+                <button type="submit">{t("Create table", "Masa olustur")}</button>
+              </AdminActions>
+            </form>
+            </AdminFormCard>
+          </div>
         </div>
 
       </section>
@@ -1715,145 +1994,147 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <AdminFormCard
-          title={t("Import full menu (Excel/CSV)", "Tum menuyu ice aktar (Excel/CSV)")}
-          description={t("Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY).", "Tek dosya yukleyerek urunleri olusturun veya guncelleyin; eksik kategoriler otomatik acilsin. Fiyatlar Turk Lirasi (TRY) olarak yorumlanir.")}
-        >
-          <form className="stack-md" onSubmit={handleImportMenuItems}>
-            <AdminField label={t("Branch", "Sube")}>
-              <select value={importBranchId} onChange={(event) => setImportBranchId(event.target.value)} required>
-                <option value="">{t("Select branch", "Sube secin")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
-            </AdminField>
-
-            <AdminField label={t("Excel or CSV file", "Excel veya CSV dosyasi")}>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-                onChange={(event) => void handleImportFileChange(event)}
-              />
-            </AdminField>
-
-            <div className="helper-panel stack-md">
-                <p className="helper-text">
-                {t("Required columns are item name and price. Category names in the file are matched or created for the selected branch.", "Zorunlu kolonlar urun adi ve fiyattir. Dosyadaki kategori adlari secili sube icin eslestirilir veya olusturulur.")}
-              </p>
-              <p className="helper-text">
-                {t("Supported template headers: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.", "Desteklenen sablon basliklar: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.")}
-              </p>
-            </div>
-
-            {importSourceColumns.length > 0 ? (
-              <div className="helper-panel stack-md">
-                <p className="helper-text">
-                  Algilanan kolonlar: {importSourceColumns.join(", ")}
-                </p>
-                <div className="grid-2">
-                  {IMPORT_MAPPING_FIELDS.map((field) => (
-                    <AdminField
-                      key={field.key}
-                      label={`${localizedImportFieldLabel(field.label)}${field.required ? " *" : ""}`}
-                    >
-                      <select
-                        value={importColumnMapping[field.key]}
-                        onChange={(event) => handleImportMappingChange(field.key, event.target.value)}
-                      >
-                        <option value="">{t("Not mapped", "Eslestirilmedi")}</option>
-                        {importSourceColumns.map((columnName) => (
-                          <option key={`${field.key}-${columnName}`} value={columnName}>
-                            {columnName}
-                          </option>
-                        ))}
-                      </select>
-                    </AdminField>
+        <div data-workflow-guide-id="workflow-admin-menu">
+          <AdminFormCard
+            title={t("Import full menu (Excel/CSV)", "Tum menuyu ice aktar (Excel/CSV)")}
+            description={t("Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY).", "Tek dosya yukleyerek urunleri olusturun veya guncelleyin; eksik kategoriler otomatik acilsin. Fiyatlar Turk Lirasi (TRY) olarak yorumlanir.")}
+          >
+            <form className="stack-md" onSubmit={handleImportMenuItems}>
+              <AdminField label={t("Branch", "Sube")}>
+                <select value={importBranchId} onChange={(event) => setImportBranchId(event.target.value)} required>
+                  <option value="">{t("Select branch", "Sube secin")}</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
                   ))}
-                </div>
-                {missingRequiredImportMappings.length > 0 ? (
+                </select>
+              </AdminField>
+
+              <AdminField label={t("Excel or CSV file", "Excel veya CSV dosyasi")}>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                  onChange={(event) => void handleImportFileChange(event)}
+                />
+              </AdminField>
+
+              <div className="helper-panel stack-md">
                   <p className="helper-text">
-                    Import icin eslestirmeniz gereken kolonlar: {missingRequiredImportMappings.join(", ")}.
-                  </p>
-                ) : null}
+                  {t("Required columns are item name and price. Category names in the file are matched or created for the selected branch.", "Zorunlu kolonlar urun adi ve fiyattir. Dosyadaki kategori adlari secili sube icin eslestirilir veya olusturulur.")}
+                </p>
+                <p className="helper-text">
+                  {t("Supported template headers: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.", "Desteklenen sablon basliklar: `branch_name`, `category_name`, `item_name`, `price_try`, `sort_order`, `availability`.")}
+                </p>
               </div>
-            ) : null}
 
-            {importError ? <p className="status-banner is-error">{importError}</p> : null}
-            {importMessage ? <p className="status-banner is-success">{importMessage}</p> : null}
-
-            {importRows.length > 0 ? (
-              <div className="menu-import-preview stack-md">
-                <div className="badge-row">
-                  <span className="badge badge-outline">{importRows.length} satir</span>
-                  <span className="badge badge-neutral">{validImportRows.length} hazir</span>
-                  {invalidImportRows.length > 0 ? (
-                    <span className="badge badge-danger">{invalidImportRows.length} hatali satir</span>
-                  ) : (
-                    <span className="badge badge-status-ready">Tum satirlar gecerli</span>
-                  )}
-                  {importFileName ? <span className="badge badge-outline">{importFileName}</span> : null}
+              {importSourceColumns.length > 0 ? (
+                <div className="helper-panel stack-md">
+                  <p className="helper-text">
+                    Algilanan kolonlar: {importSourceColumns.join(", ")}
+                  </p>
+                  <div className="grid-2">
+                    {IMPORT_MAPPING_FIELDS.map((field) => (
+                      <AdminField
+                        key={field.key}
+                        label={`${localizedImportFieldLabel(field.label)}${field.required ? " *" : ""}`}
+                      >
+                        <select
+                          value={importColumnMapping[field.key]}
+                          onChange={(event) => handleImportMappingChange(field.key, event.target.value)}
+                        >
+                          <option value="">{t("Not mapped", "Eslestirilmedi")}</option>
+                          {importSourceColumns.map((columnName) => (
+                            <option key={`${field.key}-${columnName}`} value={columnName}>
+                              {columnName}
+                            </option>
+                          ))}
+                        </select>
+                      </AdminField>
+                    ))}
+                  </div>
+                  {missingRequiredImportMappings.length > 0 ? (
+                    <p className="helper-text">
+                      Import icin eslestirmeniz gereken kolonlar: {missingRequiredImportMappings.join(", ")}.
+                    </p>
+                  ) : null}
                 </div>
+              ) : null}
 
-                <div className="menu-import-scroll">
-                  <table className="menu-import-table">
-                    <thead>
-                      <tr>
-                        <th>Satir</th>
-                        {importColumnMapping.branchName ? <th>Branch</th> : null}
-                        <th>Urun</th>
-                        <th>Kategori</th>
-                        <th>Fiyat</th>
-                        <th>Durum</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewedImportRows.map((row) => (
-                        <tr key={`${row.rowNumber}-${row.branchName}-${row.name}-${row.priceInput}`}>
-                          <td>{row.rowNumber}</td>
-                          {importColumnMapping.branchName ? <td>{row.branchName || "-"}</td> : null}
-                          <td>{row.name || "-"}</td>
-                          <td>{row.categoryName || "Uncategorized"}</td>
-                          <td>{row.priceValue !== null ? formatTryCurrency(row.priceValue) : "-"}</td>
-                          <td>
-                            {row.errors.length > 0 ? (
-                              <span className="badge badge-danger">{row.errors.join(" | ")}</span>
-                            ) : (
-                              <span className="badge badge-status-ready">{row.isAvailable ? "Aktif" : "Pasif"}</span>
-                            )}
-                          </td>
+              {importError ? <p className="status-banner is-error">{importError}</p> : null}
+              {importMessage ? <p className="status-banner is-success">{importMessage}</p> : null}
+
+              {importRows.length > 0 ? (
+                <div className="menu-import-preview stack-md">
+                  <div className="badge-row">
+                    <span className="badge badge-outline">{importRows.length} satir</span>
+                    <span className="badge badge-neutral">{validImportRows.length} hazir</span>
+                    {invalidImportRows.length > 0 ? (
+                      <span className="badge badge-danger">{invalidImportRows.length} hatali satir</span>
+                    ) : (
+                      <span className="badge badge-status-ready">Tum satirlar gecerli</span>
+                    )}
+                    {importFileName ? <span className="badge badge-outline">{importFileName}</span> : null}
+                  </div>
+
+                  <div className="menu-import-scroll">
+                    <table className="menu-import-table">
+                      <thead>
+                        <tr>
+                          <th>Satir</th>
+                          {importColumnMapping.branchName ? <th>Branch</th> : null}
+                          <th>Urun</th>
+                          <th>Kategori</th>
+                          <th>Fiyat</th>
+                          <th>Durum</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {previewedImportRows.map((row) => (
+                          <tr key={`${row.rowNumber}-${row.branchName}-${row.name}-${row.priceInput}`}>
+                            <td>{row.rowNumber}</td>
+                            {importColumnMapping.branchName ? <td>{row.branchName || "-"}</td> : null}
+                            <td>{row.name || "-"}</td>
+                            <td>{row.categoryName || "Uncategorized"}</td>
+                            <td>{row.priceValue !== null ? formatTryCurrency(row.priceValue) : "-"}</td>
+                            <td>
+                              {row.errors.length > 0 ? (
+                                <span className="badge badge-danger">{row.errors.join(" | ")}</span>
+                              ) : (
+                                <span className="badge badge-status-ready">{row.isAvailable ? "Aktif" : "Pasif"}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {importRows.length > previewedImportRows.length ? (
+                    <p className="helper-text">
+                      Onizleme ilk {previewedImportRows.length} satiri gosterir. Toplam {importRows.length} satir okunmustur.
+                    </p>
+                  ) : null}
                 </div>
+              ) : null}
 
-                {importRows.length > previewedImportRows.length ? (
-                  <p className="helper-text">
-                    Onizleme ilk {previewedImportRows.length} satiri gosterir. Toplam {importRows.length} satir okunmustur.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            <AdminActions>
-              <button
-                type="submit"
-                disabled={
-                  isImportingItems ||
-                  importSourceRows.length === 0 ||
-                  missingRequiredImportMappings.length > 0 ||
-                  invalidImportRows.length > 0 ||
-                  !importBranchId
-                }
-              >
-                {isImportingItems ? t("Importing...", "Ice aktariliyor...") : t("Import menu items", "Menu urunlerini ice aktar")}
-              </button>
-            </AdminActions>
-          </form>
-        </AdminFormCard>
+              <AdminActions>
+                <button
+                  type="submit"
+                  disabled={
+                    isImportingItems ||
+                    importSourceRows.length === 0 ||
+                    missingRequiredImportMappings.length > 0 ||
+                    invalidImportRows.length > 0 ||
+                    !importBranchId
+                  }
+                >
+                  {isImportingItems ? t("Importing...", "Ice aktariliyor...") : t("Import menu items", "Menu urunlerini ice aktar")}
+                </button>
+              </AdminActions>
+            </form>
+          </AdminFormCard>
+        </div>
 
         <div className="section-copy">
           <p className="section-kicker">{t("Manual fallback", "Manuel ekleme")}</p>
@@ -2169,7 +2450,10 @@ export default function AdminDashboardPage() {
                                   </AdminActions>
                                 </div>
 
-                                <div className="qr-card">
+                                <div
+                                  className="qr-card"
+                                  data-workflow-guide-id={table.id === firstGuideQrTableId ? "workflow-admin-qr" : undefined}
+                                >
                                   <div className="stack-md">
                                     <div className="detail-grid">
                                       <div className="detail-card">

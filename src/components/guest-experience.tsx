@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
 import { clearGuestIdentity, readGuestIdentity, writeGuestIdentity } from "@/lib/guest-identity";
@@ -222,11 +223,23 @@ function formatOrderCreatedTime(value: string): string {
   });
 }
 
+function buildGuestQrOpenedStorageKey(tableCode: string) {
+  return `guest-qr-opened:${tableCode.trim().toUpperCase()}`;
+}
+
+async function notifyGuestQrOpened(tableCode: string) {
+  await fetch(`/api/guest/${encodeURIComponent(tableCode)}/opened`, {
+    method: "POST",
+    cache: "no-store"
+  });
+}
+
 type Props = {
   tableCode: string;
 };
 
 export function GuestExperience({ tableCode }: Props) {
+  const { locale, t } = useDashboardLanguage();
   const pathname = usePathname();
   const [state, setState] = useState<GuestState | null>(null);
   const [guestId, setGuestId] = useState("");
@@ -250,6 +263,52 @@ export function GuestExperience({ tableCode }: Props) {
   const [ordersError, setOrdersError] = useState("");
   const [showOrdersSheet, setShowOrdersSheet] = useState(false);
   const ordersRequestRef = useRef(0);
+  const localeCode = locale === "tr" ? "tr-TR" : "en-US";
+  const hostRoleLabel = t("Host", "Host");
+  const guestRoleLabel = t("Guest", "Misafir");
+  const formatSessionDisplayLabelValue = useCallback(
+    (nextState: GuestState) =>
+      t(
+        `${nextState.table.branch.name} • ${nextState.table.name} • Active Session`,
+        `${nextState.table.branch.name} • ${nextState.table.name} • Aktif oturum`
+      ),
+    [t]
+  );
+  const formatGuestOrderStatusValue = useCallback(
+    (status: GuestOrderStatus) => {
+      if (status === "PENDING") return t("Order received", "Siparis alindi");
+      if (status === "IN_PROGRESS") return t("Preparing", "Hazirlaniyor");
+      if (status === "READY") return t("Ready", "Hazir");
+      if (status === "SERVED") return t("Served", "Servis edildi");
+      return t("Cancelled", "Iptal edildi");
+    },
+    [t]
+  );
+  const formatOrderCreatedTimeValue = useCallback(
+    (value: string) =>
+      new Date(value).toLocaleString(localeCode, {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+    [localeCode]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storageKey = buildGuestQrOpenedStorageKey(tableCode);
+
+    if (window.sessionStorage.getItem(storageKey) === "true") {
+      return;
+    }
+
+    window.sessionStorage.setItem(storageKey, "true");
+    void notifyGuestQrOpened(tableCode);
+  }, [tableCode]);
 
   const menuItems = useMemo<MenuItemWithCategory[]>(
     () =>
@@ -303,8 +362,8 @@ export function GuestExperience({ tableCode }: Props) {
   );
   const hostGuestId = state?.session?.guests[0]?.id ?? "";
   const getGuestRoleLabel = useCallback(
-    (nextGuestId: string | null | undefined) => (nextGuestId && nextGuestId === hostGuestId ? HOST_ROLE_LABEL : GUEST_ROLE_LABEL),
-    [hostGuestId]
+    (nextGuestId: string | null | undefined) => (nextGuestId && nextGuestId === hostGuestId ? hostRoleLabel : guestRoleLabel),
+    [guestRoleLabel, hostGuestId, hostRoleLabel]
   );
   const getGuestRoleClassName = useCallback(
     (nextGuestId: string | null | undefined) => `guest-role-pill${nextGuestId && nextGuestId === hostGuestId ? " is-host" : ""}`,
@@ -366,7 +425,7 @@ export function GuestExperience({ tableCode }: Props) {
           return;
         }
 
-        setOrdersError(loadError instanceof Error ? loadError.message : "Failed to load orders.");
+        setOrdersError(loadError instanceof Error ? loadError.message : t("Failed to load orders.", "Siparisler yuklenemedi."));
       } finally {
         if (ordersRequestRef.current !== requestId) {
           return;
@@ -376,7 +435,7 @@ export function GuestExperience({ tableCode }: Props) {
         setOrdersRefreshing(false);
       }
     },
-    [activeJoinedGuestId, activeSessionId, tableCode]
+    [activeJoinedGuestId, activeSessionId, tableCode, t]
   );
 
   const clearCurrentGuestBinding = useCallback(() => {
@@ -407,7 +466,7 @@ export function GuestExperience({ tableCode }: Props) {
     setJoinName("");
     setShowAddGuestForm(false);
     persistCurrentGuestBinding(joinedGuest, state.session.id);
-    setMessage(`Continuing as ${joinedGuest.displayName}`);
+    setMessage(t(`Continuing as ${joinedGuest.displayName}`, `${joinedGuest.displayName} olarak devam ediliyor`));
   }
 
   function handleSwitchGuest(nextGuest: { id: string; displayName: string }) {
@@ -420,7 +479,7 @@ export function GuestExperience({ tableCode }: Props) {
     setJoinName("");
     setShowAddGuestForm(false);
     persistCurrentGuestBinding(nextGuest, state.session.id);
-    setMessage(`Switched to ${nextGuest.displayName}`);
+    setMessage(t(`Switched to ${nextGuest.displayName}`, `${nextGuest.displayName} secildi`));
   }
 
   useEffect(() => {
@@ -573,13 +632,13 @@ export function GuestExperience({ tableCode }: Props) {
 
       persistCurrentGuestBinding(activeGuest, activeSessionId);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load table");
+      setError(loadError instanceof Error ? loadError.message : t("Failed to load table.", "Masa yuklenemedi."));
     } finally {
       if (!options?.silent) {
         setLoading(false);
       }
     }
-  }, [clearCurrentGuestBinding, guestId, persistCurrentGuestBinding, tableCode]);
+  }, [clearCurrentGuestBinding, guestId, persistCurrentGuestBinding, tableCode, t]);
 
   useEffect(() => {
     void load();
@@ -696,7 +755,7 @@ export function GuestExperience({ tableCode }: Props) {
         persistCurrentGuestBinding(reusableGuest, state.session.id);
         setJoinName("");
         setShowAddGuestForm(false);
-        setMessage(`Continuing as ${reusableGuest.displayName}`);
+        setMessage(t(`Continuing as ${reusableGuest.displayName}`, `${reusableGuest.displayName} olarak devam ediliyor`));
         await load({ silent: true });
         return;
       }
@@ -728,10 +787,14 @@ export function GuestExperience({ tableCode }: Props) {
       persistCurrentGuestBinding(json.data.guest, state?.session?.id ?? null);
       setJoinName("");
       setShowAddGuestForm(false);
-      setMessage(`${json.data.created ? "Joined" : "Continuing"} as ${json.data.guest.displayName}`);
+      setMessage(
+        json.data.created
+          ? t(`Joined as ${json.data.guest.displayName}`, `${json.data.guest.displayName} olarak katilindi`)
+          : t(`Continuing as ${json.data.guest.displayName}`, `${json.data.guest.displayName} olarak devam ediliyor`)
+      );
       await load({ silent: true });
     } catch (joinError) {
-      setError(joinError instanceof Error ? joinError.message : "Join failed");
+      setError(joinError instanceof Error ? joinError.message : t("Join failed.", "Katilim basarisiz oldu."));
     } finally {
       setJoining(false);
     }
@@ -744,17 +807,17 @@ export function GuestExperience({ tableCode }: Props) {
     setOrderSuccess(null);
 
     if (!state?.session || !joinedGuest) {
-      setError("Join the table with your name first.");
+      setError(t("Join the table with your name first.", "Once adinizla masaya katilin."));
       return;
     }
 
     if (!selectedMenuItem) {
-      setError("Select an item first.");
+      setError(t("Select an item first.", "Once bir urun secin."));
       return;
     }
 
     if (!selectedMenuItem.isAvailable) {
-      setError("The selected item is currently unavailable.");
+      setError(t("The selected item is currently unavailable.", "Secilen urun su anda uygun degil."));
       return;
     }
 
@@ -801,7 +864,7 @@ export function GuestExperience({ tableCode }: Props) {
       const firstItem = json.data.items[0];
       const totalQuantity = json.data.items.reduce((sum, item) => sum + item.quantity, 0);
 
-      setMessage(`${formatOrderReference(json.data.id)} sent to kitchen.`);
+      setMessage(t(`${formatOrderReference(json.data.id)} sent to kitchen.`, `${formatOrderReference(json.data.id)} mutfaga gonderildi.`));
       if (firstItem) {
         setOrderSuccess({
           orderId: json.data.id,
@@ -812,7 +875,7 @@ export function GuestExperience({ tableCode }: Props) {
       setShowOrdersSheet(true);
       await loadGuestOrders();
     } catch (orderError) {
-      setError(orderError instanceof Error ? orderError.message : "Order could not be sent.");
+      setError(orderError instanceof Error ? orderError.message : t("Order could not be sent.", "Siparis gonderilemedi."));
     } finally {
       setOrdering(false);
     }
@@ -830,14 +893,14 @@ export function GuestExperience({ tableCode }: Props) {
     VOID: 0
   };
   const myOrdersButtonMeta = !joinedGuest
-    ? "Join the table"
+    ? t("Join the table", "Masaya katil")
     : ordersError && !myOrders
-      ? "Load failed"
+      ? t("Load failed", "Yuklenemedi")
     : ordersLoading && !myOrders
-      ? "Loading..."
-      : myOrders && myOrders.summary.itemCount > 0
-        ? `${myOrders.summary.itemCount} items | ${formatTryCurrency(myOrders.summary.subtotal)}`
-        : "No orders yet";
+      ? t("Loading...", "Yukleniyor...")
+    : myOrders && myOrders.summary.itemCount > 0
+        ? t(`${myOrders.summary.itemCount} items | ${formatTryCurrency(myOrders.summary.subtotal)}`, `${myOrders.summary.itemCount} urun | ${formatTryCurrency(myOrders.summary.subtotal)}`)
+        : t("No orders yet", "Henuz siparis yok");
 
   return (
     <div className="guest-menu-app stack-md" style={branchThemeStyle}>
@@ -864,18 +927,18 @@ export function GuestExperience({ tableCode }: Props) {
                 </div>
               )}
               <div className="guest-menu-brand-copy">
-                <p className="guest-menu-kicker">{state?.table.branch.restaurantName ?? "Restaurant"}</p>
-                <h1>{state ? state.table.branch.name : "Guest menu"}</h1>
-                <p>{state ? `Table ${state.table.name} • Live ordering from your phone` : "Loading table access"}</p>
+                <p className="guest-menu-kicker">{state?.table.branch.restaurantName ?? t("Restaurant", "Restoran")}</p>
+                <h1>{state ? state.table.branch.name : t("Guest menu", "Misafir menusu")}</h1>
+                <p>{state ? t(`Table ${state.table.name} • Live ordering from your phone`, `Masa ${state.table.name} • Telefonunuzdan canli siparis`) : t("Loading table access", "Masa erisimi yukleniyor")}</p>
               </div>
             </div>
 
             <div className="guest-menu-actions">
               <Link href={paymentEntryHref} className="guest-menu-action-link">
-                My Payment
+                {t("My Payment", "Odemem")}
               </Link>
               <button type="button" className="guest-menu-action-btn" onClick={() => void load()}>
-                Refresh
+                {t("Refresh", "Yenile")}
               </button>
             </div>
           </div>
@@ -883,27 +946,27 @@ export function GuestExperience({ tableCode }: Props) {
           {state ? (
             <div className="guest-menu-stat-row">
               <article className="guest-menu-stat-card">
-                <span className="guest-menu-stat-label">Table code</span>
+                <span className="guest-menu-stat-label">{t("Table code", "Masa kodu")}</span>
                 <strong>{state.table.code}</strong>
               </article>
               <article className="guest-menu-stat-card">
-                <span className="guest-menu-stat-label">Session</span>
-                <strong>{state.session ? "Open" : "Waiting"}</strong>
+                <span className="guest-menu-stat-label">{t("Session", "Oturum")}</span>
+                <strong>{state.session ? t("Open", "Acik") : t("Waiting", "Bekliyor")}</strong>
               </article>
               <article className="guest-menu-stat-card">
-                <span className="guest-menu-stat-label">Available</span>
+                <span className="guest-menu-stat-label">{t("Available", "Uygun")}</span>
                 <strong>{availableMenuItems}</strong>
               </article>
             </div>
           ) : null}
 
           <div className="status-stack">
-            {loading ? <p className="status-banner is-neutral">Loading your table and menu.</p> : null}
+            {loading ? <p className="status-banner is-neutral">{t("Loading your table and menu.", "Masaniz ve menu yukleniyor.")}</p> : null}
             {error ? <p className="status-banner is-error">{error}</p> : null}
             {message ? <p className="status-banner is-success">{message}</p> : null}
             {orderSuccess ? (
               <p className="status-banner is-success">
-                Sent: {orderSuccess.itemName} x{orderSuccess.quantity} | Ref {formatOrderReference(orderSuccess.orderId)}
+                {t(`Sent: ${orderSuccess.itemName} x${orderSuccess.quantity} | Ref ${formatOrderReference(orderSuccess.orderId)}`, `Gonderildi: ${orderSuccess.itemName} x${orderSuccess.quantity} | Ref ${formatOrderReference(orderSuccess.orderId)}`)}
               </p>
             ) : null}
           </div>
@@ -912,21 +975,21 @@ export function GuestExperience({ tableCode }: Props) {
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search menu"
-              aria-label="Search menu"
+              placeholder={t("Search menu", "Menude ara")}
+              aria-label={t("Search menu", "Menude ara")}
             />
           </label>
 
           {heroMenuItem ? (
             <button type="button" className="guest-spotlight-card" onClick={() => handleFocusMenuItem(heroMenuItem)}>
               <div className="guest-spotlight-copy">
-                <p className="guest-menu-kicker">Chef pick</p>
+                <p className="guest-menu-kicker">{t("Chef pick", "Sef onerisi")}</p>
                 <h2>{heroMenuItem.name}</h2>
-                <p>{heroMenuItem.description ?? "Ready to order from this branch menu."}</p>
+                <p>{heroMenuItem.description ?? t("Ready to order from this branch menu.", "Bu subenin menusunden siparise hazir.")}</p>
                 <div className="badge-row">
                   <span className="badge badge-outline">{formatTryCurrency(heroMenuItem.price)}</span>
                   <span className={`badge${heroMenuItem.isAvailable ? "" : " badge-unavailable"}`}>
-                    {heroMenuItem.isAvailable ? "Available now" : "Unavailable"}
+                    {heroMenuItem.isAvailable ? t("Available now", "Simdi uygun") : t("Unavailable", "Uygun degil")}
                   </span>
                 </div>
               </div>
@@ -941,8 +1004,8 @@ export function GuestExperience({ tableCode }: Props) {
           {featuredMenuItems.length > 0 ? (
             <div className="guest-featured-block">
               <div className="section-copy">
-                <p className="guest-menu-kicker">Best sellers</p>
-                <h3>Quick picks</h3>
+                <p className="guest-menu-kicker">{t("Best sellers", "Cok satanlar")}</p>
+                <h3>{t("Quick picks", "Hizli secimler")}</h3>
               </div>
               <div className="guest-featured-grid">
                 {featuredMenuItems.map((item) => (
@@ -962,7 +1025,7 @@ export function GuestExperience({ tableCode }: Props) {
             </div>
           ) : null}
 
-          <div className="menu-category-scroller" role="tablist" aria-label="Menu categories">
+          <div className="menu-category-scroller" role="tablist" aria-label={t("Menu categories", "Menu kategorileri")}>
             {visibleMenu.map((category) => {
               const isActive = activeVisibleCategory?.id === category.id;
 
@@ -986,25 +1049,25 @@ export function GuestExperience({ tableCode }: Props) {
       {!state?.session ? (
         <section className="panel guest-menu-panel">
           <div className="section-copy">
-            <h3>Session not open yet</h3>
-            <p className="panel-subtitle">Ask a waiter to open this table before guests can join or send orders.</p>
+            <h3>{t("Session not open yet", "Oturum henuz acik degil")}</h3>
+            <p className="panel-subtitle">{t("Ask a waiter to open this table before guests can join or send orders.", "Misafirler katilmadan veya siparis gondermeden once bir garsondan bu masayi acmasini isteyin.")}</p>
           </div>
         </section>
       ) : (
         <>
           <form className="guest-menu-panel guest-join-card stack-md" onSubmit={handleJoin}>
             <div className="section-copy">
-              <p className="guest-menu-kicker">Session</p>
-              <h3>Join table</h3>
-              <p className="helper-text">Use your name so kitchen and cashier flows stay tied to the right guest.</p>
+              <p className="guest-menu-kicker">{t("Session", "Oturum")}</p>
+              <h3>{t("Join table", "Masaya katil")}</h3>
+              <p className="helper-text">{t("Use your name so kitchen and cashier flows stay tied to the right guest.", "Mutfak ve kasiyer akislarinin dogru misafire bagli kalmasi icin adinizi kullanin.")}</p>
             </div>
 
             <div className="badge-row">
-              <span className="badge badge-outline">{formatSessionDisplayLabel(state)}</span>
-              <span className="badge badge-status-open">{state.session.guests.length} guest(s) joined</span>
+              <span className="badge badge-outline">{formatSessionDisplayLabelValue(state)}</span>
+              <span className="badge badge-status-open">{t(`${state.session.guests.length} guest(s) joined`, `${state.session.guests.length} misafir katildi`)}</span>
               {joinedGuest ? (
                 <span className="badge badge-neutral">
-                  You: {joinedGuest.displayName} - {getGuestRoleLabel(joinedGuest.id)}
+                  {t("You", "Siz")}: {joinedGuest.displayName} - {getGuestRoleLabel(joinedGuest.id)}
                 </span>
               ) : null}
             </div>
@@ -1012,19 +1075,19 @@ export function GuestExperience({ tableCode }: Props) {
             {joinedGuest ? (
               <div className="selection-summary stack-md">
                 <p>
-                  Current guest on this device: <strong>{joinedGuest.displayName}</strong>
+                  {t("Current guest on this device:", "Bu cihazdaki aktif misafir:")} <strong>{joinedGuest.displayName}</strong>
                 </p>
                 <div className="ticket-actions">
                   <button type="button" className="secondary" onClick={handleContinueAsCurrentGuest}>
-                    Continue as {joinedGuest.displayName}
+                    {t(`Continue as ${joinedGuest.displayName}`, `${joinedGuest.displayName} olarak devam et`)}
                   </button>
                   <button type="button" onClick={() => setShowAddGuestForm(true)} disabled={!addAnotherGuestAvailable}>
-                    Add another guest
+                    {t("Add another guest", "Baska misafir ekle")}
                   </button>
                 </div>
                 {otherJoinedGuests.length > 0 ? (
                   <div className="stack-md">
-                    <p className="helper-text">Switch this device to another joined guest if needed.</p>
+                    <p className="helper-text">{t("Switch this device to another joined guest if needed.", "Gerekirse bu cihazi baska bir katilan misafire gecirin.")}</p>
                     <div className="guest-selector-list">
                       {otherJoinedGuests.map((guest) => (
                         <button
@@ -1035,7 +1098,7 @@ export function GuestExperience({ tableCode }: Props) {
                         >
                           <span className="guest-selector-name">{guest.displayName}</span>
                           <span className="guest-selector-meta">
-                            {getGuestRoleLabel(guest.id)} - Switch this device to {guest.displayName}
+                            {getGuestRoleLabel(guest.id)} - {t(`Switch this device to ${guest.displayName}`, `Bu cihazi ${guest.displayName} icin kullan`)}
                           </span>
                         </button>
                       ))}
@@ -1048,21 +1111,21 @@ export function GuestExperience({ tableCode }: Props) {
             {shouldShowJoinForm ? (
               <>
                 <label>
-                  {joinedGuest ? "Another guest name" : "Your name"}
+                  {joinedGuest ? t("Another guest name", "Diger misafir adi") : t("Your name", "Adiniz")}
                   <input
                     value={joinName}
                     onChange={(event) => setJoinName(event.target.value)}
-                    placeholder="e.g. Alex"
+                    placeholder={t("e.g. Alex", "ornek: Alex")}
                     required
                   />
                 </label>
                 <div className="ticket-actions">
                   <button type="submit" disabled={joining}>
-                    {joining ? "Joining..." : joinedGuest ? "Add guest to table" : "Join table"}
+                    {joining ? t("Joining...", "Katiliniyor...") : joinedGuest ? t("Add guest to table", "Masaya misafir ekle") : t("Join table", "Masaya katil")}
                   </button>
                   {joinedGuest ? (
                     <button type="button" className="secondary" onClick={handleContinueAsCurrentGuest}>
-                      Continue as {joinedGuest.displayName}
+                      {t(`Continue as ${joinedGuest.displayName}`, `${joinedGuest.displayName} olarak devam et`)}
                     </button>
                   ) : null}
                 </div>
@@ -1079,24 +1142,24 @@ export function GuestExperience({ tableCode }: Props) {
                 ))}
               </div>
             ) : (
-              <p className="helper-text">No one has joined this table yet.</p>
+              <p className="helper-text">{t("No one has joined this table yet.", "Bu masaya henuz kimse katilmadi.")}</p>
             )}
           </form>
 
           <section className="guest-menu-panel stack-md">
             <div className="section-copy">
-              <p className="guest-menu-kicker">Menu</p>
-              <h3>{activeVisibleCategory ? activeVisibleCategory.name : "Browse menu"}</h3>
+              <p className="guest-menu-kicker">{t("Menu", "Menu")}</p>
+              <h3>{activeVisibleCategory ? activeVisibleCategory.name : t("Browse menu", "Menuyu incele")}</h3>
               <p className="helper-text">
                 {normalizedSearchQuery
-                  ? `${visibleMenuItems} result(s) matching "${searchQuery.trim()}".`
-                  : `${state.menu.length} categories and ${totalMenuItems} items available for this branch.`}
+                  ? t(`${visibleMenuItems} result(s) matching "${searchQuery.trim()}".`, `"${searchQuery.trim()}" icin ${visibleMenuItems} sonuc bulundu.`)
+                  : t(`${state.menu.length} categories and ${totalMenuItems} items available for this branch.`, `Bu sube icin ${state.menu.length} kategori ve ${totalMenuItems} urun mevcut.`)}
               </p>
             </div>
 
-            {state.menu.length === 0 ? <p className="empty empty-state">No menu categories available for this table yet.</p> : null}
+            {state.menu.length === 0 ? <p className="empty empty-state">{t("No menu categories available for this table yet.", "Bu masa icin henuz menu kategorisi yok.")}</p> : null}
             {state.menu.length > 0 && visibleMenu.length === 0 ? (
-              <p className="empty empty-state">No items matched your search. Try another keyword.</p>
+              <p className="empty empty-state">{t("No items matched your search. Try another keyword.", "Aramaniza uyan urun bulunamadi. Baska bir kelime deneyin.")}</p>
             ) : null}
 
             {activeVisibleCategory ? (
@@ -1122,10 +1185,10 @@ export function GuestExperience({ tableCode }: Props) {
                           <h4>{item.name}</h4>
                           <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
                         </div>
-                        <p className="menu-item-description">{item.description ?? "No description."}</p>
+                        <p className="menu-item-description">{item.description ?? t("No description.", "Aciklama yok.")}</p>
                         <div className="menu-item-meta">
                           <span className={`badge${item.isAvailable ? "" : " badge-unavailable"}`}>
-                            {item.isAvailable ? "Available" : "Unavailable"}
+                            {item.isAvailable ? t("Available", "Uygun") : t("Unavailable", "Uygun degil")}
                           </span>
                         </div>
                       </div>
@@ -1138,8 +1201,8 @@ export function GuestExperience({ tableCode }: Props) {
 
           <form className="guest-menu-panel guest-order-sheet stack-md" onSubmit={handleOrder}>
             <div className="section-copy">
-              <p className="guest-menu-kicker">Order</p>
-              <h3>Finish and send</h3>
+              <p className="guest-menu-kicker">{t("Order", "Siparis")}</p>
+              <h3>{t("Finish and send", "Tamamla ve gonder")}</h3>
             </div>
 
             <div className="guest-order-summary">
@@ -1153,33 +1216,33 @@ export function GuestExperience({ tableCode }: Props) {
                     </div>
                   )}
                   <div className="guest-order-summary-copy">
-                    <p className="dashboard-stat-label">Selected item</p>
+                    <p className="dashboard-stat-label">{t("Selected item", "Secilen urun")}</p>
                     <h4>{selectedMenuItem.name}</h4>
                     <p>{formatTryCurrency(selectedMenuItem.price)}</p>
                     <div className="badge-row">
                       <span className={`badge${selectedMenuItem.isAvailable ? "" : " badge-unavailable"}`}>
-                        {selectedMenuItem.isAvailable ? "Available now" : "Currently unavailable"}
+                        {selectedMenuItem.isAvailable ? t("Available now", "Simdi uygun") : t("Currently unavailable", "Su anda uygun degil")}
                       </span>
-                      {joinedGuest ? <span className="badge badge-neutral">Ordering as {joinedGuest.displayName}</span> : null}
+                      {joinedGuest ? <span className="badge badge-neutral">{t(`Ordering as ${joinedGuest.displayName}`, `${joinedGuest.displayName} olarak siparis veriliyor`)}</span> : null}
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="meta">Select an item to order.</p>
+                <p className="meta">{t("Select an item to order.", "Siparis vermek icin bir urun secin.")}</p>
               )}
             </div>
 
-            {selectedMenuItem && !selectedMenuItem.isAvailable ? <p className="error">This item is currently unavailable.</p> : null}
+            {selectedMenuItem && !selectedMenuItem.isAvailable ? <p className="error">{t("This item is currently unavailable.", "Bu urun su anda uygun degil.")}</p> : null}
 
             <div className="quantity-row">
-              <label htmlFor="guest-order-quantity">Quantity</label>
+              <label htmlFor="guest-order-quantity">{t("Quantity", "Adet")}</label>
               <div className="quantity-stepper">
                 <button
                   type="button"
                   className="secondary"
                   onClick={() => stepQuantity(-1)}
                   disabled={!selectedMenuItem || !selectedMenuItem.isAvailable}
-                  aria-label="Decrease quantity"
+                  aria-label={t("Decrease quantity", "Adedi azalt")}
                 >
                   -
                 </button>
@@ -1204,7 +1267,7 @@ export function GuestExperience({ tableCode }: Props) {
                   className="secondary"
                   onClick={() => stepQuantity(1)}
                   disabled={!selectedMenuItem || !selectedMenuItem.isAvailable}
-                  aria-label="Increase quantity"
+                  aria-label={t("Increase quantity", "Adedi artir")}
                 >
                   +
                 </button>
@@ -1212,11 +1275,11 @@ export function GuestExperience({ tableCode }: Props) {
             </div>
 
             <label>
-              Item note (optional)
+              {t("Item note (optional)", "Urun notu (opsiyonel)")}
               <textarea
                 value={itemNote}
                 onChange={(event) => setItemNote(event.target.value)}
-                placeholder="e.g. no onions, extra spicy"
+                placeholder={t("e.g. no onions, extra spicy", "ornek: sogansiz, ekstra acili")}
                 maxLength={300}
               />
             </label>
@@ -1225,9 +1288,9 @@ export function GuestExperience({ tableCode }: Props) {
               type="submit"
               disabled={ordering || !joinedGuest || !state.session || !selectedMenuItem || !selectedMenuItem.isAvailable}
             >
-              {ordering ? "Sending..." : "Send order"}
+              {ordering ? t("Sending...", "Gonderiliyor...") : t("Send order", "Siparisi gonder")}
             </button>
-            {!joinedGuest ? <p className="meta">Join with your name before ordering.</p> : null}
+            {!joinedGuest ? <p className="meta">{t("Join with your name before ordering.", "Siparisten once adinizla katilin.")}</p> : null}
           </form>
         </>
       )}
@@ -1235,15 +1298,15 @@ export function GuestExperience({ tableCode }: Props) {
       {state?.session ? (
         <div className="guest-mobile-actions">
           <button type="button" className="guest-mobile-action" onClick={() => setShowOrdersSheet(true)}>
-            <span className="guest-mobile-action-label">My Orders</span>
+            <span className="guest-mobile-action-label">{t("My Orders", "Siparislerim")}</span>
             <span className="guest-mobile-action-meta">{myOrdersButtonMeta}</span>
           </button>
           <Link href={paymentEntryHref} className="guest-mobile-action guest-mobile-action--link">
-            <span className="guest-mobile-action-label">My Payment</span>
+            <span className="guest-mobile-action-label">{t("My Payment", "Odemem")}</span>
             <span className="guest-mobile-action-meta">
               {myOrders && myOrders.summary.unpaidAmount !== null
                 ? formatTryCurrency(myOrders.summary.unpaidAmount)
-                : "View my share"}
+                : t("View my share", "Payimi gor")}
             </span>
           </Link>
         </div>
@@ -1255,19 +1318,19 @@ export function GuestExperience({ tableCode }: Props) {
             className="guest-orders-sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="My Orders"
+            aria-label={t("My Orders", "Siparislerim")}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="guest-orders-sheet-handle" />
 
             <div className="guest-orders-sheet-head">
               <div className="section-copy">
-                <p className="guest-menu-kicker">My Orders</p>
-                <h3>{joinedGuest ? joinedGuest.displayName : "Guest mapping required"}</h3>
+                <p className="guest-menu-kicker">{t("My Orders", "Siparislerim")}</p>
+                <h3>{joinedGuest ? joinedGuest.displayName : t("Guest mapping required", "Misafir eslemesi gerekli")}</h3>
                 <p className="helper-text">
                   {joinedGuest
-                    ? "Only orders for the guest mapped on this device are shown."
-                    : "After joining the table with your name, your orders will appear here."}
+                    ? t("Only orders for the guest mapped on this device are shown.", "Yalnizca bu cihaza bagli misafirin siparisleri gosterilir.")
+                    : t("After joining the table with your name, your orders will appear here.", "Adinizla masaya katildiktan sonra siparisleriniz burada gorunecek.")}
                 </p>
               </div>
 
@@ -1278,45 +1341,45 @@ export function GuestExperience({ tableCode }: Props) {
                   onClick={() => void loadGuestOrders({ silent: true })}
                   disabled={!joinedGuest || ordersRefreshing}
                 >
-                  {ordersRefreshing ? "Refreshing..." : "Refresh"}
+                  {ordersRefreshing ? t("Refreshing...", "Yenileniyor...") : t("Refresh", "Yenile")}
                 </button>
                 <button type="button" className="secondary" onClick={() => setShowOrdersSheet(false)}>
-                  Close
+                  {t("Close", "Kapat")}
                 </button>
               </div>
             </div>
 
             <div className="guest-orders-sheet-body stack-md">
-              {ordersLoading && !myOrders ? <p className="status-banner is-neutral">Loading your orders.</p> : null}
+              {ordersLoading && !myOrders ? <p className="status-banner is-neutral">{t("Loading your orders.", "Siparisleriniz yukleniyor.")}</p> : null}
               {ordersError ? <p className="status-banner is-error">{ordersError}</p> : null}
-              {ordersRefreshing && myOrders ? <p className="status-banner is-neutral">Refreshing statuses.</p> : null}
+              {ordersRefreshing && myOrders ? <p className="status-banner is-neutral">{t("Refreshing statuses.", "Durumlar yenileniyor.")}</p> : null}
 
               {!joinedGuest ? (
                 <div className="selection-summary stack-md">
                   <p>
-                    <strong>Guest mapping is required.</strong>
+                    <strong>{t("Guest mapping is required.", "Misafir eslemesi gerekli.")}</strong>
                   </p>
                   <p className="helper-text">
-                    After joining the table with your name, your orders will appear here.
+                    {t("After joining the table with your name, your orders will appear here.", "Adinizla masaya katildiktan sonra siparisleriniz burada gorunecek.")}
                   </p>
                 </div>
               ) : myOrders && myOrders.orders.length > 0 ? (
                 <>
                   <div className="dashboard-stat-grid guest-orders-summary-grid">
                     <article className="dashboard-stat-card">
-                      <p className="dashboard-stat-label">Guest</p>
+                      <p className="dashboard-stat-label">{t("Guest", "Misafir")}</p>
                       <p className="dashboard-stat-value guest-orders-stat-value">{myOrders.identifiedGuest?.displayName ?? "-"}</p>
                     </article>
                     <article className="dashboard-stat-card">
-                      <p className="dashboard-stat-label">Total items</p>
+                      <p className="dashboard-stat-label">{t("Total items", "Toplam urun")}</p>
                       <p className="dashboard-stat-value">{myOrders.summary.itemCount}</p>
                     </article>
                     <article className="dashboard-stat-card">
-                      <p className="dashboard-stat-label">Subtotal</p>
+                      <p className="dashboard-stat-label">{t("Subtotal", "Ara toplam")}</p>
                       <p className="dashboard-stat-value">{formatTryCurrency(myOrders.summary.subtotal)}</p>
                     </article>
                     <article className="dashboard-stat-card">
-                      <p className="dashboard-stat-label">Unpaid</p>
+                      <p className="dashboard-stat-label">{t("Unpaid", "Odenmedi")}</p>
                       <p className="dashboard-stat-value">
                         {myOrders.summary.unpaidAmount !== null ? formatTryCurrency(myOrders.summary.unpaidAmount) : "-"}
                       </p>
@@ -1325,14 +1388,14 @@ export function GuestExperience({ tableCode }: Props) {
 
                   <div className="selection-summary stack-md">
                     <div className="section-copy">
-                      <h4>Order summary</h4>
-                      <p className="helper-text">Statuses are calculated only from your own items.</p>
+                      <h4>{t("Order summary", "Siparis ozeti")}</h4>
+                      <p className="helper-text">{t("Statuses are calculated only from your own items.", "Durumlar yalnizca kendi urunlerinizden hesaplanir.")}</p>
                     </div>
                     <div className="badge-row">
-                      <span className="badge badge-status-pending">Pending {orderStatusSummary.PENDING}</span>
-                      <span className="badge badge-status-progress">Preparing {orderStatusSummary.IN_PROGRESS}</span>
-                      <span className="badge badge-status-ready">Ready {orderStatusSummary.READY}</span>
-                      <span className="badge badge-status-served">Served {orderStatusSummary.SERVED}</span>
+                      <span className="badge badge-status-pending">{t("Pending", "Bekliyor")} {orderStatusSummary.PENDING}</span>
+                      <span className="badge badge-status-progress">{t("Preparing", "Hazirlaniyor")} {orderStatusSummary.IN_PROGRESS}</span>
+                      <span className="badge badge-status-ready">{t("Ready", "Hazir")} {orderStatusSummary.READY}</span>
+                      <span className="badge badge-status-served">{t("Served", "Servis edildi")} {orderStatusSummary.SERVED}</span>
                     </div>
                   </div>
 
@@ -1342,11 +1405,11 @@ export function GuestExperience({ tableCode }: Props) {
                         <div className="guest-order-history-head">
                           <div className="section-copy">
                             <h4>{formatOrderReference(order.id)}</h4>
-                            <p className="helper-text">Submitted: {formatOrderCreatedTime(order.createdAt)}</p>
+                            <p className="helper-text">{t("Submitted", "Gonderildi")}: {formatOrderCreatedTimeValue(order.createdAt)}</p>
                           </div>
                           <div className="badge-row">
                             <span className={`badge ${order.source === "CUSTOMER" ? "badge-source-customer" : "badge-source-waiter"}`}>
-                              {order.source === "CUSTOMER" ? "QR order" : "Staff order"}
+                              {order.source === "CUSTOMER" ? t("QR order", "QR siparisi") : t("Staff order", "Personel siparisi")}
                             </span>
                             <span className="badge badge-outline">{formatTryCurrency(order.subtotal)}</span>
                           </div>
@@ -1359,7 +1422,7 @@ export function GuestExperience({ tableCode }: Props) {
                                 <div className="section-copy">
                                   <h4>{item.itemName}</h4>
                                   <p className="helper-text">
-                                    Qty {item.quantity} x {formatTryCurrency(item.unitPrice)}
+                                    {t("Qty", "Adet")} {item.quantity} x {formatTryCurrency(item.unitPrice)}
                                   </p>
                                 </div>
                                 <strong>{formatTryCurrency(item.lineTotal)}</strong>
@@ -1367,14 +1430,14 @@ export function GuestExperience({ tableCode }: Props) {
 
                               <div className="badge-row">
                                 <span className={`badge ${guestOrderStatusBadgeClass(item.status)}`}>
-                                  {formatGuestOrderStatus(item.status)}
+                                  {formatGuestOrderStatusValue(item.status)}
                                 </span>
-                                <span className="badge badge-outline">{formatOrderCreatedTime(item.createdAt)}</span>
+                                <span className="badge badge-outline">{formatOrderCreatedTimeValue(item.createdAt)}</span>
                               </div>
 
                               {item.note ? (
                                 <p className="meta">
-                                  <strong>Note:</strong> {item.note}
+                                  <strong>{t("Note", "Not")}:</strong> {item.note}
                                 </p>
                               ) : null}
                             </article>
@@ -1387,9 +1450,9 @@ export function GuestExperience({ tableCode }: Props) {
               ) : myOrders && joinedGuest && !ordersLoading ? (
                 <div className="selection-summary stack-md">
                   <p>
-                    <strong>You do not have any orders yet.</strong>
+                    <strong>{t("You do not have any orders yet.", "Henuz siparisiniz yok.")}</strong>
                   </p>
-                  <p className="helper-text">Select items from the menu to place your first order.</p>
+                  <p className="helper-text">{t("Select items from the menu to place your first order.", "Ilk siparisinizi vermek icin menuden urun secin.")}</p>
                 </div>
               ) : null}
             </div>
