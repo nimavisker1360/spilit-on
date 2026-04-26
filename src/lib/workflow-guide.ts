@@ -22,6 +22,7 @@ export type WorkflowGuideStepKey =
 
 export const WORKFLOW_GUIDE_STEP_KEY = "workflow-guide-step-v3";
 export const WORKFLOW_GUIDE_DONE_KEY = "workflow-guide-done-v3";
+export const WORKFLOW_GUIDE_RESET_EVENT = "workflow-guide-reset";
 
 export const WORKFLOW_GUIDE_STEPS: WorkflowGuideStepKey[] = [
   "admin-restaurant",
@@ -113,4 +114,12 @@ export function resetWorkflowGuide(startStep: WorkflowGuideStepKey = "admin-rest
 
   window.localStorage.removeItem(WORKFLOW_GUIDE_DONE_KEY);
   writeWorkflowGuideStep(startStep);
+}
+
+export function emitWorkflowGuideReset() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(WORKFLOW_GUIDE_RESET_EVENT));
 }

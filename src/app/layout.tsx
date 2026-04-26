@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
 
@@ -53,8 +54,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const localeCookie = cookies().get("dashboard-locale")?.value;
+  const htmlLang = localeCookie === "en" ? "en" : "tr";
+
   return (
-    <html lang="tr" className={`${fontBody.variable} ${fontDisplay.variable}`}>
+    <html lang={htmlLang} className={`${fontBody.variable} ${fontDisplay.variable}`}>
       <body className="min-h-dvh antialiased">
         <PwaRegister />
         {children}

@@ -9,6 +9,7 @@ import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
 import {
   advanceWorkflowGuideStep,
+  completeWorkflowGuide,
   isWorkflowGuideDone,
   readWorkflowGuideStep,
   type WorkflowGuideStepKey,
@@ -1451,7 +1452,8 @@ export default function CashierDashboardPage() {
             setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
           }}
           onSkip={() => {
-            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+            completeWorkflowGuide();
+            setGuideStep(null);
           }}
         />
       ) : null}

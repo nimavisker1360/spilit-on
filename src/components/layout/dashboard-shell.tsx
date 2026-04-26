@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { InstallAppButton } from "@/components/install-app-button";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS, ROLE_LAYOUT_META } from "@/lib/navigation";
-import { resetWorkflowGuide } from "@/lib/workflow-guide";
+import { emitWorkflowGuideReset, resetWorkflowGuide } from "@/lib/workflow-guide";
 import type { AppRole } from "@/types";
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -109,6 +109,7 @@ function FlagEN() {
 
 export function DashboardShell({ children, role }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const { locale, setLocale, t } = useDashboardLanguage();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const adminDelayTimersRef = useRef<number[]>([]);
@@ -243,8 +244,15 @@ export function DashboardShell({ children, role }: Props) {
   }, [role]);
 
   const handleResetGuide = () => {
+    window.localStorage.setItem("dashboard-locale", locale);
     resetWorkflowGuide("admin-restaurant");
-    window.location.assign("/admin");
+
+    if (pathname === "/admin") {
+      emitWorkflowGuideReset();
+      return;
+    }
+
+    router.push("/admin");
   };
 
   return (

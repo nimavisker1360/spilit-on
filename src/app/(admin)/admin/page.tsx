@@ -12,9 +12,11 @@ import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
 import {
   advanceWorkflowGuideStep,
+  completeWorkflowGuide,
   isWorkflowGuideDone,
   readWorkflowGuideStep,
   type WorkflowGuideStepKey,
+  WORKFLOW_GUIDE_RESET_EVENT,
   WORKFLOW_GUIDE_STEPS,
   writeWorkflowGuideStep
 } from "@/lib/workflow-guide";
@@ -640,6 +642,38 @@ export default function AdminDashboardPage() {
     setIsGuideInitialized(true);
   }, [isGuideInitialized, isLoading]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleGuideReset = () => {
+      const nextStep = readWorkflowGuideStep() ?? "admin-restaurant";
+
+      if (
+        nextStep === "admin-restaurant" ||
+        nextStep === "admin-branch" ||
+        nextStep === "admin-table" ||
+        nextStep === "admin-menu" ||
+        nextStep === "admin-qr" ||
+        nextStep === "admin-waiter"
+      ) {
+        setGuideStep(nextStep);
+        writeWorkflowGuideStep(nextStep);
+        return;
+      }
+
+      setGuideStep("admin-restaurant");
+      writeWorkflowGuideStep("admin-restaurant");
+    };
+
+    window.addEventListener(WORKFLOW_GUIDE_RESET_EVENT, handleGuideReset);
+
+    return () => {
+      window.removeEventListener(WORKFLOW_GUIDE_RESET_EVENT, handleGuideReset);
+    };
+  }, []);
+
   const isGuideStepSatisfied = useMemo(() => {
     if (guideStep === "admin-restaurant") return isRestaurantGuideSatisfied;
     if (guideStep === "admin-branch") return isBranchGuideSatisfied;
@@ -739,6 +773,36 @@ export default function AdminDashboardPage() {
 
     setImportBranchId(branches[0]?.id ?? "");
   }, [branches, importBranchId]);
+
+  useEffect(() => {
+    if (importBranchId || importSourceRows.length === 0 || !importColumnMapping.branchName) {
+      return;
+    }
+
+    const normalizedBranchValues = Array.from(
+      new Set(
+        importSourceRows
+          .map((rawRow) => toImportCellText(getMappedImportCellValue(rawRow, importColumnMapping.branchName)))
+          .map(normalizeImportColumnName)
+          .filter(Boolean)
+      )
+    );
+
+    if (normalizedBranchValues.length !== 1) {
+      return;
+    }
+
+    const matchedBranch = branches.find((branch) => {
+      const normalizedBranchName = normalizeImportColumnName(branch.name);
+      const normalizedBranchSlug = normalizeImportColumnName(branch.slug);
+
+      return normalizedBranchValues[0] === normalizedBranchName || normalizedBranchValues[0] === normalizedBranchSlug;
+    });
+
+    if (matchedBranch) {
+      setImportBranchId(matchedBranch.id);
+    }
+  }, [branches, importBranchId, importSourceRows, importColumnMapping.branchName]);
 
   const selectableCategoriesForCreateItem = useMemo(() => {
     return branches.find((branch) => branch.id === itemForm.branchId)?.menuCategories ?? [];
@@ -1037,7 +1101,7 @@ export default function AdminDashboardPage() {
       setTableForm((prev) => ({ ...prev, name: "", capacity: "4" }));
       await loadSnapshot();
       setRequestedFocusBranchId(null);
-      setRequestedFocusTarget("workflow-admin-menu");
+      setRequestedFocusTarget("workflow-admin-menu-submit");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Create table failed");
     }
@@ -1159,6 +1223,8 @@ export default function AdminDashboardPage() {
       const nextMessage = `${file.name} dosyasi okundu. Kolon eslestirmesini kontrol edip import edin.`;
       setMessage(nextMessage);
       setImportMessage(nextMessage);
+      setRequestedFocusBranchId(null);
+      setRequestedFocusTarget("workflow-admin-menu-submit");
     } catch (fileError) {
       setImportFileName("");
       setImportSourceColumns([]);
@@ -1200,13 +1266,6 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    if (invalidImportRows.length > 0) {
-      const nextError = `Import baslatilamadi. ${invalidImportRows.length} satirdaki hatalari duzeltin.`;
-      setError(nextError);
-      setImportError(nextError);
-      return;
-    }
-
     if (importPayloadRows.length === 0) {
       const nextError = "Gecerli import satiri bulunamadi.";
       setError(nextError);
@@ -1225,15 +1284,17 @@ export default function AdminDashboardPage() {
 
       const nextMessage =
         `Import tamamlandi: ${result.processedCount} satir islendi, ${result.createdCount} yeni urun eklendi, ` +
-          `${result.updatedCount} urun guncellendi, ${result.categoriesCreatedCount} kategori olusturuldu.`;
+          `${result.updatedCount} urun guncellendi, ${result.categoriesCreatedCount} kategori olusturuldu.` +
+          (invalidImportRows.length > 0 ? ` ${invalidImportRows.length} hatali satir atlandi.` : "");
       setMessage(nextMessage);
       setImportMessage(nextMessage);
-      goToNextGuideStep("admin-menu");
       setImportFileName("");
       setImportSourceColumns([]);
       setImportSourceRows([]);
       setImportColumnMapping(createEmptyImportColumnMapping());
       await loadSnapshot();
+      setGuideStep("admin-qr");
+      writeWorkflowGuideStep("admin-qr");
       setActiveBranchFilter(importBranchId);
       setRequestedFocusBranchId(importBranchId);
       setRequestedFocusTarget("workflow-admin-qr");
@@ -1603,7 +1664,7 @@ export default function AdminDashboardPage() {
             }
           : guideStep === "admin-menu"
             ? {
-                targetId: "workflow-admin-menu",
+                targetId: "workflow-admin-menu-anchor",
                 title: t("Import the menu", "Menuyu ice aktar"),
                 description: t(
                   "Select the branch, upload the Excel or CSV file, and finish the import.",
@@ -1660,13 +1721,8 @@ export default function AdminDashboardPage() {
             goToNextGuideStep(guideStep);
           }}
           onSkip={() => {
-            if (guideStep === "admin-waiter") {
-              goToNextGuideStep("admin-waiter");
-              window.location.assign("/waiter");
-              return;
-            }
-
-            goToNextGuideStep(guideStep);
+            completeWorkflowGuide();
+            setGuideStep(null);
           }}
         />
       ) : null}
@@ -1986,7 +2042,7 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="section-block">
-        <div className="section-copy">
+        <div className="section-copy" data-workflow-guide-id="workflow-admin-menu-anchor">
           <p className="section-kicker">{t("Menu setup", "Menu kurulumu")}</p>
           <h3>{t("Menu import", "Menu ice aktarimi")}</h3>
           <p className="panel-subtitle">
@@ -1994,7 +2050,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div data-workflow-guide-id="workflow-admin-menu">
+        <div>
           <AdminFormCard
             title={t("Import full menu (Excel/CSV)", "Tum menuyu ice aktar (Excel/CSV)")}
             description={t("Upload one file to create or update items and create missing categories automatically. Prices are interpreted as Turkish Lira (TRY).", "Tek dosya yukleyerek urunleri olusturun veya guncelleyin; eksik kategoriler otomatik acilsin. Fiyatlar Turk Lirasi (TRY) olarak yorumlanir.")}
@@ -2121,11 +2177,12 @@ export default function AdminDashboardPage() {
               <AdminActions>
                 <button
                   type="submit"
+                  data-workflow-guide-id="workflow-admin-menu-submit"
                   disabled={
                     isImportingItems ||
                     importSourceRows.length === 0 ||
                     missingRequiredImportMappings.length > 0 ||
-                    invalidImportRows.length > 0 ||
+                    importPayloadRows.length === 0 ||
                     !importBranchId
                   }
                 >

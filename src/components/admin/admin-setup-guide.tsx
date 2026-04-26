@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 
@@ -30,6 +30,11 @@ const TARGET_IDS: Record<AdminSetupGuideStepKey, string> = {
   menu: "admin-guide-menu"
 };
 
+const GUIDE_BOTTOM_OFFSET = 88;
+const GUIDE_EDGE_OFFSET = 16;
+const GUIDE_GAP = 14;
+const GUIDE_FALLBACK_HEIGHT = 320;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -37,6 +42,9 @@ function clamp(value: number, min: number, max: number) {
 export function AdminSetupGuide({ step, isSatisfied, onConfirmSatisfied, onSkipStep }: Props) {
   const { locale, t } = useDashboardLanguage();
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [panelHeight, setPanelHeight] = useState(0);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const tutorialSkipButtonLabel = t("Skip tutorial", "Egitimi gec");
 
   const currentStepIndex = step ? STEP_ORDER.indexOf(step) : -1;
 
@@ -91,6 +99,19 @@ export function AdminSetupGuide({ step, isSatisfied, onConfirmSatisfied, onSkipS
       skipLabel: t("Skip this step", "Bu adimi gec")
     };
   }, [step, t]);
+
+  useEffect(() => {
+    const syncPanelHeight = () => {
+      setPanelHeight(panelRef.current?.offsetHeight ?? 0);
+    };
+
+    syncPanelHeight();
+    window.addEventListener("resize", syncPanelHeight);
+
+    return () => {
+      window.removeEventListener("resize", syncPanelHeight);
+    };
+  }, [copy, isSatisfied]);
 
   useEffect(() => {
     if (!step) {
@@ -159,66 +180,111 @@ export function AdminSetupGuide({ step, isSatisfied, onConfirmSatisfied, onSkipS
 
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const effectivePanelHeight = panelHeight || GUIDE_FALLBACK_HEIGHT;
 
     if (viewportWidth <= 840 || !targetRect) {
       return {
-        left: 16,
-        right: 16,
-        bottom: 16
+        left: GUIDE_EDGE_OFFSET,
+        right: GUIDE_EDGE_OFFSET,
+        bottom: GUIDE_BOTTOM_OFFSET
       };
     }
 
     const width = Math.min(420, viewportWidth - 32);
-    const left = clamp(targetRect.left, 16, viewportWidth - width - 16);
-    const hasRoomBelow = targetRect.bottom + 178 <= viewportHeight - 16;
+    const left = clamp(targetRect.left, GUIDE_EDGE_OFFSET, viewportWidth - width - GUIDE_EDGE_OFFSET);
+    const roomRight = viewportWidth - targetRect.right - GUIDE_EDGE_OFFSET;
+    const roomLeft = targetRect.left - GUIDE_EDGE_OFFSET;
+    const roomBelow = viewportHeight - targetRect.bottom - GUIDE_BOTTOM_OFFSET;
+    const roomAbove = targetRect.top - GUIDE_EDGE_OFFSET;
+    const top = clamp(
+      targetRect.top,
+      GUIDE_EDGE_OFFSET,
+      viewportHeight - effectivePanelHeight - GUIDE_BOTTOM_OFFSET
+    );
 
-    if (hasRoomBelow) {
+    if (roomRight >= width + GUIDE_GAP) {
+      return {
+        width,
+        left: targetRect.right + GUIDE_GAP,
+        top
+      };
+    }
+
+    if (roomLeft >= width + GUIDE_GAP) {
+      return {
+        width,
+        left: targetRect.left - width - GUIDE_GAP,
+        top
+      };
+    }
+
+    if (roomBelow >= effectivePanelHeight + GUIDE_GAP) {
       return {
         width,
         left,
-        top: targetRect.bottom + 14
+        top: targetRect.bottom + GUIDE_GAP
+      };
+    }
+
+    if (roomAbove >= effectivePanelHeight + GUIDE_GAP) {
+      return {
+        width,
+        left,
+        top: targetRect.top - effectivePanelHeight - GUIDE_GAP
+      };
+    }
+
+    if (targetRect.height >= effectivePanelHeight + 48) {
+      return {
+        width,
+        left,
+        top: clamp(
+          targetRect.top + GUIDE_GAP,
+          GUIDE_EDGE_OFFSET,
+          viewportHeight - effectivePanelHeight - GUIDE_BOTTOM_OFFSET
+        )
       };
     }
 
     return {
       width,
       left,
-      bottom: 16
+      bottom: GUIDE_BOTTOM_OFFSET
     };
   })();
 
   return (
     <>
       <div className="admin-guide-overlay" aria-hidden="true" />
-      <aside className="admin-guide-panel" style={panelStyle} role="dialog" aria-modal="true">
-        <button
-          type="button"
-          className="admin-guide-close"
-          onClick={onSkipStep}
-          aria-label={t("Skip this step", "Bu adimi gec")}
-          title={copy.skipLabel}
-        >
-          x
-        </button>
-
+      <aside ref={panelRef} className="admin-guide-panel" style={panelStyle} role="dialog" aria-modal="true">
         <p className="admin-guide-step">
           {locale === "tr" ? `${currentStepIndex + 1} / ${STEP_ORDER.length}` : `${currentStepIndex + 1} of ${STEP_ORDER.length}`}
         </p>
         <h3>{copy.title}</h3>
         <p>{copy.description}</p>
 
-        {isSatisfied ? (
-          <button type="button" className="admin-guide-confirm" onClick={onConfirmSatisfied}>
-            {copy.confirmLabel}
-          </button>
-        ) : (
+        {!isSatisfied ? (
           <p className="admin-guide-waiting">
             {t(
               "Waiting for this step to be completed successfully.",
               "Bu adimin basariyla tamamlanmasi bekleniyor."
             )}
           </p>
-        )}
+        ) : null}
+
+        <button type="button" className="admin-guide-confirm" onClick={onConfirmSatisfied}>
+          {copy.confirmLabel}
+        </button>
+
+        <button
+          type="button"
+          className="admin-guide-secondary admin-guide-skip"
+          onClick={onSkipStep}
+          aria-label={tutorialSkipButtonLabel}
+          title={copy.skipLabel}
+        >
+          {tutorialSkipButtonLabel}
+        </button>
       </aside>
     </>
   );

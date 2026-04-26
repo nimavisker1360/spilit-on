@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type DashboardLocale = "en" | "tr";
+export type DashboardLocale = "en" | "tr";
 
 type DashboardLanguageContextValue = {
   locale: DashboardLocale;
@@ -11,31 +11,62 @@ type DashboardLanguageContextValue = {
 };
 
 const STORAGE_KEY = "dashboard-locale";
+const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const DASHBOARD_PATH_PREFIXES = ["/admin", "/waiter", "/kitchen", "/cashier"];
 
 const DashboardLanguageContext = createContext<DashboardLanguageContextValue | null>(null);
 
 type Props = {
   children: React.ReactNode;
+  initialLocale?: DashboardLocale;
+  forcedLocaleOnMount?: DashboardLocale;
 };
 
-export function DashboardLanguageProvider({ children }: Props) {
-  const [locale, setLocale] = useState<DashboardLocale>("tr");
+function normalizeDashboardLocale(value: string | null | undefined): DashboardLocale | null {
+  return value === "en" || value === "tr" ? value : null;
+}
+
+function persistDashboardLocale(locale: DashboardLocale) {
+  window.localStorage.setItem(STORAGE_KEY, locale);
+  document.cookie = `${STORAGE_KEY}=${locale}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  document.documentElement.lang = locale === "tr" ? "tr" : "en";
+}
+
+export function DashboardLanguageProvider({
+  children,
+  initialLocale = "tr",
+  forcedLocaleOnMount
+}: Props) {
+  const [locale, setLocale] = useState<DashboardLocale>(initialLocale);
 
   useEffect(() => {
-    const savedLocale = window.localStorage.getItem(STORAGE_KEY);
-    if (savedLocale === "en" || savedLocale === "tr") {
-      setLocale(savedLocale);
-      document.documentElement.lang = savedLocale === "tr" ? "tr" : "en";
+    if (forcedLocaleOnMount) {
+      setLocale(forcedLocaleOnMount);
+      persistDashboardLocale(forcedLocaleOnMount);
       return;
     }
 
-    setLocale("tr");
-    document.documentElement.lang = "tr";
-  }, []);
+    const savedLocale = normalizeDashboardLocale(window.localStorage.getItem(STORAGE_KEY));
+    if (savedLocale) {
+      setLocale(savedLocale);
+      return;
+    }
+
+    const pathname = window.location.pathname;
+    const shouldDefaultToTurkish = DASHBOARD_PATH_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    );
+
+    if (shouldDefaultToTurkish) {
+      persistDashboardLocale("tr");
+      return;
+    }
+
+    persistDashboardLocale(initialLocale);
+  }, [forcedLocaleOnMount, initialLocale]);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, locale);
-    document.documentElement.lang = locale === "tr" ? "tr" : "en";
+    persistDashboardLocale(locale);
   }, [locale]);
 
   const value = useMemo<DashboardLanguageContextValue>(

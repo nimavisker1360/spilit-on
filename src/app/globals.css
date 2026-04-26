@@ -513,6 +513,8 @@ body.admin-guide-scroll-locked {
   background: #fff;
   color: #0f172a;
   padding: 1rem 1rem 1rem;
+  max-height: calc(100vh - 120px);
+  overflow: auto;
   box-shadow: 0 26px 60px rgba(15, 23, 42, 0.22);
 }
 
@@ -580,6 +582,18 @@ body.admin-guide-scroll-locked {
 
 .admin-guide-secondary:hover {
   background: #f0fdf4;
+}
+
+.admin-guide-skip {
+  width: 100%;
+  border-color: rgba(220, 38, 38, 0.35);
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+.admin-guide-skip:hover {
+  background: #fee2e2;
+  box-shadow: none;
 }
 
 .admin-guide-confirm:hover {
@@ -4975,6 +4989,16 @@ button:disabled {
   transition: all 0.25s ease;
 }
 
+.dashboard-shell--waiter .waiter-send-stage {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.dashboard-shell--waiter .waiter-menu-stage {
+  display: grid;
+  gap: 0.95rem;
+}
+
 .dashboard-shell--waiter .waiter-step-section:hover {
   border-color: rgba(34, 197, 94, 0.28);
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
@@ -5037,6 +5061,23 @@ button:disabled {
 .dashboard-shell--waiter .selection-summary {
   border-color: rgba(34, 197, 94, 0.2);
   background: #ffffff;
+}
+
+.dashboard-shell--waiter .waiter-mobile-guest-hint {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.98)),
+    #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.dashboard-shell--waiter .waiter-mobile-guest-hint h4 {
+  margin: 0;
+  color: #0f172a;
 }
 
 .dashboard-shell--waiter .badge {
@@ -5427,6 +5468,26 @@ button:disabled {
   opacity: 0.5;
   box-shadow: none;
   cursor: not-allowed;
+}
+
+.dashboard-shell--waiter .waiter-cta-btn[aria-busy="true"] {
+  color: transparent;
+  opacity: 1;
+}
+
+.dashboard-shell--waiter .waiter-cta-btn[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  border-top-color: #ffffff;
+  animation: adminButtonLoadingSpin 0.8s linear infinite;
 }
 
 .dashboard-shell--waiter .waiter-live-section {
@@ -7035,6 +7096,15 @@ button:disabled {
   color: #0f172a;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
   transition: all 0.22s ease;
+}
+
+.dashboard-shell--kitchen .ticket-card.is-clickable {
+  cursor: pointer;
+}
+
+.dashboard-shell--kitchen .ticket-card.is-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
 .dashboard-shell--kitchen .ticket-card::before {

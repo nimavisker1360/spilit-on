@@ -8,6 +8,7 @@ import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency } from "@/lib/currency";
 import {
   advanceWorkflowGuideStep,
+  completeWorkflowGuide,
   isWorkflowGuideDone,
   readWorkflowGuideStep,
   type WorkflowGuideStepKey,
@@ -315,6 +316,7 @@ export default function WaiterDashboardPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [deletingItemId, setDeletingItemId] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const [openForm, setOpenForm] = useState({ tableCode: "" });
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState("");
@@ -323,6 +325,8 @@ export default function WaiterDashboardPage() {
   const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
   const [isGuideInitialized, setIsGuideInitialized] = useState(false);
   const [isGuestJoinGuideDismissed, setIsGuestJoinGuideDismissed] = useState(false);
+  const [guestJoinPromptSessionId, setGuestJoinPromptSessionId] = useState("");
+  const [isWaiterGuestGuideSelectionConfirmed, setIsWaiterGuestGuideSelectionConfirmed] = useState(false);
 
   const [orderForm, setOrderForm] = useState({
     sessionId: "",
@@ -514,8 +518,17 @@ export default function WaiterDashboardPage() {
     setMessage("");
 
     try {
-      const response = await postJson<{ data: { created: boolean } }>("/api/sessions/open", openForm);
+      const response = await postJson<{ data: { created: boolean; session: OpenSession } }>("/api/sessions/open", openForm);
       setMessage(response.data.created ? "Table session opened." : "Table already had an open session.");
+      setOrderForm((prev) => ({
+        ...prev,
+        sessionId: response.data.session.id,
+        menuItemId: "",
+        quantity: "1",
+        guestId: ""
+      }));
+      setActiveTableFilter(response.data.session.id);
+      setGuestJoinPromptSessionId(response.data.session.guests.length === 0 ? response.data.session.id : "");
       goToNextGuideStep("waiter-open-session");
       await loadData();
     } catch (openError) {
@@ -525,10 +538,17 @@ export default function WaiterDashboardPage() {
 
   async function handlePlaceOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmittingOrder) {
+      return;
+    }
+
+    setIsSubmittingOrder(true);
     setError("");
     setMessage("");
 
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+
       if (!orderForm.guestId) {
         throw new Error("Select a guest for this order item");
       }
@@ -563,6 +583,8 @@ export default function WaiterDashboardPage() {
       await loadData();
     } catch (orderError) {
       setError(orderError instanceof Error ? orderError.message : "Order failed");
+    } finally {
+      setIsSubmittingOrder(false);
     }
   }
 
@@ -631,12 +653,12 @@ export default function WaiterDashboardPage() {
   const isGuideStepSatisfied = useMemo(() => {
     if (guideStep === "waiter-open-session") return sessions.length > 0;
     if (guideStep === "waiter-guest-join") return sessions.some((session) => session.guests.length > 0);
-    if (guideStep === "waiter-guest") return Boolean(orderForm.guestId);
+    if (guideStep === "waiter-guest") return Boolean(orderForm.guestId) && isWaiterGuestGuideSelectionConfirmed;
     if (guideStep === "waiter-item") return Boolean(orderForm.menuItemId);
     if (guideStep === "waiter-send-order") return selectedSession ? selectedSession.orders.length > 0 : false;
     if (guideStep === "waiter-kitchen") return true;
     return false;
-  }, [guideStep, orderForm.guestId, orderForm.menuItemId, selectedSession, sessions]);
+  }, [guideStep, isWaiterGuestGuideSelectionConfirmed, orderForm.guestId, orderForm.menuItemId, selectedSession, sessions]);
 
   useEffect(() => {
     if (isGuideInitialized || loading || typeof window === "undefined") {
@@ -665,12 +687,7 @@ export default function WaiterDashboardPage() {
       storedStep === "waiter-send-order" ||
       storedStep === "waiter-kitchen"
     ) {
-      if (storedStep === "waiter-guest") {
-        writeWorkflowGuideStep("waiter-item");
-        setGuideStep("waiter-item");
-      } else {
-        setGuideStep(storedStep);
-      }
+      setGuideStep(storedStep);
     } else {
       setGuideStep(null);
     }
@@ -706,10 +723,29 @@ export default function WaiterDashboardPage() {
 
     if (isGuideStepSatisfied) {
       setIsGuestJoinGuideDismissed(false);
-      writeWorkflowGuideStep("waiter-item");
-      setGuideStep((currentStep) => (currentStep === "waiter-guest-join" ? "waiter-item" : currentStep));
+      writeWorkflowGuideStep("waiter-guest");
+      setGuideStep((currentStep) => (currentStep === "waiter-guest-join" ? "waiter-guest" : currentStep));
     }
   }, [guideStep, isGuideStepSatisfied]);
+
+  useEffect(() => {
+    if (guideStep === "waiter-guest") {
+      return;
+    }
+
+    setIsWaiterGuestGuideSelectionConfirmed(false);
+  }, [guideStep]);
+
+  useEffect(() => {
+    if (!guestJoinPromptSessionId) {
+      return;
+    }
+
+    const promptSession = sessions.find((session) => session.id === guestJoinPromptSessionId);
+    if (!promptSession || promptSession.guests.length > 0) {
+      setGuestJoinPromptSessionId("");
+    }
+  }, [guestJoinPromptSessionId, sessions]);
 
   useEffect(() => {
     if (guideStep !== "waiter-guest" || !orderForm.guestId) {
@@ -735,7 +771,7 @@ export default function WaiterDashboardPage() {
         }
       : guideStep === "waiter-guest-join"
         ? {
-            targetId: "workflow-waiter-live",
+            targetId: "workflow-waiter-guest-join",
             title: t("Ask guests to join from their phones", "Misafirlerin telefondan katilmasini sagla"),
             description: t(
               "Before choosing food, guests should join the table from the phone flow.",
@@ -744,6 +780,17 @@ export default function WaiterDashboardPage() {
             confirmLabel: t("Guests joined, continue", "Misafirler katildi, devam et"),
             skipLabel: t("Skip this step", "Bu adimi gec")
           }
+        : guideStep === "waiter-guest"
+          ? {
+              targetId: "workflow-waiter-guest",
+              title: t("Choose the guest", "Misafiri sec"),
+              description: t(
+                "Now choose which guest this item belongs to before selecting food.",
+                "Simdi yemek secmeden once bu urunun hangi misafire ait oldugunu secin."
+              ),
+              confirmLabel: t("Guest is selected", "Misafir secildi"),
+              skipLabel: t("Skip this step", "Bu adimi gec")
+            }
         : guideStep === "waiter-item"
             ? {
                 targetId: "workflow-waiter-menu",
@@ -802,18 +849,9 @@ export default function WaiterDashboardPage() {
             goToNextGuideStep(guideStep);
           }}
           onSkip={() => {
-            if (guideStep === "waiter-guest-join") {
-              setIsGuestJoinGuideDismissed(true);
-              return;
-            }
-
-            if (guideStep === "waiter-kitchen") {
-              goToNextGuideStep("waiter-kitchen");
-              window.location.assign("/kitchen");
-              return;
-            }
-
-            goToNextGuideStep(guideStep);
+            completeWorkflowGuide();
+            setGuideStep(null);
+            setIsGuestJoinGuideDismissed(true);
           }}
         />
       ) : null}
@@ -1043,6 +1081,44 @@ export default function WaiterDashboardPage() {
               )}
             </div>
 
+            {selectedSession && selectedSession.guests.length === 0 ? (
+              <div className="waiter-step-section waiter-mobile-guest-hint" data-workflow-guide-id="workflow-waiter-guest-join">
+                <div className="waiter-step-header">
+                  <span className="waiter-step-badge">2</span>
+                  <div className="waiter-step-header-copy">
+                    <h4>{t("Mobile guest join", "Mobil misafir katilimi")}</h4>
+                    <p>{t("Guests should join this table from their phones first.", "Misafirler once telefonlarindan bu masaya katilmalidir.")}</p>
+                  </div>
+                </div>
+                <div className="helper-panel stack-md">
+                  <div className="badge-row">
+                    <span className="badge badge-status-open">{t("Next step", "Sonraki adim")}</span>
+                    <span className="badge badge-outline">{t("QR or phone flow", "QR veya telefon akisi")}</span>
+                  </div>
+                  <div className="section-copy">
+                    <h4>{t("Add guests from the mobile screen first", "Once misafirleri mobil ekrandan ekleyin")}</h4>
+                    <p className="helper-text">
+                      {t(
+                        "This table is open, but no guest has joined yet. Ask each guest to scan the QR code or open the phone flow and join the table from mobile before placing waiter orders.",
+                        "Bu masa acildi ama henuz misafir katilmadi. Garson siparisi girmeden once her misafirden QR kodu okutup veya telefon akisindan masaya mobilde katilmasini isteyin."
+                      )}
+                    </p>
+                  </div>
+                  {guestJoinPromptSessionId === selectedSession.id && guideStep !== "waiter-guest-join" ? (
+                    <div className="badge-row">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setGuestJoinPromptSessionId("")}
+                      >
+                        {t("Dismiss", "Kapat")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             {selectedSession && selectedSession.guests.length > 0 ? (
               <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-guest">
                 <div className="waiter-step-header">
@@ -1068,7 +1144,12 @@ export default function WaiterDashboardPage() {
                             ? { borderColor: guestColor, background: `${guestColor}1a`, boxShadow: `0 0 0 2px ${guestColor}40` }
                             : { borderColor: `${guestColor}55` }
                         }
-                        onClick={() => setOrderForm((prev) => ({ ...prev, guestId: guest.id }))}
+                        onClick={() => {
+                          setOrderForm((prev) => ({ ...prev, guestId: guest.id }));
+                          if (guideStep === "waiter-guest") {
+                            setIsWaiterGuestGuideSelectionConfirmed(true);
+                          }
+                        }}
                         aria-pressed={isActive}
                       >
                         <div className="waiter-guest-avatar" style={{ background: guestColor }}>
@@ -1085,139 +1166,152 @@ export default function WaiterDashboardPage() {
               </div>
             ) : null}
 
-            <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-menu">
-              <div className="waiter-step-header">
-                <span className="waiter-step-badge">3</span>
-                <div className="waiter-step-header-copy">
-                  <h4>{t("Menu item", "Menu urunu")}</h4>
-                  <p>{t("Pick a category, then tap an item to select it", "Bir kategori secin, sonra urune dokunup secin")}</p>
+            <div className="waiter-menu-stage" data-workflow-guide-id="workflow-waiter-menu">
+              <div className="waiter-step-section">
+                <div className="waiter-step-header">
+                  <span className="waiter-step-badge">3</span>
+                  <div className="waiter-step-header-copy">
+                    <h4>{t("Menu item", "Menu urunu")}</h4>
+                    <p>{t("Pick a category, then tap an item to select it", "Bir kategori secin, sonra urune dokunup secin")}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="waiter-menu-block">
-                {selectedSession && menuCategoriesForSelectedSession.length > 0 ? (
-                  <>
-                    <div className="menu-category-scroller" role="tablist" aria-label={t("Waiter menu categories", "Garson menu kategorileri")}>
-                      {menuCategoriesForSelectedSession.map((category) => {
-                        const isActive = category.id === activeMenuCategory?.id;
+                <div className="waiter-menu-block">
+                  {selectedSession && menuCategoriesForSelectedSession.length > 0 ? (
+                    <>
+                      <div className="menu-category-scroller" role="tablist" aria-label={t("Waiter menu categories", "Garson menu kategorileri")}>
+                        {menuCategoriesForSelectedSession.map((category) => {
+                          const isActive = category.id === activeMenuCategory?.id;
 
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            className={`menu-category-chip${isActive ? " is-active" : ""}`}
-                            onClick={() => setActiveMenuCategoryId(category.id)}
-                            aria-pressed={isActive}
-                          >
-                            <span>{category.name}</span>
-                            <span className="menu-category-count">{category.items.length}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              className={`menu-category-chip${isActive ? " is-active" : ""}`}
+                              onClick={() => setActiveMenuCategoryId(category.id)}
+                              aria-pressed={isActive}
+                            >
+                              <span>{category.name}</span>
+                              <span className="menu-category-count">{category.items.length}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                    <div className="waiter-menu-item-grid">
-                      {menuItemsForActiveCategory.map((item) => {
-                        const isSelected = item.id === orderForm.menuItemId;
+                      <div className="waiter-menu-item-grid">
+                        {menuItemsForActiveCategory.map((item) => {
+                          const isSelected = item.id === orderForm.menuItemId;
 
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={`menu-item-card waiter-menu-item-card${isSelected ? " is-selected" : ""}`}
-                            onClick={() => setOrderForm((prev) => ({ ...prev, menuItemId: item.id }))}
-                            aria-pressed={isSelected}
-                          >
-                            <div className="menu-item-head">
-                              <h4>{item.name}</h4>
-                              <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
-                            </div>
-                            <p className="menu-item-description">
-                              {selectedOrderGuest ? t(`Assign to ${selectedOrderGuest.displayName}`, `${selectedOrderGuest.displayName} icin ata`) : t("Choose a guest and tap to select.", "Bir misafir secin ve urune dokunun.")}
-                            </p>
-                            <div className="badge-row menu-item-meta">
-                              {activeMenuCategory ? <span className="badge badge-outline">{activeMenuCategory.name}</span> : null}
-                              {isSelected ? <span className="badge badge-status-open">{t("Selected", "Secildi")}</span> : null}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`menu-item-card waiter-menu-item-card${isSelected ? " is-selected" : ""}`}
+                              onClick={() => setOrderForm((prev) => ({ ...prev, menuItemId: item.id }))}
+                              aria-pressed={isSelected}
+                            >
+                              <div className="menu-item-head">
+                                <h4>{item.name}</h4>
+                                <span className="menu-item-price">{formatTryCurrency(item.price)}</span>
+                              </div>
+                              <p className="menu-item-description">
+                                {selectedOrderGuest ? t(`Assign to ${selectedOrderGuest.displayName}`, `${selectedOrderGuest.displayName} icin ata`) : t("Choose a guest and tap to select.", "Bir misafir secin ve urune dokunun.")}
+                              </p>
+                              <div className="badge-row menu-item-meta">
+                                {activeMenuCategory ? <span className="badge badge-outline">{activeMenuCategory.name}</span> : null}
+                                {isSelected ? <span className="badge badge-status-open">{t("Selected", "Secildi")}</span> : null}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+
+                {selectedSession && menuCategoriesForSelectedSession.length === 0 ? (
+                  <p className="helper-text">{t("No menu items were found for this branch yet.", "Bu sube icin henuz menu urunu bulunamadi.")}</p>
                 ) : null}
               </div>
 
-              {selectedSession && menuCategoriesForSelectedSession.length === 0 ? (
-                <p className="helper-text">{t("No menu items were found for this branch yet.", "Bu sube icin henuz menu urunu bulunamadi.")}</p>
-              ) : null}
-            </div>
-
-            <div className="waiter-step-section" data-workflow-guide-id="workflow-waiter-send">
-              <div className="waiter-step-header">
-                <span className="waiter-step-badge">4</span>
-                <div className="waiter-step-header-copy">
-                  <h4>{t("Quantity", "Adet")}</h4>
-                  <p>{t("How many of this item to send?", "Bu urunden kac adet gonderilecek?")}</p>
+              <div className="waiter-send-stage" data-workflow-guide-id="workflow-waiter-send">
+                <div className="waiter-step-section">
+                  <div className="waiter-step-header">
+                    <span className="waiter-step-badge">4</span>
+                    <div className="waiter-step-header-copy">
+                      <h4>{t("Quantity", "Adet")}</h4>
+                      <p>{t("How many of this item to send?", "Bu urunden kac adet gonderilecek?")}</p>
+                    </div>
+                  </div>
+                  <div className="quantity-stepper waiter-quantity-stepper">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => stepOrderQuantity(-1)}
+                      disabled={!selectedMenuItem || Number(orderForm.quantity) <= 1}
+                      aria-label={t("Decrease quantity", "Adedi azalt")}
+                    >
+                      -
+                    </button>
+                    <input
+                      id="waiter-order-quantity"
+                      type="number"
+                      min={1}
+                      aria-label={t("Quantity", "Adet")}
+                      inputMode="numeric"
+                      value={orderForm.quantity}
+                      onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))}
+                      onBlur={() =>
+                        setOrderForm((prev) => ({ ...prev, quantity: String(Math.max(1, Number(prev.quantity) || 1)) }))
+                      }
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => stepOrderQuantity(1)}
+                      disabled={!selectedMenuItem}
+                      aria-label={t("Increase quantity", "Adedi arttir")}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="quantity-stepper waiter-quantity-stepper">
+
+                {(selectedMenuItem || selectedOrderGuest) && (
+                  <div className="waiter-order-summary-card">
+                    <div className="section-copy">
+                      <p className="section-kicker">{t("Ready to send", "Gonderime hazir")}</p>
+                      <h4>{selectedMenuItem?.name ?? t("Select an item", "Bir urun secin")}</h4>
+                      <p className="helper-text">
+                        {selectedOrderGuest ? t(`Guest: ${selectedOrderGuest.displayName}`, `Misafir: ${selectedOrderGuest.displayName}`) : t("Choose the guest who owns this item.", "Bu urunun ait oldugu misafiri secin.")}
+                      </p>
+                    </div>
+                    <div className="badge-row">
+                      {selectedMenuItem ? <span className="badge badge-outline">{formatTryCurrency(selectedMenuItem.price)}</span> : null}
+                      <span className="badge badge-neutral">{t("Qty", "Adet")} {Math.max(1, Number(orderForm.quantity) || 1)}</span>
+                      {activeMenuCategory ? <span className="badge badge-status-progress">{activeMenuCategory.name}</span> : null}
+                    </div>
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => stepOrderQuantity(-1)}
-                  disabled={!selectedMenuItem || Number(orderForm.quantity) <= 1}
-                  aria-label={t("Decrease quantity", "Adedi azalt")}
-                >
-                  -
-                </button>
-                <input
-                  id="waiter-order-quantity"
-                  type="number"
-                  min={1}
-                  aria-label={t("Quantity", "Adet")}
-                  inputMode="numeric"
-                  value={orderForm.quantity}
-                  onChange={(event) => setOrderForm((prev) => ({ ...prev, quantity: event.target.value }))}
-                  onBlur={() =>
-                    setOrderForm((prev) => ({ ...prev, quantity: String(Math.max(1, Number(prev.quantity) || 1)) }))
+                  type="submit"
+                  className="waiter-cta-btn"
+                  disabled={
+                    isSubmittingOrder ||
+                    !selectedSession ||
+                    selectedSession.guests.length === 0 ||
+                    !selectedMenuItem ||
+                    !orderForm.guestId
                   }
-                  required
-                />
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => stepOrderQuantity(1)}
-                  disabled={!selectedMenuItem}
-                  aria-label={t("Increase quantity", "Adedi arttir")}
+                  aria-busy={isSubmittingOrder}
                 >
-                  +
+                  {isSubmittingOrder
+                    ? t("Sending to kitchen...", "Mutfaga gonderiliyor...")
+                    : t("Send to kitchen", "Mutfaga gonder")}
                 </button>
               </div>
             </div>
-
-            {(selectedMenuItem || selectedOrderGuest) && (
-              <div className="waiter-order-summary-card">
-                <div className="section-copy">
-                  <p className="section-kicker">{t("Ready to send", "Gonderime hazir")}</p>
-                  <h4>{selectedMenuItem?.name ?? t("Select an item", "Bir urun secin")}</h4>
-                  <p className="helper-text">
-                    {selectedOrderGuest ? t(`Guest: ${selectedOrderGuest.displayName}`, `Misafir: ${selectedOrderGuest.displayName}`) : t("Choose the guest who owns this item.", "Bu urunun ait oldugu misafiri secin.")}
-                  </p>
-                </div>
-                <div className="badge-row">
-                  {selectedMenuItem ? <span className="badge badge-outline">{formatTryCurrency(selectedMenuItem.price)}</span> : null}
-                  <span className="badge badge-neutral">{t("Qty", "Adet")} {Math.max(1, Number(orderForm.quantity) || 1)}</span>
-                  {activeMenuCategory ? <span className="badge badge-status-progress">{activeMenuCategory.name}</span> : null}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="waiter-cta-btn"
-              disabled={!selectedSession || selectedSession.guests.length === 0 || !selectedMenuItem || !orderForm.guestId}
-            >
-              {t("Send to kitchen", "Mutfaga gonder")}
-            </button>
             {selectedSession && selectedSession.guests.length === 0 ? (
               <p className="meta">{t("No guests in this session yet. Ask guests to join before ordering.", "Bu oturumda henuz misafir yok. Siparis vermeden once misafirlerin katilmasini isteyin.")}</p>
             ) : null}

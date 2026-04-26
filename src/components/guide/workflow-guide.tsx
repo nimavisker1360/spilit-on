@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 
@@ -29,6 +29,11 @@ type LayoutStyle = {
   right?: number;
 };
 
+const GUIDE_BOTTOM_OFFSET = 88;
+const GUIDE_EDGE_OFFSET = 16;
+const GUIDE_GAP = 14;
+const GUIDE_FALLBACK_HEIGHT = 320;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -49,8 +54,24 @@ export function WorkflowGuide({
   onConfirm,
   onSkip
 }: Props) {
-  const { t } = useDashboardLanguage();
+  const { locale, t } = useDashboardLanguage();
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [panelHeight, setPanelHeight] = useState(0);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const tutorialSkipButtonLabel = t("Skip tutorial", "Egitimi gec");
+
+  useEffect(() => {
+    const syncPanelHeight = () => {
+      setPanelHeight(panelRef.current?.offsetHeight ?? 0);
+    };
+
+    syncPanelHeight();
+    window.addEventListener("resize", syncPanelHeight);
+
+    return () => {
+      window.removeEventListener("resize", syncPanelHeight);
+    };
+  }, [confirmLabel, description, isSatisfied, secondaryActionLabel, skipLabel, title]);
 
   useEffect(() => {
     if (lockScroll) {
@@ -82,7 +103,7 @@ export function WorkflowGuide({
         activeElement?.classList.remove("admin-guide-target-active--scroll-free");
         activeElement = nextTarget;
         activeElement.classList.add("admin-guide-target-active");
-      } 
+      }
 
       syncActiveElementClass(activeElement);
 
@@ -127,38 +148,83 @@ export function WorkflowGuide({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const width = Math.min(maxPanelWidth, viewportWidth - 32);
+    const effectivePanelHeight = panelHeight || GUIDE_FALLBACK_HEIGHT;
 
     if (viewportWidth <= 840) {
       return {
-        left: 16,
-        right: 16,
-        bottom: 16
+        left: GUIDE_EDGE_OFFSET,
+        right: GUIDE_EDGE_OFFSET,
+        bottom: GUIDE_BOTTOM_OFFSET
       };
     }
 
     if (!targetRect) {
       return {
         width,
-        right: 16,
-        bottom: 16
+        right: GUIDE_EDGE_OFFSET,
+        bottom: GUIDE_BOTTOM_OFFSET
       };
     }
 
-    const left = clamp(targetRect.left, 16, viewportWidth - width - 16);
-    const hasRoomBelow = targetRect.bottom + 178 <= viewportHeight - 16;
+    const left = clamp(targetRect.left, GUIDE_EDGE_OFFSET, viewportWidth - width - GUIDE_EDGE_OFFSET);
+    const roomRight = viewportWidth - targetRect.right - GUIDE_EDGE_OFFSET;
+    const roomLeft = targetRect.left - GUIDE_EDGE_OFFSET;
+    const roomBelow = viewportHeight - targetRect.bottom - GUIDE_BOTTOM_OFFSET;
+    const roomAbove = targetRect.top - GUIDE_EDGE_OFFSET;
+    const top = clamp(
+      targetRect.top,
+      GUIDE_EDGE_OFFSET,
+      viewportHeight - effectivePanelHeight - GUIDE_BOTTOM_OFFSET
+    );
 
-    if (hasRoomBelow) {
+    if (roomRight >= width + GUIDE_GAP) {
+      return {
+        width,
+        left: targetRect.right + GUIDE_GAP,
+        top
+      };
+    }
+
+    if (roomLeft >= width + GUIDE_GAP) {
+      return {
+        width,
+        left: targetRect.left - width - GUIDE_GAP,
+        top
+      };
+    }
+
+    if (roomBelow >= effectivePanelHeight + GUIDE_GAP) {
       return {
         width,
         left,
-        top: targetRect.bottom + 14
+        top: targetRect.bottom + GUIDE_GAP
+      };
+    }
+
+    if (roomAbove >= effectivePanelHeight + GUIDE_GAP) {
+      return {
+        width,
+        left,
+        top: targetRect.top - effectivePanelHeight - GUIDE_GAP
+      };
+    }
+
+    if (targetRect.height >= effectivePanelHeight + 48) {
+      return {
+        width,
+        left,
+        top: clamp(
+          targetRect.top + GUIDE_GAP,
+          GUIDE_EDGE_OFFSET,
+          viewportHeight - effectivePanelHeight - GUIDE_BOTTOM_OFFSET
+        )
       };
     }
 
     return {
       width,
       left,
-      bottom: 16
+      bottom: GUIDE_BOTTOM_OFFSET
     };
   })();
 
@@ -168,12 +234,10 @@ export function WorkflowGuide({
         className={`admin-guide-overlay${lockScroll ? "" : " admin-guide-overlay--passive"}`}
         aria-hidden="true"
       />
-      <aside className="admin-guide-panel" style={panelStyle} role="dialog" aria-modal="true">
-        <button type="button" className="admin-guide-close" onClick={onSkip} aria-label={skipLabel} title={skipLabel}>
-          ×
-        </button>
-
-        <p className="admin-guide-step">{`${stepIndex + 1} / ${totalSteps}`}</p>
+      <aside ref={panelRef} className="admin-guide-panel" style={panelStyle} role="dialog" aria-modal="true">
+        <p className="admin-guide-step">
+          {locale === "tr" ? `${stepIndex + 1} / ${totalSteps}` : `${stepIndex + 1} of ${totalSteps}`}
+        </p>
         <h3>{title}</h3>
         <p>{description}</p>
 
@@ -183,18 +247,28 @@ export function WorkflowGuide({
           </button>
         ) : null}
 
-        {isSatisfied ? (
-          <button type="button" className="admin-guide-confirm" onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        ) : (
+        {!isSatisfied ? (
           <p className="admin-guide-waiting">
             {t(
               "Waiting for this step to be completed successfully.",
               "Bu adimin basariyla tamamlanmasi bekleniyor."
             )}
           </p>
-        )}
+        ) : null}
+
+        <button type="button" className="admin-guide-confirm" onClick={onConfirm}>
+          {confirmLabel}
+        </button>
+
+        <button
+          type="button"
+          className="admin-guide-secondary admin-guide-skip"
+          onClick={onSkip}
+          aria-label={tutorialSkipButtonLabel}
+          title={skipLabel}
+        >
+          {tutorialSkipButtonLabel}
+        </button>
       </aside>
     </>
   );

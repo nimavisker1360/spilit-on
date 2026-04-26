@@ -7,6 +7,7 @@ import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import {
   advanceWorkflowGuideStep,
+  completeWorkflowGuide,
   isWorkflowGuideDone,
   readWorkflowGuideStep,
   type WorkflowGuideStepKey,
@@ -103,6 +104,26 @@ type KitchenTicket = {
   };
 };
 
+function getGuideTicketIdsByStatus(tickets: KitchenTicket[], statuses: KitchenStatus[]): string[] {
+  return tickets
+    .filter((ticket) => statuses.includes(ticket.status))
+    .map((ticket) => ticket.id);
+}
+
+function haveGuideTicketsReachedStatuses(
+  tickets: KitchenTicket[],
+  targetIds: string[],
+  statuses: KitchenStatus[]
+): boolean {
+  if (targetIds.length > 0) {
+    return targetIds.every((targetId) =>
+      tickets.some((ticket) => ticket.id === targetId && statuses.includes(ticket.status))
+    );
+  }
+
+  return false;
+}
+
 async function fetchBoard(): Promise<KitchenTicket[]> {
   const response = await fetch("/api/kitchen", { cache: "no-store" });
   const json = (await response.json()) as { data?: KitchenTicket[]; error?: string };
@@ -177,6 +198,9 @@ export default function KitchenDashboardPage() {
   const [activeTableFilter, setActiveTableFilter] = useState<string>(ALL_TABLES_KEY);
   const [guideStep, setGuideStep] = useState<WorkflowGuideStepKey | null>(null);
   const [isGuideInitialized, setIsGuideInitialized] = useState(false);
+  const [prepGuideTargetIds, setPrepGuideTargetIds] = useState<string[]>([]);
+  const [readyGuideTargetIds, setReadyGuideTargetIds] = useState<string[]>([]);
+  const [servedGuideTargetIds, setServedGuideTargetIds] = useState<string[]>([]);
 
   const tableGroups = useMemo(() => {
     const grouped = new Map<
@@ -249,30 +273,60 @@ export default function KitchenDashboardPage() {
     }
   });
 
+  useEffect(() => {
+    if (guideStep !== "kitchen-start-prep") {
+      return;
+    }
+
+    setPrepGuideTargetIds((current) =>
+      current.length > 0 ? current : getGuideTicketIdsByStatus(tickets, ["PENDING"])
+    );
+  }, [guideStep, tickets]);
+
+  useEffect(() => {
+    if (guideStep !== "kitchen-mark-ready") {
+      return;
+    }
+
+    setReadyGuideTargetIds((current) =>
+      current.length > 0
+        ? current
+        : prepGuideTargetIds.length > 0
+          ? prepGuideTargetIds
+          : getGuideTicketIdsByStatus(tickets, ["IN_PROGRESS"])
+    );
+  }, [guideStep, prepGuideTargetIds, tickets]);
+
+  useEffect(() => {
+    if (guideStep !== "kitchen-mark-served") {
+      return;
+    }
+
+    setServedGuideTargetIds((current) =>
+      current.length > 0
+        ? current
+        : readyGuideTargetIds.length > 0
+          ? readyGuideTargetIds
+          : getGuideTicketIdsByStatus(tickets, ["READY"])
+    );
+  }, [guideStep, readyGuideTargetIds, tickets]);
+
+  useEffect(() => {
+    if (guideStep) {
+      return;
+    }
+
+    setPrepGuideTargetIds([]);
+    setReadyGuideTargetIds([]);
+    setServedGuideTargetIds([]);
+  }, [guideStep]);
+
   async function handleStatus(orderItemId: string, status: KitchenStatus) {
     setBusyId(orderItemId);
     setError("");
 
     try {
       await patchStatus(orderItemId, status);
-      if (status === "IN_PROGRESS") {
-        setGuideStep((currentStep) => (currentStep === "kitchen-start-prep" ? advanceWorkflowGuideStep(currentStep) : currentStep));
-      }
-      if (status === "READY") {
-        setGuideStep((currentStep) => (currentStep === "kitchen-mark-ready" ? advanceWorkflowGuideStep(currentStep) : currentStep));
-      }
-      if (status === "SERVED") {
-        setGuideStep((currentStep) => {
-          if (currentStep !== "kitchen-mark-served") {
-            return currentStep;
-          }
-
-          writeWorkflowGuideStep("cashier-calculate");
-          window.location.assign("/cashier");
-          return "cashier-calculate";
-        });
-        return;
-      }
       await loadTickets();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Update failed");
@@ -356,12 +410,47 @@ export default function KitchenDashboardPage() {
             ? t("Served", "Servis edildi")
             : t("Void", "Iptal");
   const isGuideStepSatisfied = useMemo(() => {
-    if (guideStep === "kitchen-start-prep") return inProgressCount > 0 || readyCount > 0 || servedCount > 0;
-    if (guideStep === "kitchen-mark-ready") return readyCount > 0 || servedCount > 0;
-    if (guideStep === "kitchen-mark-served") return servedCount > 0;
+    if (guideStep === "kitchen-start-prep") {
+      return prepGuideTargetIds.length > 0
+        ? haveGuideTicketsReachedStatuses(tickets, prepGuideTargetIds, ["IN_PROGRESS", "READY", "SERVED"])
+        : inProgressCount > 0 || readyCount > 0 || servedCount > 0;
+    }
+    if (guideStep === "kitchen-mark-ready") {
+      return readyGuideTargetIds.length > 0
+        ? haveGuideTicketsReachedStatuses(tickets, readyGuideTargetIds, ["READY", "SERVED"])
+        : readyCount > 0 || servedCount > 0;
+    }
+    if (guideStep === "kitchen-mark-served") {
+      return servedGuideTargetIds.length > 0
+        ? haveGuideTicketsReachedStatuses(tickets, servedGuideTargetIds, ["SERVED"])
+        : false;
+    }
     if (guideStep === "kitchen-cashier") return true;
     return false;
-  }, [guideStep, inProgressCount, readyCount, servedCount]);
+  }, [
+    guideStep,
+    inProgressCount,
+    prepGuideTargetIds,
+    readyCount,
+    readyGuideTargetIds,
+    servedCount,
+    servedGuideTargetIds,
+    tickets
+  ]);
+
+  useEffect(() => {
+    if (
+      (guideStep !== "kitchen-start-prep" &&
+        guideStep !== "kitchen-mark-ready") ||
+      !isGuideStepSatisfied
+    ) {
+      return;
+    }
+
+    setGuideStep((currentStep) =>
+      currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep
+    );
+  }, [guideStep, isGuideStepSatisfied]);
 
   useEffect(() => {
     if (isGuideInitialized || loading || typeof window === "undefined") {
@@ -451,7 +540,7 @@ export default function KitchenDashboardPage() {
           isSatisfied={isGuideStepSatisfied}
           onConfirm={() => {
             if (guideStep === "kitchen-mark-served") {
-              writeWorkflowGuideStep("cashier-calculate");
+              writeWorkflowGuideStep("kitchen-cashier");
               window.location.assign("/cashier");
               return;
             }
@@ -465,19 +554,8 @@ export default function KitchenDashboardPage() {
             setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
           }}
           onSkip={() => {
-            if (guideStep === "kitchen-mark-served") {
-              writeWorkflowGuideStep("cashier-calculate");
-              window.location.assign("/cashier");
-              return;
-            }
-
-            if (guideStep === "kitchen-cashier") {
-              setGuideStep((currentStep) => (currentStep === "kitchen-cashier" ? advanceWorkflowGuideStep(currentStep) : currentStep));
-              window.location.assign("/cashier");
-              return;
-            }
-
-            setGuideStep((currentStep) => (currentStep === guideStep ? advanceWorkflowGuideStep(currentStep) : currentStep));
+            completeWorkflowGuide();
+            setGuideStep(null);
           }}
         />
       ) : null}
@@ -673,8 +751,31 @@ export default function KitchenDashboardPage() {
                 <p className="empty empty-state">{t(`No tickets in ${lane.title.toLowerCase()}.`, `${localizedLaneTitle(lane.title).toLowerCase()} alaninda fis yok.`)}</p>
               ) : (
                 <div className="ticket-lane-list">
-                  {laneTickets.map((ticket) => (
-                    <article key={ticket.id} className="ticket-card">
+                  {laneTickets.map((ticket) => {
+                    const isPendingCardClickable = ticket.status === "PENDING" && busyId !== ticket.id;
+
+                    return (
+                    <article
+                      key={ticket.id}
+                      className={`ticket-card${isPendingCardClickable ? " is-clickable" : ""}`}
+                      role={isPendingCardClickable ? "button" : undefined}
+                      tabIndex={isPendingCardClickable ? 0 : undefined}
+                      onClick={() => {
+                        if (!isPendingCardClickable) {
+                          return;
+                        }
+
+                        void handleStatus(ticket.id, "IN_PROGRESS");
+                      }}
+                      onKeyDown={(event) => {
+                        if (!isPendingCardClickable || (event.key !== "Enter" && event.key !== " ")) {
+                          return;
+                        }
+
+                        event.preventDefault();
+                        void handleStatus(ticket.id, "IN_PROGRESS");
+                      }}
+                    >
                       <div className="ticket-card-main">
                         <div className="ticket-card-head">
                           <div className="ticket-card-title">
@@ -726,7 +827,10 @@ export default function KitchenDashboardPage() {
                                 type="button"
                                 className={`ticket-action-btn ${buttonClassForStatus(next)}`.trim()}
                                 disabled={busyId === ticket.id}
-                                onClick={() => handleStatus(ticket.id, next)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleStatus(ticket.id, next);
+                                }}
                               >
                                 {localizedTransitionButtonLabel(ticket.status, next)}
                               </button>
@@ -734,7 +838,8 @@ export default function KitchenDashboardPage() {
                         </div>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </article>
