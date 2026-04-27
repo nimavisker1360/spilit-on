@@ -13,7 +13,8 @@ import {
   isWorkflowGuideDone,
   readWorkflowGuideStep,
   type WorkflowGuideStepKey,
-  WORKFLOW_GUIDE_STEPS
+  WORKFLOW_GUIDE_STEPS,
+  writeWorkflowGuideStep
 } from "@/lib/workflow-guide";
 
 type Guest = {
@@ -1373,13 +1374,8 @@ export default function CashierDashboardPage() {
       return;
     }
 
-    if (isWorkflowGuideDone()) {
-      setGuideStep(null);
-      setIsGuideInitialized(true);
-      return;
-    }
-
     const storedStep = readWorkflowGuideStep();
+    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
 
     if (storedStep === "kitchen-cashier") {
       setGuideStep(advanceWorkflowGuideStep("kitchen-cashier"));
@@ -1394,6 +1390,9 @@ export default function CashierDashboardPage() {
       storedStep === "cashier-finish"
     ) {
       setGuideStep(storedStep);
+    } else if (shouldAutoStartGuide) {
+      setGuideStep("cashier-calculate");
+      writeWorkflowGuideStep("cashier-calculate");
     } else {
       setGuideStep(null);
     }

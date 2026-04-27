@@ -457,13 +457,8 @@ export default function KitchenDashboardPage() {
       return;
     }
 
-    if (isWorkflowGuideDone()) {
-      setGuideStep(null);
-      setIsGuideInitialized(true);
-      return;
-    }
-
     const storedStep = readWorkflowGuideStep();
+    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
 
     if (storedStep === "waiter-kitchen") {
       setGuideStep(advanceWorkflowGuideStep("waiter-kitchen"));
@@ -484,6 +479,9 @@ export default function KitchenDashboardPage() {
       storedStep === "kitchen-mark-served"
     ) {
       setGuideStep(storedStep);
+    } else if (shouldAutoStartGuide) {
+      setGuideStep("kitchen-start-prep");
+      writeWorkflowGuideStep("kitchen-start-prep");
     } else {
       setGuideStep(null);
     }

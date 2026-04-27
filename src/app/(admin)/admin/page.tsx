@@ -611,19 +611,15 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const isDone = isWorkflowGuideDone();
     const storedStep = readWorkflowGuideStep();
-
-    if (isDone) {
-      setGuideStep(null);
-      setIsGuideInitialized(true);
-      return;
-    }
+    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
 
     const nextStep =
       storedStep !== null
         ? storedStep
-        : "admin-restaurant";
+        : shouldAutoStartGuide
+          ? "admin-restaurant"
+          : null;
 
     if (
       nextStep === "admin-restaurant" ||

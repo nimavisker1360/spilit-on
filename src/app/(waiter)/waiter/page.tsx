@@ -665,13 +665,8 @@ export default function WaiterDashboardPage() {
       return;
     }
 
-    if (isWorkflowGuideDone()) {
-      setGuideStep(null);
-      setIsGuideInitialized(true);
-      return;
-    }
-
     const storedStep = readWorkflowGuideStep();
+    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
 
     if (storedStep === "admin-waiter") {
       setGuideStep(advanceWorkflowGuideStep("admin-waiter"));
@@ -688,6 +683,9 @@ export default function WaiterDashboardPage() {
       storedStep === "waiter-kitchen"
     ) {
       setGuideStep(storedStep);
+    } else if (shouldAutoStartGuide) {
+      setGuideStep("waiter-open-session");
+      writeWorkflowGuideStep("waiter-open-session");
     } else {
       setGuideStep(null);
     }
