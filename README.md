@@ -66,7 +66,6 @@ At minimum, set these for any Prisma-backed environment:
 
 ```bash
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public
-DIRECT_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public
 ```
 
 4. Optional seed
@@ -85,12 +84,11 @@ npm run dev
 
 ## Production deploy
 
-Production builds now run `prisma migrate deploy` automatically before `next build`.
+Production builds now run `prisma generate` and `prisma migrate deploy` before `next build`.
 
 Make sure your deploy environment has:
 
 - `DATABASE_URL`
-- `DIRECT_URL`
 - `AUTH_URL`
 - `AUTH_SECRET`
 
