@@ -84,7 +84,7 @@ npm run dev
 
 ## Production deploy
 
-Production builds now run `prisma generate` and `prisma migrate deploy` before `next build`.
+Production builds now run `prisma generate` before `next build`.
 
 Make sure your deploy environment has:
 
@@ -98,6 +98,8 @@ Useful commands for manual verification:
 npm run db:deploy
 npx prisma migrate status
 ```
+
+Run `npm run db:deploy` separately in Railway after `DATABASE_URL` is available to the running service.
 
 ## Google OAuth
 
