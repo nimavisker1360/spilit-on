@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { useRealtimeEvents } from "@/hooks/use-realtime-events";
+
 type PageKind =
   | "dashboard"
   | "users"
@@ -103,6 +105,18 @@ export function SuperAdminDataPage({ kind }: { kind: PageKind }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint]);
+
+  useRealtimeEvents({
+    role: "super-admin",
+    onEvent: (event) => {
+      if (
+        event.type === "platform.payment.updated" &&
+        ["dashboard", "restaurants", "subscriptions", "payments", "audit-logs"].includes(kind)
+      ) {
+        void load();
+      }
+    },
+  });
 
   const filteredRows = useMemo(() => {
     if (!Array.isArray(data)) return [];

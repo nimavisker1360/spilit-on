@@ -7,6 +7,7 @@ import type { JsonObject, JsonValue } from "@/features/payment/payment.types";
 import { centsToDecimalString, toCents } from "@/lib/currency";
 import { env } from "@/lib/env";
 import { getPublicAppBaseUrl } from "@/lib/public-url";
+import { emitRealtimeEvent } from "@/lib/realtime/server";
 import { prisma } from "@/lib/prisma";
 
 const IYZICO_PROVIDER = "iyzico";
@@ -933,8 +934,16 @@ export async function finalizeProPlanActivation(input: {
 
     return {
       status: internalStatus,
-      restaurantId: latestPayment.restaurantId
+      restaurantId: latestPayment.restaurantId,
+      paymentId: latestPayment.id
     };
+  });
+
+  emitRealtimeEvent({
+    type: "platform.payment.updated",
+    paymentId: result.paymentId,
+    restaurantId: result.restaurantId,
+    status: result.status
   });
 
   return {
