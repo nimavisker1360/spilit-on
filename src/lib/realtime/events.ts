@@ -19,6 +19,12 @@ export type RealtimeEvent =
       tableCode: string;
     }
   | {
+      type: "session.closed";
+      sessionId: string;
+      branchId: string;
+      tableCode: string;
+    }
+  | {
       type: "session.guest-joined";
       sessionId: string;
       branchId: string;

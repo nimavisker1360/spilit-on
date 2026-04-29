@@ -3,6 +3,7 @@ import type { AppNavLink, AppRole } from "@/types";
 export const PRIMARY_NAV_LINKS: AppNavLink[] = [
   { href: "/", label: "Home" },
   { href: "/admin", label: "Admin" },
+  { href: "/admin/billing", label: "Billing" },
   { href: "/waiter", label: "Waiter" },
   { href: "/kitchen", label: "Kitchen" },
   { href: "/cashier", label: "Cashier" }

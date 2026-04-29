@@ -1,0 +1,37 @@
+
+> restaurant-split-pwa@0.1.0 dev
+> next dev -p 3001
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3001
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 649ms (232 modules)
+ ○ Compiling /super-admin/restaurants ...
+ ✓ Compiled /super-admin/restaurants in 4.2s (577 modules)
+ GET /super-admin/restaurants 200 in 5218ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /api/super-admin/[[...path]] in 2.6s (326 modules)
+ ✓ Compiled (349 modules)
+ GET /manifest.webmanifest 200 in 3042ms
+ GET /api/super-admin/restaurants 200 in 3669ms
+ GET /api/super-admin/restaurants 200 in 4071ms
+ ○ Compiling /super-admin/restaurants/[restaurantId] ...
+ ✓ Compiled /super-admin/restaurants/[restaurantId] in 586ms (620 modules)
+ GET /manifest.webmanifest 200 in 38ms
+ GET /api/super-admin/restaurants/cmok0u9440003vdr8uw21wstv 200 in 1274ms
+ GET /api/super-admin/restaurants/cmok0u9440003vdr8uw21wstv 200 in 698ms
+ GET /manifest.webmanifest 200 in 37ms
+ GET /api/super-admin/restaurants 200 in 494ms
+ GET /api/super-admin/restaurants 200 in 547ms
+ GET /manifest.webmanifest 200 in 26ms
+ GET /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k 200 in 1401ms
+ GET /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k 200 in 758ms
+ DELETE /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k/branches/cmojzshwe0017vd2w0fz2cpie 200 in 1296ms
+ GET /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k 200 in 989ms
+ DELETE /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k/branches/cmojzt2kl001nvd2w889a09d3 200 in 702ms
+ GET /api/super-admin/restaurants/cmojzshar0011vd2w4uveyv8k 200 in 652ms
+ ○ Compiling /super-admin/users ...

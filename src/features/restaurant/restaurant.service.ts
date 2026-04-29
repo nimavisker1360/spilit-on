@@ -10,6 +10,7 @@ import {
   type UpdateBranchInput,
   type UpdateRestaurantInput,
 } from "@/features/restaurant/restaurant.schemas";
+import { assertWithinLimit } from "@/features/billing/feature-gate.service";
 
 const STARTER_BRANCH = {
   name: "Main Branch",
@@ -100,6 +101,8 @@ export async function createBranch(input: CreateBranchInput) {
     where: { restaurantId_slug: { restaurantId: parsed.restaurantId, slug: parsed.slug } },
   });
   if (duplicate) throw new Error("A branch with this slug already exists in the selected restaurant");
+
+  await assertWithinLimit(parsed.restaurantId, "branch");
 
   return prisma.$transaction(async (tx) => {
     const branch = await tx.branch.create({

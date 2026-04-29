@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 import { placeCustomerOrder } from "@/features/order/order.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 
 export async function POST(request: Request) {
@@ -19,6 +19,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ data: order }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

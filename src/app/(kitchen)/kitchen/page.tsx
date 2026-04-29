@@ -458,7 +458,7 @@ export default function KitchenDashboardPage() {
     }
 
     const storedStep = readWorkflowGuideStep();
-    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
+    const shouldAutoStartGuide = !isWorkflowGuideDone() && storedStep === null;
 
     if (storedStep === "waiter-kitchen") {
       setGuideStep(advanceWorkflowGuideStep("waiter-kitchen"));

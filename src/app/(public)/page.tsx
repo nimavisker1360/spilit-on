@@ -4,6 +4,7 @@ import { HeroVideoSequence } from "@/components/landing/hero-video-sequence";
 import { LangProvider } from "@/components/landing/i18n";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingNavbar } from "@/components/landing/landing-navbar";
+import { LandingPricingSection } from "@/components/landing/landing-pricing-section";
 import { MobileScrollVideo } from "@/components/landing/mobile-scroll-video";
 import {
   CtaSection,
@@ -44,6 +45,7 @@ export default function LandingPage() {
           <HowItWorksSection />
           <DashboardsSection />
           <PaymentProvidersSection />
+          <LandingPricingSection />
           <CtaSection />
         </main>
 

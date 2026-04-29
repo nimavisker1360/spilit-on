@@ -316,6 +316,7 @@ export default function WaiterDashboardPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [deletingItemId, setDeletingItemId] = useState("");
+  const [closingSessionId, setClosingSessionId] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const [openForm, setOpenForm] = useState({ tableCode: "" });
@@ -612,6 +613,38 @@ export default function WaiterDashboardPage() {
     }
   }
 
+  async function handleCloseSession(session: OpenSession) {
+    const confirmed = window.confirm(
+      t(
+        `Close Table ${session.table.name} manually for testing? Guests will see the table as closed immediately.`,
+        `Test icin Masa ${session.table.name} manuel kapatilsin mi? Misafirler masayi hemen kapali gorecek.`
+      )
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setClosingSessionId(session.id);
+
+    try {
+      await postJson<{ data: { id: string } }>("/api/sessions/close", { sessionId: session.id });
+      setMessage(
+        t(
+          `Table ${session.table.name} was closed manually.`,
+          `Masa ${session.table.name} manuel olarak kapatildi.`
+        )
+      );
+      await loadData({ silent: true });
+    } catch (closeError) {
+      setError(closeError instanceof Error ? closeError.message : "Close session failed");
+    } finally {
+      setClosingSessionId((current) => (current === session.id ? "" : current));
+    }
+  }
+
   const totalGuests = sessions.reduce((sum, session) => sum + session.guests.length, 0);
   const totalOrders = sessions.reduce((sum, session) => sum + session.orders.length, 0);
   const totalActiveKitchenItems = sessions.reduce((sum, session) => {
@@ -666,7 +699,7 @@ export default function WaiterDashboardPage() {
     }
 
     const storedStep = readWorkflowGuideStep();
-    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
+    const shouldAutoStartGuide = !isWorkflowGuideDone() && storedStep === null;
 
     if (storedStep === "admin-waiter") {
       setGuideStep(advanceWorkflowGuideStep("admin-waiter"));
@@ -1390,6 +1423,18 @@ export default function WaiterDashboardPage() {
                       <span className="badge badge-status-progress">{t(`${activeKitchenItems} kitchen items active`, `${activeKitchenItems} aktif mutfak urunu`)}</span>
                       {session.readyToCloseAt ? <span className="badge badge-status-paid-payment">{t("Ready to close", "Kapatmaya hazir")}</span> : null}
                     </div>
+                  </div>
+                  <div className="ticket-actions">
+                    <button
+                      type="button"
+                      className="ticket-action-btn"
+                      onClick={() => void handleCloseSession(session)}
+                      disabled={closingSessionId === session.id}
+                    >
+                      {closingSessionId === session.id
+                        ? t("Closing...", "Kapatiliyor...")
+                        : t("Close manually", "Elle kapat")}
+                    </button>
                   </div>
                 </div>
 

@@ -1,0 +1,36 @@
+
+> restaurant-split-pwa@0.1.0 dev:mobile
+> next dev -H 0.0.0.0 -p 3000
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Network:      http://0.0.0.0:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 2.1s
+ ✓ Compiled /src/middleware in 498ms (232 modules)
+ ✓ Compiled in 298ms (232 modules)
+ ✓ Compiled in 172ms (232 modules)
+ ✓ Compiled in 142ms (232 modules)
+ ✓ Compiled in 109ms (232 modules)
+ ✓ Compiled in 123ms (232 modules)
+ ✓ Compiled in 96ms (232 modules)
+ ✓ Compiled in 88ms (232 modules)
+ ✓ Compiled in 148ms (232 modules)
+ ✓ Compiled in 79ms (232 modules)
+ ✓ Compiled in 129ms (232 modules)
+ ✓ Compiled in 334ms (232 modules)
+ ✓ Compiled in 142ms (232 modules)
+ ✓ Compiled in 100ms (232 modules)
+ ✓ Compiled in 92ms (232 modules)
+ ✓ Compiled in 86ms (232 modules)
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 4.7s (853 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1164ms (856 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1835ms (1075 modules)
+ GET /admin 500 in 9619ms
+ GET /admin 500 in 132ms
+ GET /_next/static/webpack/b5cbf03f57900d48.webpack.hot-update.json 404 in 166ms

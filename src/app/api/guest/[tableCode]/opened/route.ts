@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { getActiveSessionByTableCode } from "@/features/session/session.service";
 import { getTableByCode } from "@/features/table/table.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 import { emitRealtimeEvent } from "@/lib/realtime/server";
 
 export async function POST(
@@ -36,6 +36,6 @@ export async function POST(
 
     return NextResponse.json({ data: { ok: true } });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

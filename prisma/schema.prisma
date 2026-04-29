@@ -125,6 +125,30 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethodType {
+  CARD
+  BANK_TRANSFER
+  CRYPTO
+}
+
+enum PlatformPaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
 enum AuditActorType {
   USER
   CUSTOMER
@@ -155,6 +179,9 @@ model Restaurant {
   subscriptions   TenantSubscription[]
   usageCounters   UsageCounter[]
   auditLogs       AuditLog[]
+  paymentMethods  PaymentMethod[]
+  platformInvoices PlatformInvoice[]
+  platformPayments PlatformPayment[]
   onboarding      OnboardingProgress?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -218,6 +245,9 @@ model User {
   name            String
   image           String?
   passwordHash    String?
+  isActive        Boolean      @default(true)
+  deactivatedAt   DateTime?
+  deletedAt       DateTime?
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
   lastLoginAt     DateTime?
@@ -227,6 +257,46 @@ model User {
   sessions        AuthSession[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+model SuperAdminUser {
+  id            String          @id @default(cuid())
+  email         String          @unique
+  passwordHash  String          @map("password_hash")
+  name          String
+  role          String          @default("super_admin")
+  isActive      Boolean         @default(true) @map("is_active")
+  lastLoginAt   DateTime?       @map("last_login_at")
+  auditLogs     AdminAuditLog[]
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  @@map("super_admin_users")
+}
+
+model AdminAuditLog {
+  id          String          @id @default(cuid())
+  adminId     String?         @map("admin_id")
+  admin       SuperAdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action      String          @db.VarChar(120)
+  entityType  String          @map("entity_type") @db.VarChar(80)
+  entityId    String?         @map("entity_id")
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([adminId, createdAt])
+  @@index([entityType, entityId])
+  @@map("admin_audit_logs")
+}
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
 }
 
 model Account {
@@ -593,23 +663,31 @@ model SubscriptionPlan {
 }
 
 model TenantSubscription {
-  id                     String             @id @default(cuid())
+  id                     String               @id @default(cuid())
   restaurantId           String
-  restaurant             Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant             Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   planId                 String
-  plan                   SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
-  provider               String             @default("manual") @db.VarChar(64)
+  plan                   SubscriptionPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  provider               String               @default("manual") @db.VarChar(64)
   providerSubscriptionId String?
-  status                 SubscriptionStatus @default(TRIALING)
-  billingPeriod          BillingPeriod      @default(MONTHLY)
+  status                 SubscriptionStatus   @default(TRIALING)
+  billingPeriod          BillingPeriod        @default(MONTHLY)
   currentPeriodStart     DateTime
   currentPeriodEnd       DateTime
-  cancelAtPeriodEnd      Boolean            @default(false)
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  nextBillingDate        DateTime?
+  lastBillingDate        DateTime?
+  cancelAtPeriodEnd      Boolean              @default(false)
+  autoRenew              Boolean              @default(true)
+  paymentMethodId        String?
+  paymentMethod          PaymentMethod?       @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  invoices               PlatformInvoice[]
+  payments               PlatformPayment[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
   @@index([restaurantId, status])
   @@index([provider, providerSubscriptionId])
+  @@index([nextBillingDate])
 }
 
 model UsageCounter {
@@ -652,4 +730,88 @@ model AuditLog {
   @@index([branchId, createdAt])
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
+}
+
+model PaymentMethod {
+  id                    String                @id @default(cuid())
+  restaurantId          String
+  restaurant            Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  type                  PaymentMethodType
+  provider              String                @db.VarChar(64)
+  providerPaymentMethodId String?             @db.VarChar(128)
+  last4                 String?               @db.VarChar(4)
+  expiryMonth           Int?
+  expiryYear            Int?
+  holderName            String?
+  isDefault             Boolean               @default(false)
+  subscriptions         TenantSubscription[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([restaurantId])
+  @@index([provider, providerPaymentMethodId])
+}
+
+model PlatformInvoice {
+  id                    String                @id @default(cuid())
+  restaurantId          String
+  restaurant            Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  subscriptionId        String
+  subscription          TenantSubscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  invoiceNumber         String
+  status                InvoiceStatus         @default(DRAFT)
+  currency              String                @default("TRY") @db.VarChar(3)
+  amount                Decimal               @db.Decimal(10, 2)
+  taxAmount             Decimal               @default(0) @db.Decimal(10, 2)
+  discountAmount        Decimal               @default(0) @db.Decimal(10, 2)
+  totalAmount           Decimal               @db.Decimal(10, 2)
+  description           String?
+  billingPeriodStart    DateTime
+  billingPeriodEnd      DateTime
+  dueDate               DateTime?
+  issuedAt              DateTime              @default(now())
+  paidAt                DateTime?
+  failedAt              DateTime?
+  refundedAt            DateTime?
+  metadata              Json?
+  payments              PlatformPayment[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@unique([restaurantId, invoiceNumber])
+  @@index([restaurantId, status])
+  @@index([subscriptionId, status])
+  @@index([dueDate, status])
+  @@index([issuedAt])
+}
+
+model PlatformPayment {
+  id                     String                @id @default(cuid())
+  restaurantId           String
+  restaurant             Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  subscriptionId         String
+  subscription           TenantSubscription    @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  invoiceId              String?
+  invoice                PlatformInvoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  amount                 Decimal               @db.Decimal(10, 2)
+  currency               String                @default("TRY") @db.VarChar(3)
+  status                 PlatformPaymentStatus @default(PENDING)
+  provider               String                @db.VarChar(64)
+  providerPaymentId      String?               @db.VarChar(128)
+  providerTransactionId  String?               @db.VarChar(128)
+  method                 PaymentMethodType?
+  failureReason          String?
+  attemptCount           Int                   @default(0)
+  lastAttemptedAt        DateTime?
+  succeededAt            DateTime?
+  refundedAt             DateTime?
+  metadata               Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([restaurantId, status])
+  @@index([subscriptionId, status])
+  @@index([invoiceId])
+  @@index([provider, providerPaymentId])
+  @@index([succeededAt])
 }

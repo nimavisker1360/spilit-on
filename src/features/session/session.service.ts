@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { assertFeatureEnabled } from "@/features/billing/feature-gate.service";
 import {
   closeSessionSchema,
   joinSessionSchema,
@@ -27,11 +28,21 @@ const SESSION_DETAIL = {
   guests: { orderBy: { joinedAt: "asc" } },
 } as const;
 
+const TABLE_LOCKED_MESSAGE =
+  "This table is locked on the current plan. Upgrade billing to continue using tables.";
+const QR_LOCKED_MESSAGE =
+  "QR table access is locked on the current plan. Upgrade billing to continue.";
+
 export async function openSession(input: OpenSessionInput) {
   const parsed = openSessionSchema.parse(input);
 
-  const table = await prisma.table.findUnique({ where: { code: parsed.tableCode } });
+  const table = await prisma.table.findUnique({
+    where: { code: parsed.tableCode },
+    include: { branch: { select: { restaurantId: true } } },
+  });
   if (!table || table.status === "OUT_OF_SERVICE") throw new Error("Table is unavailable");
+
+  await assertFeatureEnabled(table.branch.restaurantId, "tableManagement", TABLE_LOCKED_MESSAGE);
 
   const existing = await prisma.tableSession.findFirst({
     where: { tableId: table.id, status: "OPEN" },
@@ -66,8 +77,13 @@ export async function openSession(input: OpenSessionInput) {
 export async function joinSession(input: JoinSessionInput) {
   const parsed = joinSessionSchema.parse(input);
 
-  const table = await prisma.table.findUnique({ where: { code: parsed.tableCode } });
+  const table = await prisma.table.findUnique({
+    where: { code: parsed.tableCode },
+    include: { branch: { select: { restaurantId: true } } },
+  });
   if (!table) throw new Error("Table not found");
+
+  await assertFeatureEnabled(table.branch.restaurantId, "qrOrdering", QR_LOCKED_MESSAGE);
 
   const activeSession = await prisma.tableSession.findFirst({
     where: { tableId: table.id, status: "OPEN" },
@@ -105,6 +121,7 @@ export async function closeSession(input: CloseSessionInput) {
     prisma.tableSession.update({
       where: { id: parsed.sessionId },
       data: { status: "CLOSED", closedAt: new Date() },
+      include: { table: true },
     }),
     prisma.table.update({
       where: { id: session.tableId },

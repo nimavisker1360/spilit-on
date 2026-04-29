@@ -1,0 +1,182 @@
+================================================================================
+PHASE 1 VERIFICATION - QUICK CARD
+================================================================================
+
+RUN THESE COMMANDS IN ORDER:
+
+================================================================================
+STEP 1: VERIFY MIGRATION APPLIED
+================================================================================
+npx prisma migrate status
+
+LOOK FOR: 20260428152024_add_billing_foundation ✓ Migrate
+EXPECT: "All migrations have been applied"
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 2: REGENERATE PRISMA CLIENT
+================================================================================
+npm run db:generate
+
+EXPECT: "Generated Prisma Client" message
+NO ERRORS
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 3: CHECK TYPESCRIPT
+================================================================================
+npm run typecheck
+
+EXPECT: No output (silence = success)
+NO ERRORS about billing models
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 4: VERIFY TABLES IN DATABASE (PostgreSQL)
+================================================================================
+psql $DATABASE_URL -c "
+SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('PaymentMethod', 'PlatformInvoice', 'PlatformPayment');"
+
+EXPECT:
+  PaymentMethod
+  PlatformInvoice
+  PlatformPayment
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 5: VERIFY ENUMS IN DATABASE
+================================================================================
+psql $DATABASE_URL -c "
+SELECT typname FROM pg_type WHERE typtype='e' AND typname IN ('InvoiceStatus', 'PaymentMethodType', 'PlatformPaymentStatus');"
+
+EXPECT:
+  InvoiceStatus
+  PaymentMethodType
+  PlatformPaymentStatus
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 6: VERIFY TENANTSUBSCRIPTION COLUMNS
+================================================================================
+psql $DATABASE_URL -c "\d \"TenantSubscription\"" | grep -E "nextBillingDate|lastBillingDate|autoRenew|paymentMethodId"
+
+EXPECT: All 4 columns listed:
+  nextBillingDate | timestamp(3)
+  lastBillingDate | timestamp(3)
+  autoRenew | boolean
+  paymentMethodId | text
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 7: VERIFY FOREIGN KEYS
+================================================================================
+psql $DATABASE_URL -c "
+SELECT constraint_name FROM information_schema.key_column_usage
+WHERE table_name IN ('PaymentMethod', 'PlatformInvoice', 'PlatformPayment', 'TenantSubscription')
+AND column_name LIKE '%Id';"
+
+EXPECT: 7 constraints:
+  - PaymentMethod_restaurantId_fkey
+  - PlatformInvoice_restaurantId_fkey
+  - PlatformInvoice_subscriptionId_fkey
+  - PlatformPayment_restaurantId_fkey
+  - PlatformPayment_subscriptionId_fkey
+  - PlatformPayment_invoiceId_fkey
+  - TenantSubscription_paymentMethodId_fkey
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 8: VERIFY INDEXES
+================================================================================
+psql $DATABASE_URL -c "
+SELECT COUNT(*) FROM pg_indexes WHERE tablename IN ('PaymentMethod', 'PlatformInvoice', 'PlatformPayment');"
+
+EXPECT: 12
+  PaymentMethod: 2 indexes
+  PlatformInvoice: 5 indexes
+  PlatformPayment: 5 indexes
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 9: DATA INTEGRITY CHECK
+================================================================================
+psql $DATABASE_URL -c "
+SELECT
+  (SELECT COUNT(*) FROM \"PaymentMethod\" WHERE \"restaurantId\" NOT IN (SELECT id FROM \"Restaurant\")) AS orphaned_methods,
+  (SELECT COUNT(*) FROM \"PlatformInvoice\" WHERE \"restaurantId\" NOT IN (SELECT id FROM \"Restaurant\")) AS orphaned_invoices,
+  (SELECT COUNT(*) FROM \"PlatformPayment\" WHERE \"restaurantId\" NOT IN (SELECT id FROM \"Restaurant\")) AS orphaned_payments;"
+
+EXPECT: All zeros
+  orphaned_methods | 0
+  orphaned_invoices | 0
+  orphaned_payments | 0
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 10: VERIFY APP STARTS
+================================================================================
+npm run dev
+
+EXPECT:
+  ▲ Next.js
+  - Local: http://localhost:3000
+
+NO DATABASE ERRORS
+NO PRISMA ERRORS
+
+(Press Ctrl+C to stop)
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+STEP 11: TEST IN BROWSER
+================================================================================
+Open: http://localhost:3000
+
+✓ Page loads
+✓ Can login
+✓ Admin dashboard visible
+✓ Restaurants visible
+✓ No console errors
+
+PASS: [ ]  FAIL: [ ]
+
+================================================================================
+FINAL SUMMARY
+================================================================================
+
+If ALL steps show PASS: [ ], then Phase 1 is VERIFIED ✓
+
+If ANY step shows FAIL: [ ], then:
+  1. Check PHASE_1_VERIFICATION_CHECKLIST.md for troubleshooting
+  2. Review error messages carefully
+  3. Check BILLING_MIGRATION.md for rollback instructions
+
+CRITICAL CHECKS (must pass):
+  [x] Step 1: Migration applied
+  [x] Step 2: Prisma regenerated
+  [x] Step 3: TypeScript clean
+  [x] Step 4: Tables exist
+  [x] Step 5: Enums exist
+  [x] Step 6: Columns added
+  [x] Step 7: Foreign keys exist
+  [x] Step 8: Indexes created
+  [x] Step 9: No orphaned data
+  [x] Step 10: App starts
+  [x] Step 11: Features work
+
+TOTAL: ___ / 11 CHECKS PASSED
+
+================================================================================
+IF PASSED: Phase 1 is complete and verified
+DO NOT PROCEED TO PHASE 2 UNTIL ALL CHECKS PASS
+================================================================================

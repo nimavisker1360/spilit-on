@@ -718,7 +718,7 @@ export function GuestExperience({ tableCode }: Props) {
   useRealtimeEvents({
     role: "guest",
     onEvent: (event) => {
-      if (event.type === "session.opened") {
+      if (event.type === "session.opened" || event.type === "session.closed") {
         if (event.tableCode.trim().toLocaleUpperCase("en-US") === tableCode.trim().toLocaleUpperCase("en-US")) {
           void load({ silent: true });
         }

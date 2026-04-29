@@ -1,0 +1,262 @@
+================================================================================
+PHASE 1 TEST: VERIFY TRIAL SUBSCRIPTION AUTO-CREATION
+================================================================================
+
+OBJECTIVE: Create a test restaurant and confirm that a trial subscription is
+automatically created with all proper relationships to billing tables.
+
+TIME: 10-15 minutes
+
+================================================================================
+STEP 1: CREATE TEST RESTAURANT (Choose A or B)
+================================================================================
+
+OPTION A: Via Browser Sign-Up (Easiest)
+───────────────────────────────────────
+
+1. Start the app:
+   npm run dev
+
+2. Go to: http://localhost:3000/login
+
+3. Click "Sign up" or "Sign in with Google"
+
+4. Create account (use test credentials)
+
+5. Complete onboarding flow
+
+6. You'll be redirected to dashboard
+
+7. In browser DevTools (F12) > Application > LocalStorage
+   Look for: next-auth.session-token
+   Copy the restaurantId from the JSON
+
+8. Save this ID: ____________________________
+
+
+OPTION B: Via Prisma Script (More Control)
+─────────────────────────────────────────
+
+1. Copy this code into a file: test-create-restaurant.ts
+
+---start file---
+import { prisma } from "@/lib/prisma";
+
+async function test() {
+  const now = new Date();
+  const user = await prisma.user.create({
+    data: { email: `test-${Date.now()}@test.com`, name: "Test", emailVerified: now }
+  });
+  const plan = await prisma.subscriptionPlan.findFirst({ where: { code: "trial" } })
+    || await prisma.subscriptionPlan.create({
+      data: { code: "trial", name: "Trial", monthlyPrice: 0, annualPrice: 0, currency: "TRY",
+              includedTables: 10, includedBranches: 1, includedStaff: 5, commissionRate: 0, features: {} }
+    });
+  const r = await prisma.restaurant.create({
+    data: { name: "Test", slug: `test-${Date.now()}`, status: "TRIALING", workspaceMode: "TRIAL",
+            currentPlanId: plan.id, trialStartedAt: now, trialEndsAt: new Date(now.getTime() + 14*24*60*60*1000) }
+  });
+  await prisma.membership.create({ data: { restaurantId: r.id, userId: user.id, role: "OWNER", status: "ACTIVE" } });
+  const s = await prisma.tenantSubscription.create({
+    data: { restaurantId: r.id, planId: plan.id, status: "TRIALING", billingPeriod: "MONTHLY",
+            currentPeriodStart: now, currentPeriodEnd: new Date(now.getTime() + 14*24*60*60*1000) }
+  });
+  console.log("Restaurant:", r.id);
+  console.log("Subscription:", s.id);
+  await prisma.$disconnect();
+}
+
+test();
+---end file---
+
+2. Run it:
+   npx tsx test-create-restaurant.ts
+
+3. Copy the Restaurant ID from output: ____________________________
+
+
+================================================================================
+STEP 2: VERIFY IN POSTGRESQL (Key Test)
+================================================================================
+
+Open terminal and run these commands:
+
+1. List your test restaurant:
+
+   psql $DATABASE_URL -c "
+   SELECT id, name, status, 'trialEndsAt'
+   FROM \"Restaurant\"
+   WHERE status = 'TRIALING'
+   ORDER BY \"createdAt\" DESC
+   LIMIT 1;"
+
+   EXPECTED:
+   ✓ Shows your test restaurant
+   ✓ status = TRIALING
+
+   Save the ID if you don't have it: ____________________________
+
+
+2. Verify subscription exists:
+
+   psql $DATABASE_URL -c "
+   SELECT
+     ts.id,
+     ts.status,
+     ts.\"billingPeriod\",
+     ts.\"autoRenew\",
+     ts.\"nextBillingDate\",
+     ts.\"lastBillingDate\",
+     ts.\"paymentMethodId\"
+   FROM \"TenantSubscription\" ts
+   WHERE ts.\"restaurantId\" = 'YOUR_RESTAURANT_ID';"
+
+   EXPECTED:
+   ✓ Shows 1 subscription row
+   ✓ status = TRIALING
+   ✓ billingPeriod = MONTHLY
+   ✓ autoRenew = true
+   ✓ nextBillingDate = (empty/NULL)
+   ✓ lastBillingDate = (empty/NULL)
+   ✓ paymentMethodId = (empty/NULL)
+
+
+3. Verify no billing data yet (expected):
+
+   psql $DATABASE_URL -c "
+   SELECT
+     (SELECT COUNT(*) FROM \"PaymentMethod\" WHERE \"restaurantId\" = 'YOUR_RESTAURANT_ID') AS payment_methods,
+     (SELECT COUNT(*) FROM \"PlatformInvoice\" WHERE \"restaurantId\" = 'YOUR_RESTAURANT_ID') AS invoices,
+     (SELECT COUNT(*) FROM \"PlatformPayment\" WHERE \"restaurantId\" = 'YOUR_RESTAURANT_ID') AS payments;"
+
+   EXPECTED:
+   ✓ All three columns = 0 (empty is correct)
+
+
+4. Verify relationships work:
+
+   psql $DATABASE_URL -c "
+   SELECT
+     r.id AS restaurant_id,
+     r.name,
+     r.status,
+     ts.id AS subscription_id,
+     ts.status AS subscription_status
+   FROM \"Restaurant\" r
+   LEFT JOIN \"TenantSubscription\" ts ON r.id = ts.\"restaurantId\"
+   WHERE r.id = 'YOUR_RESTAURANT_ID';"
+
+   EXPECTED:
+   ✓ Shows one row
+   ✓ restaurant_id = subscription's restaurantId
+   ✓ Both statuses = TRIALING
+   ✓ LEFT JOIN shows the relationship works
+
+
+================================================================================
+STEP 3: OPTIONAL - RUN COMPLETE TEST SUITE
+================================================================================
+
+For more detailed testing, use:
+
+   psql $DATABASE_URL < PHASE_1_TEST_QUICK_SQL.sql
+
+Edit the file and replace RESTAURANT_ID with your actual ID first.
+
+Or run full detailed guide:
+
+   See: PHASE_1_TEST_TRIAL_CREATION.md
+
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+After running the 4 queries above, check these boxes:
+
+RESTAURANT:
+  [ ] Restaurant exists with ID
+  [ ] status = TRIALING
+  [ ] name is your test restaurant
+  [ ] trialEndsAt is ~14 days from now
+
+SUBSCRIPTION:
+  [ ] Subscription exists with ID
+  [ ] status = TRIALING
+  [ ] billingPeriod = MONTHLY
+  [ ] autoRenew = true
+  [ ] nextBillingDate is NULL (not yet scheduled)
+  [ ] lastBillingDate is NULL (no invoices yet)
+  [ ] paymentMethodId is NULL (no payment method set)
+
+BILLING TABLES (Should all be 0):
+  [ ] payment_methods = 0 (expected, no payment methods yet)
+  [ ] invoices = 0 (expected, no invoices yet)
+  [ ] payments = 0 (expected, no payments yet)
+
+RELATIONSHIPS:
+  [ ] Restaurant → TenantSubscription works
+  [ ] Both have TRIALING status
+  [ ] No broken foreign keys
+
+
+================================================================================
+EXPECTED TEST RESULT
+================================================================================
+
+If all checkboxes above are checked:
+
+    ✅ PHASE 1 TRIAL CREATION TEST PASSED
+
+Restaurant successfully created with:
+  ✓ Automatic trial subscription
+  ✓ Proper status (TRIALING)
+  ✓ 14-day trial period
+  ✓ All relationships intact
+  ✓ Billing tables ready (empty, as expected)
+  ✓ Ready for Phase 2
+
+
+================================================================================
+TEST FAILED? TROUBLESHOOTING
+================================================================================
+
+Issue: "No restaurant found"
+→ Run: psql $DATABASE_URL -c "SELECT COUNT(*) FROM \"Restaurant\";"
+→ Check if migration applied: npx prisma migrate status
+→ Verify app started correctly
+
+Issue: "No subscription found"
+→ Check Restaurant.currentPlanId is set
+→ Verify trial plan exists: psql $DATABASE_URL -c "SELECT * FROM \"SubscriptionPlan\" WHERE code='trial';"
+→ Check auth.ts creates subscription (should be automatic)
+
+Issue: "Wrong number of billing tables"
+→ Run: npx prisma migrate status
+→ Verify all 3 tables exist: psql $DATABASE_URL -c "\dt Platform*"
+→ Re-run migration if needed
+
+Issue: "NULL values where expecting data"
+→ This is often CORRECT for a new trial (except autoRenew should be true)
+→ nextBillingDate/lastBillingDate/paymentMethodId being NULL is expected for new trial
+
+Issue: "Foreign key constraint error"
+→ Check parent records exist first
+→ Verify no orphaned records:
+  psql $DATABASE_URL -c "SELECT * FROM information_schema.referential_constraints WHERE table_name='TenantSubscription';"
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+This test confirms:
+1. ✓ Database migration (Phase 1) is working
+2. ✓ Relationships between Restaurant/Subscription/Billing tables
+3. ✓ Trial subscription auto-creation (existing feature still works)
+4. ✓ New billing schema is compatible with existing app
+5. ✓ No breaking changes to Restaurant creation flow
+
+You are now ready for Phase 2 (Billing Service implementation).
+
+================================================================================

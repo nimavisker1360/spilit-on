@@ -4,6 +4,7 @@ import { PaymentSessionStatus, PaymentShareStatus, PaymentStatus, SessionStatus,
 import { prisma } from "@/lib/prisma";
 import { centsToDecimalString, toCents } from "@/lib/currency";
 import { getPublicAppBaseUrl } from "@/lib/public-url";
+import { assertFeatureEnabled } from "@/features/billing/feature-gate.service";
 import { createMockPaymentCharge, MOCK_GUEST_PAYMENT_PROVIDER } from "@/features/payment/mock-payment.service";
 import {
   applyGuestPaymentSharePaymentSchema,
@@ -25,6 +26,8 @@ const CASH_PROVIDER = "CASH_DESK";
 const CARD_PROVIDER = "CARD_POS";
 const ONLINE_PROVIDER = "MOCK_ONLINE_LINK";
 const MOCK_SETTLEMENT_PROVIDER = "MOCK_SETTLEMENT";
+const QR_LOCKED_MESSAGE =
+  "QR table access is locked on the current plan. Upgrade billing to continue.";
 
 // ─── Pure Helpers ────────────────────────────────────────────────────────────
 
@@ -886,8 +889,13 @@ export async function getGuestPaymentEntry(
     sessionId: lookup.sessionId?.trim() ?? ""
   };
 
-  const table = await prisma.table.findUnique({ where: { code: normCode } });
+  const table = await prisma.table.findUnique({
+    where: { code: normCode },
+    include: { branch: { select: { restaurantId: true } } },
+  });
   if (!table || table.status === "OUT_OF_SERVICE") throw new Error("Table not found");
+
+  await assertFeatureEnabled(table.branch.restaurantId, "qrOrdering", QR_LOCKED_MESSAGE);
 
   const tableBase = { id: table.id, name: table.name, code: table.code };
 

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { listBranchMenu } from "@/features/menu/menu.service";
 import { getActiveSessionByTableCode } from "@/features/session/session.service";
 import { getTableByCode } from "@/features/table/table.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 
 export async function GET(
   request: Request,
@@ -34,6 +34,6 @@ export async function GET(
       }
     });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

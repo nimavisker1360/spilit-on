@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getGuestOrderFeed } from "@/features/order/order.service";
-import { routeErrorMessage } from "@/lib/errors";
+import { routeErrorMessage, routeErrorStatus } from "@/lib/errors";
 
 type RouteContext = {
   params: {
@@ -34,7 +34,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }
 
@@ -45,6 +45,6 @@ export async function POST(request: Request, context: RouteContext) {
 
     return NextResponse.json({ data: result });
   } catch (error) {
-    return NextResponse.json({ error: routeErrorMessage(error) }, { status: 400 });
+    return NextResponse.json({ error: routeErrorMessage(error) }, { status: routeErrorStatus(error) });
   }
 }

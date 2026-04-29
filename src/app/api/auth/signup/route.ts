@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { ensureRestaurantStarterWorkspace } from "@/features/restaurant/restaurant.service";
+import { getTrialEndsAt, PRO_PLAN_CODE } from "@/features/billing/plan-config";
 
 const signupSchema = z.object({
   name: z.string().min(2).max(80),
@@ -58,10 +59,10 @@ export async function POST(request: Request) {
     }
 
     const now = new Date();
-    const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const trialEndsAt = getTrialEndsAt(now);
 
-    const trialPlan = await prisma.subscriptionPlan.findFirst({
-      where: { code: "trial", isActive: true },
+    const proPlan = await prisma.subscriptionPlan.findFirst({
+      where: { code: PRO_PLAN_CODE, isActive: true },
     });
 
     const result = await prisma.$transaction(async (tx) => {
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
           defaultCurrency: "TRY",
           trialStartedAt: now,
           trialEndsAt,
-          currentPlanId: trialPlan?.id ?? null,
+          currentPlanId: proPlan?.id ?? null,
         },
       });
 
@@ -97,11 +98,11 @@ export async function POST(request: Request) {
         },
       });
 
-      if (trialPlan) {
+      if (proPlan) {
         await tx.tenantSubscription.create({
           data: {
             restaurantId: restaurant.id,
-            planId: trialPlan.id,
+            planId: proPlan.id,
             status: "TRIALING",
             billingPeriod: "MONTHLY",
             currentPeriodStart: now,

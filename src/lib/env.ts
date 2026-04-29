@@ -18,6 +18,10 @@ const envSchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.string().url().optional()
   ),
+  IYZICO_BILLING_CALLBACK_URL: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional()
+  ),
   IYZICO_LOCALE: z
     .preprocess(
       (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -45,6 +49,7 @@ const envParseResult = envSchema.safeParse({
   IYZICO_SECRET_KEY: process.env.IYZICO_SECRET_KEY,
   IYZICO_BASE_URL: process.env.IYZICO_BASE_URL,
   IYZICO_CALLBACK_URL: process.env.IYZICO_CALLBACK_URL,
+  IYZICO_BILLING_CALLBACK_URL: process.env.IYZICO_BILLING_CALLBACK_URL,
   IYZICO_LOCALE: process.env.IYZICO_LOCALE,
   IYZICO_CURRENCY: process.env.IYZICO_CURRENCY,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,

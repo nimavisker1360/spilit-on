@@ -8,6 +8,10 @@ import {
   type DeleteTableInput,
   type UpdateTableInput,
 } from "@/features/table/table.schemas";
+import { assertFeatureEnabled, assertWithinLimit } from "@/features/billing/feature-gate.service";
+
+const QR_LOCKED_MESSAGE =
+  "QR table access is locked on the current plan. Upgrade billing to continue.";
 
 function toCodeSegment(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -39,6 +43,8 @@ export async function createTable(input: CreateTableInput) {
     where: { branchId_name: { branchId: parsed.branchId, name: parsed.name } },
   });
   if (existing) throw new Error(`Table name "${parsed.name}" already exists in this branch`);
+
+  await assertWithinLimit(branch.restaurantId, "table");
 
   const publicToken = await generateUniquePublicToken();
 
@@ -95,11 +101,12 @@ export async function getTableByCode(tableCode: string) {
     where: { code: tableCode },
     include: {
       branch: {
-        include: { restaurant: { select: { name: true } } },
+        include: { restaurant: { select: { id: true, name: true } } },
       },
     },
   });
   if (!table) return null;
+  await assertFeatureEnabled(table.branch.restaurant.id, "qrOrdering", QR_LOCKED_MESSAGE);
 
   return {
     ...table,
@@ -125,12 +132,17 @@ export async function resolveTableByPublicToken(token: string) {
     where: { publicToken: parsedToken.data },
     include: {
       branch: {
-        include: { restaurant: { select: { name: true } } },
+        include: { restaurant: { select: { id: true, name: true } } },
       },
     },
   });
 
   if (!table || table.status === "OUT_OF_SERVICE") return null;
+  try {
+    await assertFeatureEnabled(table.branch.restaurant.id, "qrOrdering", QR_LOCKED_MESSAGE);
+  } catch {
+    return null;
+  }
 
   return {
     ...table,

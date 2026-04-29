@@ -1,13 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import * as XLSX from "xlsx";
 
 import { AdminActions, AdminField, AdminFormCard } from "@/components/admin/admin-form";
 import { WorkflowGuide } from "@/components/guide/workflow-guide";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
+import { type FeatureAccess } from "@/features/billing/feature-gate.types";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 import { formatTryCurrency, formatTryMoneyInput, parseMoneyValue } from "@/lib/currency";
 import {
@@ -105,6 +106,13 @@ type ItemListRow = MenuItem & {
 
 type ApiSnapshotResponse = {
   data: Restaurant[];
+  error?: string;
+};
+
+type ApiBillingResponse = {
+  data?: {
+    featureAccess: FeatureAccess;
+  };
   error?: string;
 };
 
@@ -438,12 +446,40 @@ function getTableStatusLabel(status: TableStatus): string {
   return status;
 }
 
+type PlanLimitDetails = {
+  current: number;
+  limit: number;
+  usageKey: "branches" | "tables" | "staff";
+};
+
+function parsePlanLimitError(message: string): PlanLimitDetails | null {
+  const match = message.match(
+    /^Plan (?:limit|capacity) reached:\s*you have\s*(\d+)\/(\d+)\s+(branches|tables|staff)\.(?:\s*Upgrade your plan to add more\.)?$/i
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const current = Number.parseInt(match[1], 10);
+  const limit = Number.parseInt(match[2], 10);
+  const usageKey = match[3].toLowerCase() as PlanLimitDetails["usageKey"];
+
+  if (!Number.isFinite(current) || !Number.isFinite(limit)) {
+    return null;
+  }
+
+  return { current, limit, usageKey };
+}
+
 export default function AdminDashboardPage() {
   const { t } = useDashboardLanguage();
   const [snapshot, setSnapshot] = useState<Restaurant[]>([]);
+  const [featureAccess, setFeatureAccess] = useState<FeatureAccess | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [isPlanLimitModalOpen, setIsPlanLimitModalOpen] = useState(false);
   const [publicBaseUrl, setPublicBaseUrl] = useState(() => getPublicAppBaseUrl());
 
   const [restaurantEdits, setRestaurantEdits] = useState<Record<string, string>>({});
@@ -539,6 +575,7 @@ export default function AdminDashboardPage() {
   const [isGuideInitialized, setIsGuideInitialized] = useState(false);
   const [requestedFocusTarget, setRequestedFocusTarget] = useState<string | null>(null);
   const [requestedFocusBranchId, setRequestedFocusBranchId] = useState<string | null>(null);
+  const planLimitBannerRef = useRef<HTMLDivElement | null>(null);
 
   const branches = useMemo<BranchListRow[]>(() => {
     return snapshot.flatMap((restaurant) =>
@@ -590,6 +627,94 @@ export default function AdminDashboardPage() {
   const isBranchGuideSatisfied = branches.length > 0;
   const isTableGuideSatisfied = tables.length > 0;
   const isMenuGuideSatisfied = menuItems.length > 0;
+  const planLimitDetails = useMemo(() => parsePlanLimitError(error), [error]);
+  const isPlanLimitError = planLimitDetails !== null;
+  const planLimitUsageLabel = planLimitDetails
+    ? planLimitDetails.usageKey === "branches"
+      ? t("branches", "sube")
+      : planLimitDetails.usageKey === "tables"
+        ? t("tables", "masa")
+        : t("staff", "personel")
+    : "";
+  const localizedPlanLimitTitle = planLimitDetails
+    ? planLimitDetails.usageKey === "branches"
+      ? t("Branch limit reached", "Sube limiti doldu")
+      : planLimitDetails.usageKey === "tables"
+        ? t("Table limit reached", "Masa limiti doldu")
+        : t("Staff limit reached", "Personel limiti doldu")
+    : t("Plan limit reached", "Paket limiti doldu");
+  const isPlanCapacityOnly = Boolean(isPlanLimitError && featureAccess && !featureAccess.isPremiumLocked);
+  const localizedPlanLimitMessage = planLimitDetails
+    ? isPlanCapacityOnly
+      ? t(
+          `You are using ${planLimitDetails.current}/${planLimitDetails.limit} ${planLimitUsageLabel}. Your Pro access is active; use the existing branch or remove unused capacity before adding more.`,
+          `${planLimitDetails.current}/${planLimitDetails.limit} ${planLimitUsageLabel} kullanimina ulastiniz. Pro erisiminiz aktif; devam etmek icin mevcut subeyi kullanin veya kullanilmayan kapasiteyi kaldirin.`
+        )
+      : t(
+          `You are using ${planLimitDetails.current}/${planLimitDetails.limit} ${planLimitUsageLabel}. Activate Pro to continue.`,
+          `${planLimitDetails.current}/${planLimitDetails.limit} ${planLimitUsageLabel} kullanimina ulastiniz. Devam etmek icin Pro'yu etkinlestirin.`
+        )
+    : error;
+  const planLimitUsagePercent =
+    planLimitDetails && planLimitDetails.limit > 0
+      ? Math.min(100, Math.max(0, (planLimitDetails.current / planLimitDetails.limit) * 100))
+      : 0;
+  const planLimitKicker = isPlanCapacityOnly
+    ? t("Plan capacity reached", "Paket kapasitesi doldu")
+    : t("Upgrade required", "Yukseltme gerekli");
+  const planLimitActionLabel = isPlanCapacityOnly
+    ? t("View limit details", "Limit detaylarini ac")
+    : t("View upgrade card", "Yukseltme kartini ac");
+  const planLimitModalDescription = isPlanCapacityOnly
+    ? t(
+        "Your Pro access is active. This limit only blocks adding another branch; keep using tables, QR, menu, waiter, kitchen, and cashier from the existing branch.",
+        "Pro erisiminiz aktif. Bu limit sadece yeni sube eklemeyi engeller; mevcut subeden masa, QR, menu, garson, mutfak ve kasa akislarini kullanmaya devam edin."
+      )
+    : t(
+        "Open the billing page to activate Pro and continue using this restaurant setup without removing existing data.",
+        "Mevcut verileri silmeden bu restoran kurulumunu kullanmaya devam etmek icin faturalama sayfasinda Pro'yu etkinlestirin."
+      );
+  const shouldShowBillingUpgradeAction = !isPlanCapacityOnly;
+  const isBranchCreationDisabled = Boolean(featureAccess && !featureAccess.canAdd.branch);
+  const remainingBranches = featureAccess
+    ? Math.max(0, featureAccess.limits.maxBranches - featureAccess.usage.branches)
+    : 0;
+  const remainingTables = featureAccess
+    ? Math.max(0, featureAccess.limits.maxTables - featureAccess.usage.tables)
+    : 0;
+  const branchCapacityHelp = featureAccess
+    ? featureAccess.isPremiumLocked
+      ? t(
+          "Activate Pro before adding branches. Existing data stays in place.",
+          "Sube eklemeden once Pro'yu etkinlestirin. Mevcut veriler korunur."
+        )
+      : featureAccess.canAdd.branch
+        ? t(
+            `You can add ${remainingBranches} more branch(es) on this plan.`,
+            `Bu pakette ${remainingBranches} sube daha ekleyebilirsiniz.`
+          )
+        : t(
+            `This plan includes ${featureAccess.limits.maxBranches} branch. Continue by adding tables under the existing branch.`,
+            `Bu paket ${featureAccess.limits.maxBranches} sube icerir. Mevcut subeye masa ekleyerek devam edin.`
+          )
+    : t("Leave slug empty to generate a safe public identifier automatically.", "Guvenli genel tanimlayicinin otomatik uretilmesi icin slug alanini bos birakin.");
+  const isTableCreationDisabled = Boolean(featureAccess && !featureAccess.canAdd.table);
+  const tableCapacityHelp = featureAccess
+    ? featureAccess.isPremiumLocked
+      ? t(
+          "Activate Pro before adding tables.",
+          "Masa eklemeden once Pro'yu etkinlestirin."
+        )
+      : featureAccess.canAdd.table
+        ? t(
+            `You can add ${remainingTables} more table(s) across your branches.`,
+            `Subeleriniz genelinde ${remainingTables} masa daha ekleyebilirsiniz.`
+          )
+        : t(
+            `This plan includes ${featureAccess.limits.maxTables} tables. Remove an unused table before adding another one.`,
+            `Bu paket ${featureAccess.limits.maxTables} masa icerir. Yeni masa eklemeden once kullanilmayan bir masayi kaldirin.`
+          )
+    : t("Each table is linked to a unique code and QR destination automatically.", "Her masa otomatik olarak benzersiz bir kod ve QR hedefi ile baglanir.");
 
   useEffect(() => {
     setPublicBaseUrl(getClientPublicAppBaseUrl());
@@ -612,7 +737,7 @@ export default function AdminDashboardPage() {
     }
 
     const storedStep = readWorkflowGuideStep();
-    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
+    const shouldAutoStartGuide = !isWorkflowGuideDone() && storedStep === null;
 
     const nextStep =
       storedStep !== null
@@ -669,6 +794,63 @@ export default function AdminDashboardPage() {
       window.removeEventListener(WORKFLOW_GUIDE_RESET_EVENT, handleGuideReset);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    if (isPlanLimitModalOpen) {
+      document.body.classList.add("dashboard-modal-open");
+    } else {
+      document.body.classList.remove("dashboard-modal-open");
+    }
+
+    return () => {
+      document.body.classList.remove("dashboard-modal-open");
+    };
+  }, [isPlanLimitModalOpen]);
+
+  useEffect(() => {
+    if (!isPlanLimitModalOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsPlanLimitModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isPlanLimitModalOpen]);
+
+  useEffect(() => {
+    if (!isPlanLimitError && isPlanLimitModalOpen) {
+      setIsPlanLimitModalOpen(false);
+    }
+  }, [isPlanLimitError, isPlanLimitModalOpen]);
+
+  useEffect(() => {
+    if (!isPlanLimitError || !planLimitBannerRef.current || typeof window === "undefined") {
+      return;
+    }
+
+    const banner = planLimitBannerRef.current;
+    const animationId = window.requestAnimationFrame(() => {
+      const topbarOffset = window.innerWidth <= 720 ? 148 : 108;
+      const bannerTop = banner.getBoundingClientRect().top + window.scrollY - topbarOffset;
+
+      window.scrollTo({
+        top: Math.max(0, bannerTop),
+        behavior: "auto"
+      });
+      banner.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(animationId);
+  }, [isPlanLimitError]);
 
   const isGuideStepSatisfied = useMemo(() => {
     if (guideStep === "admin-restaurant") return isRestaurantGuideSatisfied;
@@ -937,14 +1119,22 @@ export default function AdminDashboardPage() {
     setError("");
 
     try {
-      const response = await fetch("/api/admin/snapshot", { cache: "no-store" });
-      const payload = (await response.json()) as ApiSnapshotResponse;
+      const [snapshotResponse, billingResponse] = await Promise.all([
+        fetch("/api/admin/snapshot", { cache: "no-store" }),
+        fetch("/api/admin/billing", { cache: "no-store" })
+      ]);
+      const payload = (await snapshotResponse.json()) as ApiSnapshotResponse;
 
-      if (!response.ok) {
+      if (!snapshotResponse.ok) {
         throw new Error(payload.error || "Could not load admin snapshot");
       }
 
       setSnapshot(payload.data);
+
+      const billingPayload = (await billingResponse.json().catch(() => null)) as ApiBillingResponse | null;
+      setFeatureAccess(billingResponse.ok && billingPayload?.data?.featureAccess
+        ? billingPayload.data.featureAccess
+        : null);
 
       const firstRestaurant = payload.data[0];
       const firstBranch = firstRestaurant?.branches[0];
@@ -1001,6 +1191,18 @@ export default function AdminDashboardPage() {
     }
   }
 
+  function handleOpenUpgradeModal() {
+    setIsPlanLimitModalOpen(true);
+  }
+
+  function handleCloseUpgradeModal() {
+    setIsPlanLimitModalOpen(false);
+  }
+
+  function handleGoToBillingUpgrade() {
+    window.location.assign("/admin/billing?plan=pro");
+  }
+
   async function handleRenameRestaurant(restaurantId: string) {
     const nextName = (restaurantEdits[restaurantId] ?? "").trim();
 
@@ -1051,6 +1253,15 @@ export default function AdminDashboardPage() {
     setError("");
     setMessage("");
 
+    if (isBranchCreationDisabled) {
+      setError(
+        featureAccess?.isPremiumLocked
+          ? "Billing access required: activate Pro plan to add branches."
+          : `Plan capacity reached: you have ${featureAccess?.usage.branches ?? branches.length}/${featureAccess?.limits.maxBranches ?? branches.length} branches.`
+      );
+      return;
+    }
+
     try {
       await requestJson("/api/admin/branches", "POST", {
         restaurantId: branchForm.restaurantId,
@@ -1084,6 +1295,15 @@ export default function AdminDashboardPage() {
     event.preventDefault();
     setError("");
     setMessage("");
+
+    if (isTableCreationDisabled) {
+      setError(
+        featureAccess?.isPremiumLocked
+          ? "Billing access required: activate Pro plan to add tables."
+          : `Plan capacity reached: you have ${featureAccess?.usage.tables ?? tables.length}/${featureAccess?.limits.maxTables ?? tables.length} tables.`
+      );
+      return;
+    }
 
     try {
       await requestJson("/api/admin/tables", "POST", {
@@ -1780,7 +2000,41 @@ export default function AdminDashboardPage() {
 
         <div className="status-stack">
           {isLoading ? <p className="status-banner is-neutral">{t("Refreshing latest restaurant snapshot.", "En guncel restoran gorunumu yenileniyor.")}</p> : null}
-          {error ? <p className="status-banner is-error">{error}</p> : null}
+          {error ? (
+            isPlanLimitError ? (
+              <div
+                ref={planLimitBannerRef}
+                className="status-banner is-error status-banner--plan-limit"
+                role="alert"
+                tabIndex={-1}
+              >
+                <div className="status-banner-plan-icon" aria-hidden="true">
+                  !
+                </div>
+                <div className="status-banner-plan-main">
+                    <div className="status-banner-plan-body">
+                      <div className="status-banner-plan-topline">
+                      <span className="status-banner-plan-kicker">{planLimitKicker}</span>
+                      {planLimitDetails ? (
+                        <span className="status-banner-plan-pill">
+                          {planLimitDetails.current}/{planLimitDetails.limit} {planLimitUsageLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="status-banner-plan-copy">
+                      <strong>{localizedPlanLimitTitle}</strong>
+                      <span>{localizedPlanLimitMessage}</span>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" className="status-banner-plan-action" onClick={handleOpenUpgradeModal}>
+                  {planLimitActionLabel}
+                </button>
+              </div>
+            ) : (
+              <p className="status-banner is-error">{error}</p>
+            )
+          ) : null}
           {message ? <p className="status-banner is-success">{message}</p> : null}
         </div>
       </section>
@@ -1979,10 +2233,16 @@ export default function AdminDashboardPage() {
                 />
               </AdminField>
 
-              <p className="helper-text">{t("Leave slug empty to generate a safe public identifier automatically.", "Guvenli genel tanimlayicinin otomatik uretilmesi icin slug alanini bos birakin.")}</p>
+              <p className="helper-text">{branchCapacityHelp}</p>
 
               <AdminActions>
-                <button type="submit">{t("Create branch", "Sube olustur")}</button>
+                <button type="submit" disabled={isBranchCreationDisabled}>
+                  {isBranchCreationDisabled && featureAccess?.isPremiumLocked
+                    ? t("Activate Pro to add branch", "Sube eklemek icin Pro'yu etkinlestir")
+                    : isBranchCreationDisabled
+                      ? t("Branch limit reached", "Sube limiti doldu")
+                      : t("Create branch", "Sube olustur")}
+                </button>
               </AdminActions>
             </form>
             </AdminFormCard>
@@ -2025,10 +2285,16 @@ export default function AdminDashboardPage() {
                 />
               </AdminField>
 
-              <p className="helper-text">{t("Each table is linked to a unique code and QR destination automatically.", "Her masa otomatik olarak benzersiz bir kod ve QR hedefi ile baglanir.")}</p>
+              <p className="helper-text">{tableCapacityHelp}</p>
 
               <AdminActions>
-                <button type="submit">{t("Create table", "Masa olustur")}</button>
+                <button type="submit" disabled={isTableCreationDisabled}>
+                  {isTableCreationDisabled && featureAccess?.isPremiumLocked
+                    ? t("Activate Pro to add table", "Masa eklemek icin Pro'yu etkinlestir")
+                    : isTableCreationDisabled
+                      ? t("Table limit reached", "Masa limiti doldu")
+                      : t("Create table", "Masa olustur")}
+                </button>
               </AdminActions>
             </form>
             </AdminFormCard>
@@ -2847,6 +3113,98 @@ export default function AdminDashboardPage() {
           })}
         </div>
       </section>
+
+      {isPlanLimitModalOpen ? (
+        <div className="dashboard-modal-backdrop" onClick={handleCloseUpgradeModal}>
+          <div
+            className="dashboard-modal-card plan-limit-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plan-limit-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="dashboard-modal-close"
+              onClick={handleCloseUpgradeModal}
+              aria-label={t("Close plan limit card", "Paket limiti kartini kapat")}
+            >
+              x
+            </button>
+
+            <div className="plan-limit-modal-hero">
+              <p className="plan-limit-modal-kicker">{planLimitKicker}</p>
+              <h3 id="plan-limit-modal-title">{localizedPlanLimitTitle}</h3>
+              <p>{planLimitModalDescription}</p>
+            </div>
+
+            {planLimitDetails ? (
+              <div className="plan-limit-modal-meter">
+                <div className="plan-limit-modal-meter-head">
+                  <span>{t("Current usage", "Guncel kullanim")}</span>
+                  <strong>
+                    {planLimitDetails.current}/{planLimitDetails.limit}
+                  </strong>
+                </div>
+                <div className="plan-limit-modal-progress" aria-hidden="true">
+                  <span style={{ width: `${planLimitUsagePercent}%` }} />
+                </div>
+                <small>
+                  {t(
+                    `${planLimitUsageLabel.charAt(0).toUpperCase()}${planLimitUsageLabel.slice(1)} are at capacity on this plan.`,
+                    `Bu pakette ${planLimitUsageLabel} kapasitesi doldu.`
+                  )}
+                </small>
+              </div>
+            ) : null}
+
+            <div className="plan-limit-modal-message">
+              <span>{t("What happened", "Ne oldu")}</span>
+              <strong>{localizedPlanLimitMessage}</strong>
+            </div>
+
+            <div className="plan-limit-modal-benefits">
+              <div>
+                <span>01</span>
+                <strong>
+                  {isPlanCapacityOnly
+                    ? t("Use the existing branch", "Mevcut subeyi kullan")
+                    : t("Unlock Pro access", "Pro erisimini ac")}
+                </strong>
+                <p>
+                  {isPlanCapacityOnly
+                    ? t("The current branch can still run tables, QR, menu, waiter, kitchen, and cashier workflows.", "Mevcut sube masa, QR, menu, garson, mutfak ve kasa akislarini calistirmaya devam eder.")
+                    : t("Activate billing and keep working from this same dashboard.", "Faturalamayi etkinlestirin ve ayni panelden calismaya devam edin.")}
+                </p>
+              </div>
+              <div>
+                <span>02</span>
+                <strong>
+                  {isPlanCapacityOnly
+                    ? t("Add tables instead", "Bunun yerine masa ekle")
+                    : t("Keep the live flow intact", "Canli akisi koru")}
+                </strong>
+                <p>
+                  {isPlanCapacityOnly
+                    ? t("Use the Create table form below and select the existing branch.", "Asagidaki Masa olustur formunu kullanip mevcut subeyi secin.")
+                    : t("No need to reset tables, QR, or menu data just to continue testing.", "Teste devam etmek icin masalari, QR veya menu verisini sifirlamaniz gerekmez.")}
+                </p>
+              </div>
+            </div>
+
+            <div className="plan-limit-modal-actions">
+              {shouldShowBillingUpgradeAction ? (
+                <button type="button" onClick={handleGoToBillingUpgrade}>
+                  {t("Open billing page", "Faturalama sayfasini ac")}
+                </button>
+              ) : null}
+              <button type="button" className="secondary" onClick={handleCloseUpgradeModal}>
+                {t("Close", "Kapat")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

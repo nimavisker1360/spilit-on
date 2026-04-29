@@ -1,5 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
+import bcrypt from "bcryptjs";
+import {
+  getProPlanFeaturePayload,
+  getTrialEndsAt,
+  PRO_PLAN_CODE,
+  PRO_PLAN_NAME,
+  PRO_PLAN_PRICE_MONTHLY,
+} from "../src/features/billing/plan-config";
 
 const prisma = new PrismaClient();
 
@@ -51,15 +59,146 @@ async function ensureMenuItem(input: {
   });
 }
 
+async function ensureSubscriptionPlans() {
+  await prisma.subscriptionPlan.updateMany({
+    where: {
+      code: {
+        in: ["starter", "business", "trial"],
+      },
+    },
+    data: {
+      isActive: false,
+    },
+  });
+
+  return prisma.subscriptionPlan.upsert({
+    where: { code: PRO_PLAN_CODE },
+    update: {
+      name: PRO_PLAN_NAME,
+      monthlyPrice: PRO_PLAN_PRICE_MONTHLY,
+      annualPrice: "0.00",
+      currency: "TRY",
+      includedTables: 30,
+      includedBranches: 1,
+      includedStaff: 10,
+      commissionRate: "0.00",
+      features: getProPlanFeaturePayload(),
+      isActive: true,
+    },
+    create: {
+      code: PRO_PLAN_CODE,
+      name: PRO_PLAN_NAME,
+      monthlyPrice: PRO_PLAN_PRICE_MONTHLY,
+      annualPrice: "0.00",
+      currency: "TRY",
+      includedTables: 30,
+      includedBranches: 1,
+      includedStaff: 10,
+      commissionRate: "0.00",
+      features: getProPlanFeaturePayload(),
+      isActive: true,
+    },
+  });
+}
+
+async function ensureSuperAdminUser() {
+  const email = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.log("Skipped super admin seed. Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD to create the first owner account.");
+    return null;
+  }
+
+  if (password.length < 12) {
+    throw new Error("SUPER_ADMIN_PASSWORD must be at least 12 characters.");
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  const name = process.env.SUPER_ADMIN_NAME?.trim() || "MasaPayz Owner";
+
+  return prisma.superAdminUser.upsert({
+    where: { email },
+    update: {
+      passwordHash,
+      name,
+      role: "super_admin",
+      isActive: true,
+    },
+    create: {
+      email,
+      passwordHash,
+      name,
+      role: "super_admin",
+      isActive: true,
+    },
+  });
+}
+
 async function main() {
+  await ensureSuperAdminUser();
+
+  const proPlan = await ensureSubscriptionPlans();
+  const trialStartedAt = new Date();
+  const trialEndsAt = getTrialEndsAt(trialStartedAt);
+
   const restaurant = await prisma.restaurant.upsert({
     where: { slug: "split-table-demo" },
     create: {
       name: "Split Table Demo",
-      slug: "split-table-demo"
+      slug: "split-table-demo",
+      status: "TRIALING",
+      workspaceMode: "TRIAL",
+      defaultLocale: "TR",
+      defaultCurrency: "TRY",
+      currentPlanId: proPlan.id,
+      trialStartedAt,
+      trialEndsAt,
     },
-    update: {}
+    update: {
+      status: "TRIALING",
+      workspaceMode: "TRIAL",
+      defaultLocale: "TR",
+      defaultCurrency: "TRY",
+      currentPlanId: proPlan.id,
+      trialStartedAt,
+      trialEndsAt,
+    }
   });
+
+  const existingSubscription = await prisma.tenantSubscription.findFirst({
+    where: { restaurantId: restaurant.id },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (existingSubscription) {
+    await prisma.tenantSubscription.update({
+      where: { id: existingSubscription.id },
+      data: {
+        planId: proPlan.id,
+        status: "TRIALING",
+        billingPeriod: "MONTHLY",
+        currentPeriodStart: trialStartedAt,
+        currentPeriodEnd: trialEndsAt,
+        cancelAtPeriodEnd: false,
+        autoRenew: true,
+      },
+    });
+  } else {
+    await prisma.tenantSubscription.create({
+      data: {
+        restaurantId: restaurant.id,
+        planId: proPlan.id,
+        status: "TRIALING",
+        billingPeriod: "MONTHLY",
+        currentPeriodStart: trialStartedAt,
+        currentPeriodEnd: trialEndsAt,
+        cancelAtPeriodEnd: false,
+        autoRenew: true,
+      },
+    });
+  }
 
   const branch = await prisma.branch.upsert({
     where: {

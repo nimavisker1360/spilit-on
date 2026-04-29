@@ -25,6 +25,12 @@ import type {
   SupportedLocale,
   WorkspaceMode
 } from "@/features/auth/auth.types";
+import {
+  getProPlanFeaturePayload,
+  PRO_PLAN_CODE,
+  PRO_PLAN_NAME,
+  PRO_PLAN_PRICE_MONTHLY,
+} from "@/features/billing/plan-config";
 import { normalizeCurrencyCode, normalizeMoneyStorage } from "@/lib/currency";
 
 type RestaurantRecord = {
@@ -406,9 +412,9 @@ function defaultStore(): LocalStoreData {
         workspaceMode: "TRIAL",
         defaultLocale: "tr",
         defaultCurrency: "TRY",
-        currentPlanId: "plan_trial",
-        trialStartedAt: timestamp(),
-        trialEndsAt: timestamp("2026-05-15T09:00:00.000Z"),
+        currentPlanId: "plan_pro",
+        trialStartedAt: timestamp("2026-04-25T09:00:00.000Z"),
+        trialEndsAt: timestamp("2026-05-05T09:00:00.000Z"),
         createdAt: timestamp(),
         updatedAt: timestamp()
       }
@@ -565,23 +571,17 @@ function defaultStore(): LocalStoreData {
     paymentAttempts: [],
     subscriptionPlans: [
       {
-        id: "plan_trial",
-        code: "trial",
-        name: "Trial",
-        monthlyPrice: "0.00",
+        id: "plan_pro",
+        code: PRO_PLAN_CODE,
+        name: PRO_PLAN_NAME,
+        monthlyPrice: PRO_PLAN_PRICE_MONTHLY,
         annualPrice: "0.00",
         currency: "TRY",
-        includedTables: 5,
+        includedTables: 30,
         includedBranches: 1,
-        includedStaff: 3,
+        includedStaff: 10,
         commissionRate: "0.00",
-        features: {
-          qrOrdering: true,
-          splitBill: true,
-          kitchenDisplay: true,
-          onlinePayments: false,
-          advancedAnalytics: false
-        },
+        features: getProPlanFeaturePayload(),
         isActive: true,
         createdAt: timestamp(),
         updatedAt: timestamp()
@@ -591,13 +591,13 @@ function defaultStore(): LocalStoreData {
       {
         id: "subscription_trial_main",
         restaurantId: "restaurant_main",
-        planId: "plan_trial",
+        planId: "plan_pro",
         provider: "manual",
         providerSubscriptionId: null,
         status: "TRIALING",
         billingPeriod: "MONTHLY",
-        currentPeriodStart: timestamp(),
-        currentPeriodEnd: timestamp("2026-05-15T09:00:00.000Z"),
+        currentPeriodStart: timestamp("2026-04-25T09:00:00.000Z"),
+        currentPeriodEnd: timestamp("2026-05-05T09:00:00.000Z"),
         cancelAtPeriodEnd: false,
         createdAt: timestamp(),
         updatedAt: timestamp()
@@ -753,7 +753,7 @@ function normalizeStore(store: LocalStoreData): LocalStoreData {
           workspaceMode: isWorkspaceMode(restaurant.workspaceMode) ? restaurant.workspaceMode : "TRIAL",
           defaultLocale: normalizeSupportedLocale(restaurant.defaultLocale),
           defaultCurrency: normalizeCurrencyCode(restaurant.defaultCurrency),
-          currentPlanId: typeof restaurant.currentPlanId === "string" ? restaurant.currentPlanId : "plan_trial",
+          currentPlanId: typeof restaurant.currentPlanId === "string" ? restaurant.currentPlanId : "plan_pro",
           trialStartedAt: typeof restaurant.trialStartedAt === "string" ? restaurant.trialStartedAt : null,
           trialEndsAt: typeof restaurant.trialEndsAt === "string" ? restaurant.trialEndsAt : null
         }))

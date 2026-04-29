@@ -1375,7 +1375,7 @@ export default function CashierDashboardPage() {
     }
 
     const storedStep = readWorkflowGuideStep();
-    const shouldAutoStartGuide = isWorkflowGuideDone() || storedStep === null;
+    const shouldAutoStartGuide = !isWorkflowGuideDone() && storedStep === null;
 
     if (storedStep === "kitchen-cashier") {
       setGuideStep(advanceWorkflowGuideStep("kitchen-cashier"));

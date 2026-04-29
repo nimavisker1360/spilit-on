@@ -20,9 +20,10 @@ export type WorkflowGuideStepKey =
   | "cashier-collect"
   | "cashier-finish";
 
-export const WORKFLOW_GUIDE_STEP_KEY = "workflow-guide-step-v3";
-export const WORKFLOW_GUIDE_DONE_KEY = "workflow-guide-done-v3";
+export const WORKFLOW_GUIDE_STEP_KEY = "workflow-guide-step-v5";
+export const WORKFLOW_GUIDE_DONE_KEY = "workflow-guide-done-v5";
 export const WORKFLOW_GUIDE_RESET_EVENT = "workflow-guide-reset";
+export const WORKFLOW_GUIDE_USER_SCOPE_ATTR = "data-workflow-guide-user-id";
 
 export const WORKFLOW_GUIDE_STEPS: WorkflowGuideStepKey[] = [
   "admin-restaurant",
@@ -47,12 +48,27 @@ export const WORKFLOW_GUIDE_STEPS: WorkflowGuideStepKey[] = [
   "cashier-finish"
 ];
 
+function getWorkflowGuideStorageScope() {
+  if (typeof window === "undefined") {
+    return "anonymous";
+  }
+
+  const scopedElement = document.querySelector(`[${WORKFLOW_GUIDE_USER_SCOPE_ATTR}]`);
+  const userId = scopedElement?.getAttribute(WORKFLOW_GUIDE_USER_SCOPE_ATTR)?.trim();
+
+  return userId ? `user:${userId}` : "anonymous";
+}
+
+function getScopedWorkflowGuideKey(baseKey: string) {
+  return `${baseKey}:${getWorkflowGuideStorageScope()}`;
+}
+
 export function isWorkflowGuideDone() {
   if (typeof window === "undefined") {
     return false;
   }
 
-  return window.localStorage.getItem(WORKFLOW_GUIDE_DONE_KEY) === "true";
+  return window.localStorage.getItem(getScopedWorkflowGuideKey(WORKFLOW_GUIDE_DONE_KEY)) === "true";
 }
 
 export function readWorkflowGuideStep(): WorkflowGuideStepKey | null {
@@ -60,7 +76,7 @@ export function readWorkflowGuideStep(): WorkflowGuideStepKey | null {
     return null;
   }
 
-  const storedStep = window.localStorage.getItem(WORKFLOW_GUIDE_STEP_KEY);
+  const storedStep = window.localStorage.getItem(getScopedWorkflowGuideKey(WORKFLOW_GUIDE_STEP_KEY));
   if (!storedStep) {
     return null;
   }
@@ -75,12 +91,14 @@ export function writeWorkflowGuideStep(step: WorkflowGuideStepKey | null) {
     return;
   }
 
+  const stepKey = getScopedWorkflowGuideKey(WORKFLOW_GUIDE_STEP_KEY);
+
   if (step) {
-    window.localStorage.setItem(WORKFLOW_GUIDE_STEP_KEY, step);
+    window.localStorage.setItem(stepKey, step);
     return;
   }
 
-  window.localStorage.removeItem(WORKFLOW_GUIDE_STEP_KEY);
+  window.localStorage.removeItem(stepKey);
 }
 
 export function advanceWorkflowGuideStep(currentStep: WorkflowGuideStepKey): WorkflowGuideStepKey | null {
@@ -103,8 +121,8 @@ export function completeWorkflowGuide() {
     return;
   }
 
-  window.localStorage.removeItem(WORKFLOW_GUIDE_STEP_KEY);
-  window.localStorage.setItem(WORKFLOW_GUIDE_DONE_KEY, "true");
+  window.localStorage.removeItem(getScopedWorkflowGuideKey(WORKFLOW_GUIDE_STEP_KEY));
+  window.localStorage.setItem(getScopedWorkflowGuideKey(WORKFLOW_GUIDE_DONE_KEY), "true");
 }
 
 export function resetWorkflowGuide(startStep: WorkflowGuideStepKey = "admin-restaurant") {
@@ -112,7 +130,7 @@ export function resetWorkflowGuide(startStep: WorkflowGuideStepKey = "admin-rest
     return;
   }
 
-  window.localStorage.removeItem(WORKFLOW_GUIDE_DONE_KEY);
+  window.localStorage.removeItem(getScopedWorkflowGuideKey(WORKFLOW_GUIDE_DONE_KEY));
   writeWorkflowGuideStep(startStep);
 }
 

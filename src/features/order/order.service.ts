@@ -1,6 +1,7 @@
 import { type KitchenItemStatus, OrderSource, type OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { centsToDecimalString, toCents } from "@/lib/currency";
+import { assertFeatureEnabled } from "@/features/billing/feature-gate.service";
 import {
   createCustomerOrderSchema,
   createWaiterOrderSchema,
@@ -53,6 +54,11 @@ type CreateOrderInternalInput = {
   items: Array<{ menuItemId: string; quantity: number; guestId?: string; note?: string }>;
 };
 
+const TABLE_LOCKED_MESSAGE =
+  "This table is locked on the current plan. Upgrade billing to continue using tables.";
+const QR_LOCKED_MESSAGE =
+  "QR table access is locked on the current plan. Upgrade billing to continue.";
+
 function deriveOrderStatus(itemStatuses: KitchenItemStatus[]): OrderStatus {
   const nonVoided = itemStatuses.filter((status) => status !== "VOID");
   if (nonVoided.length === 0) return "CANCELLED";
@@ -64,8 +70,17 @@ function deriveOrderStatus(itemStatuses: KitchenItemStatus[]): OrderStatus {
 }
 
 async function createOrderInternal(input: CreateOrderInternalInput) {
-  const session = await prisma.tableSession.findUnique({ where: { id: input.sessionId } });
+  const session = await prisma.tableSession.findUnique({
+    where: { id: input.sessionId },
+    include: { branch: { select: { restaurantId: true } } },
+  });
   if (!session || session.status !== "OPEN") throw new Error("Session is not open");
+
+  await assertFeatureEnabled(
+    session.branch.restaurantId,
+    input.source === "CUSTOMER" ? "qrOrdering" : "tableManagement",
+    input.source === "CUSTOMER" ? QR_LOCKED_MESSAGE : TABLE_LOCKED_MESSAGE
+  );
 
   const guests = await prisma.guest.findMany({ where: { sessionId: session.id } });
   const guestIdSet = new Set(guests.map((g) => g.id));
@@ -217,8 +232,13 @@ export async function getGuestOrderFeed(
   tableCode: string,
   lookup: { guestId?: string; sessionId?: string }
 ): Promise<GuestOrderFeedDetail> {
-  const table = await prisma.table.findUnique({ where: { code: tableCode.trim() } });
+  const table = await prisma.table.findUnique({
+    where: { code: tableCode.trim() },
+    include: { branch: { select: { restaurantId: true } } },
+  });
   if (!table || table.status === "OUT_OF_SERVICE") throw new Error("Table not found");
+
+  await assertFeatureEnabled(table.branch.restaurantId, "qrOrdering", QR_LOCKED_MESSAGE);
 
   const baseDetail: GuestOrderFeedDetail = {
     table: { id: table.id, name: table.name, code: table.code },

@@ -338,6 +338,145 @@ export function PaymentProvidersSection() {
   );
 }
 
+export function PricingSection() {
+  const PLANS = [
+    {
+      name: "Starter",
+      price: "₺699",
+      period: "/month",
+      highlight: false,
+      features: [
+        { name: "QR Menu", included: true },
+        { name: "Basic Ordering", included: true },
+        { name: "Up to 10 Tables", included: true },
+        { name: "Split Payment", included: false },
+        { name: "Kitchen Display", included: false }
+      ],
+      cta: { text: "Start Free Trial", href: "/signup" }
+    },
+    {
+      name: "Pro",
+      price: "₺1,499",
+      period: "/month",
+      highlight: true,
+      features: [
+        { name: "QR Menu", included: true },
+        { name: "Split Payment", included: true },
+        { name: "Kitchen Display", included: true },
+        { name: "Staff Management", included: true },
+        { name: "Up to 30 Tables", included: true }
+      ],
+      cta: { text: "Choose Plan", href: "/admin/billing?plan=pro" }
+    },
+    {
+      name: "Business",
+      price: "₺2,999",
+      period: "/month",
+      highlight: false,
+      features: [
+        { name: "Multi-Branch Support", included: true },
+        { name: "Advanced Analytics", included: true },
+        { name: "Unlimited Tables", included: true },
+        { name: "Priority Support", included: true },
+        { name: "Custom Integrations", included: true }
+      ],
+      cta: { text: "Start Free Trial", href: "/signup" }
+    }
+  ];
+
+  return (
+    <section className="mp-section" id="fiyatlandirma">
+      <div className="mp-container">
+        <div className="mp-section-header mp-reveal">
+          <span className="mp-kicker">Plans</span>
+          <h2>Simple, Transparent Pricing</h2>
+          <p className="mp-section-lead">Choose the plan that works for your restaurant. Start free, scale as you grow.</p>
+        </div>
+
+        <div className="mp-features-grid">
+          {PLANS.map((plan, idx) => (
+            <article
+              key={plan.name}
+              className="mp-feature-card mp-reveal"
+              data-delay={String((idx % 3) + 1)}
+              style={{
+                position: "relative",
+                ...(plan.highlight && {
+                  borderColor: "var(--mp-accent)",
+                  borderWidth: "2px",
+                  boxShadow: "0 0 40px var(--mp-accent-glow)"
+                })
+              }}
+            >
+              {plan.highlight && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: -12,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "var(--mp-accent)",
+                    color: "var(--mp-bg)",
+                    padding: "4px 12px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    textTransform: "uppercase"
+                  }}
+                >
+                  Recommended
+                </div>
+              )}
+              <div style={{ marginBottom: "1.2rem" }}>
+                <h3 style={{ fontSize: "1.3rem", marginBottom: "0.5rem" }}>{plan.name}</h3>
+                <div style={{ fontSize: "2rem", fontWeight: 700, marginBottom: "0.3rem" }}>
+                  {plan.price}<span style={{ fontSize: "0.9rem", fontWeight: 400, color: "var(--mp-text-muted)" }}>{plan.period}</span>
+                </div>
+              </div>
+
+              <ul style={{ listStyle: "none", padding: 0, marginBottom: "1.8rem" }}>
+                {plan.features.map((feature) => (
+                  <li
+                    key={feature.name}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.6rem",
+                      padding: "0.5rem 0",
+                      fontSize: "0.95rem",
+                      color: feature.included ? "var(--mp-text)" : "var(--mp-text-dim)"
+                    }}
+                  >
+                    {feature.included ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--mp-accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    )}
+                    {feature.name}
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href={plan.cta.href}
+                className={`mp-btn${plan.highlight ? " mp-btn-primary" : " mp-btn-ghost"}`}
+                style={{ width: "100%" }}
+              >
+                {plan.cta.text}
+              </Link>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function CtaSection() {
   const { t } = useLang();
 

@@ -15,9 +15,9 @@
       "workspaceMode": "TRIAL",
       "defaultLocale": "tr",
       "defaultCurrency": "TRY",
-      "currentPlanId": "plan_trial",
-      "trialStartedAt": null,
-      "trialEndsAt": null
+      "currentPlanId": "plan_pro",
+      "trialStartedAt": "2026-04-25T09:00:00.000Z",
+      "trialEndsAt": "2026-05-05T09:00:00.000Z"
     }
   ],
   "branches": [
@@ -1374,22 +1374,27 @@
   "invitations": [],
   "subscriptionPlans": [
     {
-      "id": "plan_trial",
-      "code": "trial",
-      "name": "Trial",
-      "monthlyPrice": "0.00",
+      "id": "plan_pro",
+      "code": "pro",
+      "name": "Pro",
+      "monthlyPrice": "1499.00",
       "annualPrice": "0.00",
       "currency": "TRY",
-      "includedTables": 5,
+      "includedTables": 30,
       "includedBranches": 1,
-      "includedStaff": 3,
+      "includedStaff": 10,
       "commissionRate": "0.00",
       "features": {
         "qrOrdering": true,
         "splitBill": true,
         "kitchenDisplay": true,
-        "onlinePayments": false,
-        "advancedAnalytics": false
+        "onlinePayments": true,
+        "staffManagement": true,
+        "cashierPanel": true,
+        "tableManagement": true,
+        "menuManagement": true,
+        "basicAnalytics": true,
+        "pwaAccess": true
       },
       "isActive": true,
       "createdAt": "2026-04-15T09:00:00.000Z",
@@ -1400,13 +1405,13 @@
     {
       "id": "subscription_921222f56e814508845ce18c53c1eefe",
       "restaurantId": "restaurant_main",
-      "planId": "plan_trial",
+      "planId": "plan_pro",
       "provider": "manual",
       "providerSubscriptionId": null,
       "status": "TRIALING",
       "billingPeriod": "MONTHLY",
-      "currentPeriodStart": "2026-04-19T14:33:28.624Z",
-      "currentPeriodEnd": "2026-04-19T14:33:28.624Z",
+      "currentPeriodStart": "2026-04-25T09:00:00.000Z",
+      "currentPeriodEnd": "2026-05-05T09:00:00.000Z",
       "cancelAtPeriodEnd": false,
       "createdAt": "2026-04-19T14:33:28.624Z",
       "updatedAt": "2026-04-19T14:33:28.624Z"

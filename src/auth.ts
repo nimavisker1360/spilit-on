@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { StaffRole } from "@/features/auth/auth.types";
+import { getTrialEndsAt, PRO_PLAN_CODE } from "@/features/billing/plan-config";
 
 type SessionMembership = {
   restaurantId: string;
@@ -84,12 +85,12 @@ async function updateGoogleLoginMetadata(userId: string, profile?: GoogleProfile
 
 async function createGoogleTrialMembership(input: AuthUserInput): Promise<SessionMembership> {
   const now = new Date();
-  const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const trialEndsAt = getTrialEndsAt(now);
   const restaurantName = defaultRestaurantName(input.name, input.email);
   const slug = await createUniqueRestaurantSlug(restaurantName);
 
-  const trialPlan = await prisma.subscriptionPlan.findFirst({
-    where: { code: "trial", isActive: true },
+  const proPlan = await prisma.subscriptionPlan.findFirst({
+    where: { code: PRO_PLAN_CODE, isActive: true },
   });
 
   const membership = await prisma.$transaction(async (tx) => {
@@ -113,7 +114,7 @@ async function createGoogleTrialMembership(input: AuthUserInput): Promise<Sessio
         defaultCurrency: "TRY",
         trialStartedAt: now,
         trialEndsAt,
-        currentPlanId: trialPlan?.id ?? null,
+        currentPlanId: proPlan?.id ?? null,
       },
     });
 
@@ -127,11 +128,11 @@ async function createGoogleTrialMembership(input: AuthUserInput): Promise<Sessio
       select: { restaurantId: true, role: true },
     });
 
-    if (trialPlan) {
+    if (proPlan) {
       await tx.tenantSubscription.create({
         data: {
           restaurantId: restaurant.id,
-          planId: trialPlan.id,
+          planId: proPlan.id,
           status: "TRIALING",
           billingPeriod: "MONTHLY",
           currentPeriodStart: now,
@@ -204,7 +205,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: String(credentials.email).toLowerCase() },
         });
 
-        if (!user || !user.passwordHash) return null;
+        if (!user || !user.passwordHash || !user.isActive || user.deletedAt) return null;
 
         const isValid = await bcrypt.compare(
           String(credentials.password),

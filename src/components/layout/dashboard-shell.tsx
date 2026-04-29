@@ -8,7 +8,11 @@ import { InstallAppButton } from "@/components/install-app-button";
 import { useDashboardLanguage } from "@/components/layout/dashboard-language";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { DASHBOARD_NAV_LINKS, ROLE_LAYOUT_META } from "@/lib/navigation";
-import { emitWorkflowGuideReset, resetWorkflowGuide } from "@/lib/workflow-guide";
+import {
+  emitWorkflowGuideReset,
+  resetWorkflowGuide,
+  WORKFLOW_GUIDE_USER_SCOPE_ATTR
+} from "@/lib/workflow-guide";
 import type { AppRole } from "@/types";
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -46,11 +50,18 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
       <line x1="2" y1="10" x2="22" y2="10" />
     </svg>
   ),
+  "/admin/billing": (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  ),
 };
 
 type Props = {
   children: React.ReactNode;
   role: AppRole;
+  userId: string | null;
 };
 
 function FlagTR() {
@@ -107,7 +118,7 @@ function FlagEN() {
   );
 }
 
-export function DashboardShell({ children, role }: Props) {
+export function DashboardShell({ children, role, userId }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { locale, setLocale, t } = useDashboardLanguage();
@@ -117,6 +128,7 @@ export function DashboardShell({ children, role }: Props) {
   const navLabels: Record<string, string> = {
     "/": t("Home", "Ana Sayfa"),
     "/admin": t("Admin", "Yonetim"),
+    "/admin/billing": t("Billing", "Faturalama"),
     "/waiter": t("Waiter", "Garson"),
     "/kitchen": t("Kitchen", "Mutfak"),
     "/cashier": t("Cashier", "Kasiyer")
@@ -256,7 +268,11 @@ export function DashboardShell({ children, role }: Props) {
   };
 
   return (
-    <div ref={shellRef} className={`dashboard-shell dashboard-shell--${role}`}>
+    <div
+      ref={shellRef}
+      className={`dashboard-shell dashboard-shell--${role}`}
+      {...(userId ? { [WORKFLOW_GUIDE_USER_SCOPE_ATTR]: userId } : {})}
+    >
       <aside className="dashboard-sidebar">
         <div className="sidebar-brand">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -280,7 +296,7 @@ export function DashboardShell({ children, role }: Props) {
 
         <nav className="sidebar-nav" aria-label="Dashboard Navigation">
           {DASHBOARD_NAV_LINKS.map((link) => {
-            const isActive = link.href === layoutMeta.activeHref;
+            const isActive = pathname === link.href || (link.href !== "/" && pathname?.startsWith(link.href));
             return (
               <Link
                 key={link.href}
